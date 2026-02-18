@@ -1,0 +1,621 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  ScrollView,
+  Switch,
+  KeyboardAvoidingView,
+  Platform,
+  Modal,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
+import { Send, MessageCircle, ChevronRight } from 'lucide-react-native';
+import { format } from 'date-fns';
+
+const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+interface Feedback {
+  id: string;
+  subject: string;
+  content: string;
+  senderName?: string;
+  senderDepartment?: string;
+  isAnonymous: boolean;
+  status: string;
+  replies: Array<{
+    userName: string;
+    content: string;
+    repliedAt: string;
+  }>;
+  createdAt: string;
+}
+
+export default function FeedbackScreen() {
+  const { user, token } = useAuth();
+  const [activeTab, setActiveTab] = useState<'send' | 'view'>('send');
+  const [subject, setSubject] = useState('');
+  const [content, setContent] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'view') {
+      fetchFeedback();
+    }
+  }, [activeTab]);
+
+  const fetchFeedback = async () => {
+    try {
+      const response = await axios.get(`${EXPO_PUBLIC_BACKEND_URL}/api/feedback`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFeedbackList(response.data);
+    } catch (error) {
+      console.error('Error fetching feedback:', error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!subject.trim() || !content.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.post(
+        `${EXPO_PUBLIC_BACKEND_URL}/api/feedback`,
+        {
+          subject,
+          content,
+          isAnonymous,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      Alert.alert('Thành công', 'Cảm ơn bạn đã đóng góp ý kiến!');
+      setSubject('');
+      setContent('');
+      setIsAnonymous(false);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      Alert.alert('Lỗi', 'Không thể gửi phản hồi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReply = async () => {
+    if (!replyContent.trim()) {
+      Alert.alert('Lỗi', 'Vui lòng nhập nội dung trả lời');
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${EXPO_PUBLIC_BACKEND_URL}/api/feedback/${selectedFeedback?.id}/reply`,
+        { content: replyContent },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      Alert.alert('Thành công', 'Đã gửi trả lời');
+      setReplyContent('');
+      setModalVisible(false);
+      fetchFeedback();
+    } catch (error) {
+      console.error('Error replying:', error);
+      Alert.alert('Lỗi', 'Không thể gửi trả lời');
+    }
+  };
+
+  const canReply = user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_');
+
+  const renderFeedback = ({ item }: { item: Feedback }) => (
+    <TouchableOpacity
+      style={styles.feedbackCard}
+      onPress={() => {
+        setSelectedFeedback(item);
+        setModalVisible(true);
+      }}
+    >
+      <View style={styles.feedbackHeader}>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: item.status === 'REPLIED' ? '#dcfce7' : '#fef3c7' },
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              { color: item.status === 'REPLIED' ? '#10b981' : '#f59e0b' },
+            ]}
+          >
+            {item.status === 'REPLIED' ? 'Đã trả lời' : 'Chờ xử lý'}
+          </Text>
+        </View>
+        <ChevronRight color="#94a3b8" size={20} />
+      </View>
+      <Text style={styles.feedbackSubject}>{item.subject}</Text>
+      <Text style={styles.feedbackContent} numberOfLines={2}>
+        {item.content}
+      </Text>
+      <View style={styles.feedbackFooter}>
+        <Text style={styles.feedbackSender}>
+          {item.isAnonymous ? 'Ẩn danh' : item.senderName}
+        </Text>
+        <Text style={styles.feedbackDate}>
+          {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm')}
+        </Text>
+      </View>
+      {item.replies.length > 0 && (
+        <View style={styles.replyIndicator}>
+          <MessageCircle color="#0891b2" size={16} />
+          <Text style={styles.replyCount}>{item.replies.length} trả lời</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>PHẢN HỒI</Text>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'send' && styles.activeTab]}
+          onPress={() => setActiveTab('send')}
+        >
+          <Text style={[styles.tabText, activeTab === 'send' && styles.activeTabText]}>
+            Gửi phản hồi
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'view' && styles.activeTab]}
+          onPress={() => setActiveTab('view')}
+        >
+          <Text style={[styles.tabText, activeTab === 'view' && styles.activeTabText]}>
+            Xem phản hồi
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'send' ? (
+        <KeyboardAvoidingView
+          style={styles.formContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView contentContainerStyle={styles.formContent}>
+            <Text style={styles.label}>Tiêu đề</Text>
+            <TextInput
+              style={styles.input}
+              value={subject}
+              onChangeText={setSubject}
+              placeholder="Nhập tiêu đề phản hồi"
+              placeholderTextColor="#94a3b8"
+            />
+
+            <Text style={styles.label}>Nội dung</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={content}
+              onChangeText={setContent}
+              placeholder="Nhập nội dung phản hồi của bạn"
+              placeholderTextColor="#94a3b8"
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.switchContainer}>
+              <Text style={styles.switchLabel}>Gửi ẩn danh</Text>
+              <Switch
+                value={isAnonymous}
+                onValueChange={setIsAnonymous}
+                trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
+                thumbColor={isAnonymous ? '#ffffff' : '#f4f4f5'}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Send color="#ffffff" size={20} />
+              <Text style={styles.submitButtonText}>
+                {loading ? 'Đang gửi...' : 'Gửi phản hồi'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : (
+        <FlatList
+          data={feedbackList}
+          renderItem={renderFeedback}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Chưa có phản hồi nào</Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Feedback Detail Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chi tiết phản hồi</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {selectedFeedback && (
+                <>
+                  <Text style={styles.modalSubject}>{selectedFeedback.subject}</Text>
+                  <Text style={styles.modalText}>{selectedFeedback.content}</Text>
+                  <Text style={styles.modalSender}>
+                    Từ: {selectedFeedback.isAnonymous ? 'Ẩn danh' : selectedFeedback.senderName}
+                  </Text>
+                  <Text style={styles.modalDate}>
+                    {format(new Date(selectedFeedback.createdAt), 'dd/MM/yyyy HH:mm')}
+                  </Text>
+
+                  {selectedFeedback.replies.length > 0 && (
+                    <View style={styles.repliesSection}>
+                      <Text style={styles.repliesTitle}>Trả lời:</Text>
+                      {selectedFeedback.replies.map((reply, index) => (
+                        <View key={index} style={styles.replyItem}>
+                          <Text style={styles.replyAuthor}>{reply.userName}</Text>
+                          <Text style={styles.replyContent}>{reply.content}</Text>
+                          <Text style={styles.replyDate}>
+                            {format(new Date(reply.repliedAt), 'dd/MM/yyyy HH:mm')}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {canReply && (
+                    <View style={styles.replyForm}>
+                      <Text style={styles.replyLabel}>Trả lời phản hồi:</Text>
+                      <TextInput
+                        style={[styles.input, styles.replyInput]}
+                        value={replyContent}
+                        onChangeText={setReplyContent}
+                        placeholder="Nhập nội dung trả lời"
+                        placeholderTextColor="#94a3b8"
+                        multiline
+                        numberOfLines={4}
+                        textAlignVertical="top"
+                      />
+                      <TouchableOpacity style={styles.replyButton} onPress={handleReply}>
+                        <Text style={styles.replyButtonText}>Gửi trả lời</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  header: {
+    backgroundColor: '#1e3a8a',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: '#0891b2',
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  activeTabText: {
+    color: '#0891b2',
+  },
+  formContainer: {
+    flex: 1,
+  },
+  formContent: {
+    padding: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  input: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#0f172a',
+  },
+  textArea: {
+    height: 150,
+    paddingTop: 12,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  submitButton: {
+    flexDirection: 'row',
+    backgroundColor: '#0891b2',
+    paddingVertical: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#94a3b8',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  listContent: {
+    padding: 16,
+  },
+  feedbackCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  feedbackSubject: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 8,
+  },
+  feedbackContent: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  feedbackFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingTop: 12,
+  },
+  feedbackSender: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  replyIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  replyCount: {
+    fontSize: 13,
+    color: '#0891b2',
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#94a3b8',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#0f172a',
+  },
+  closeButton: {
+    fontSize: 24,
+    color: '#64748b',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalSubject: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 12,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#475569',
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  modalSender: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  modalDate: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  repliesSection: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  repliesTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0f172a',
+    marginBottom: 16,
+  },
+  replyItem: {
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  replyAuthor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0891b2',
+    marginBottom: 8,
+  },
+  replyContent: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  replyDate: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  replyForm: {
+    marginTop: 24,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  replyLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+    marginBottom: 12,
+  },
+  replyInput: {
+    height: 100,
+    paddingTop: 12,
+    marginBottom: 16,
+  },
+  replyButton: {
+    backgroundColor: '#0891b2',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  replyButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+});

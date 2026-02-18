@@ -1,0 +1,103 @@
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List
+from datetime import datetime
+from bson import ObjectId
+from backend.app.core.database import db
+from backend.app.core.security import get_current_user
+from backend.app.models.feedback import FeedbackCreate, FeedbackReply
+
+router = APIRouter()
+
+@router.get("", response_model=List[dict])
+async def get_feedback(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] == "SUPER_ADMIN":
+        feedback_list = await db.feedback.find().sort("createdAt", -1).to_list(100)
+    elif current_user["role"].startswith("BCH_"):
+        feedback_list = await db.feedback.find({
+            "targetRecipients": current_user["_id"]
+        }).sort("createdAt", -1).to_list(100)
+    else:
+        feedback_list = await db.feedback.find({
+            "senderId": current_user["_id"]
+        }).sort("createdAt", -1).to_list(100)
+    
+    return [{
+        "id": str(fb["_id"]),
+        "subject": fb["subject"],
+        "content": fb["content"],
+        "senderId": fb.get("senderId"),
+        "senderName": fb.get("senderName"),
+        "senderDepartment": fb.get("senderDepartment"),
+        "isAnonymous": fb["isAnonymous"],
+        "status": fb["status"],
+        "targetRecipients": fb["targetRecipients"],
+        "replies": fb.get("replies", []),
+        "createdAt": fb["createdAt"]
+    } for fb in feedback_list]
+
+@router.post("")
+async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends(get_current_user)):
+    target_recipients = []
+    
+    if current_user["department"] == "VAN_PHONG_CANG":
+        bch_users = await db.users.find({"role": "BCH_VAN_PHONG"}).to_list(100)
+        target_recipients = [str(u["_id"]) for u in bch_users]
+    elif current_user["department"] == "CUA_LO":
+        bch_users = await db.users.find({
+            "role": {"$in": ["BCH_CUA_LO", "BCH_VAN_PHONG"]}
+        }).to_list(100)
+        target_recipients = [str(u["_id"]) for u in bch_users]
+    elif current_user["department"] == "BEN_THUY":
+        bch_users = await db.users.find({
+            "role": {"$in": ["BCH_BEN_THUY", "BCH_VAN_PHONG"]}
+        }).to_list(100)
+        target_recipients = [str(u["_id"]) for u in bch_users]
+    
+    feedback_data = {
+        "subject": feedback.subject,
+        "content": feedback.content,
+        "senderId": None if feedback.isAnonymous else current_user["_id"],
+        "senderName": None if feedback.isAnonymous else current_user["fullName"],
+        "senderDepartment": None if feedback.isAnonymous else current_user["department"],
+        "isAnonymous": feedback.isAnonymous,
+        "status": "PENDING",
+        "targetRecipients": target_recipients,
+        "replies": [],
+        "createdAt": datetime.utcnow()
+    }
+    
+    result = await db.feedback.insert_one(feedback_data)
+    
+    return {
+        "id": str(result.inserted_id),
+        "message": "Feedback submitted successfully"
+    }
+
+@router.post("/{feedback_id}/reply")
+async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: dict = Depends(get_current_user)):
+    if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
+        raise HTTPException(status_code=403, detail="You don't have permission to reply")
+    
+    feedback_doc = await db.feedback.find_one({"_id": ObjectId(feedback_id)})
+    if not feedback_doc:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    
+    if current_user["role"] != "SUPER_ADMIN" and current_user["_id"] not in feedback_doc["targetRecipients"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to reply to this feedback")
+    
+    reply_data = {
+        "userId": current_user["_id"],
+        "userName": current_user["fullName"],
+        "content": reply.content,
+        "repliedAt": datetime.utcnow()
+    }
+    
+    await db.feedback.update_one(
+        {"_id": ObjectId(feedback_id)},
+        {
+            "$push": {"replies": reply_data},
+            "$set": {"status": "REPLIED"}
+        }
+    )
+    
+    return {"status": "success", "message": "Reply added"}
