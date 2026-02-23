@@ -11,10 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
 import { Colors } from '../constants/Colors';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../utils/api';
 
 interface Post {
   id: string;
@@ -62,7 +60,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     { value: 'BEN_THUY', label: 'Bến Thủy' },
   ];
 
-  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VAN_PHONG';
+  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VANPHONG';
 
   const toggleDept = (dept: string) => {
     if (dept === 'ALL') {
@@ -97,8 +95,8 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
 
       if (editPost) {
         // Update existing post
-        await axios.put(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/posts/${editPost.id}`,
+        await api.put(
+          `/api/posts/${editPost.id}`,
           postData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -107,8 +105,8 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         }
       } else {
         // Create new post
-        await axios.post(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/posts`,
+        await api.post(
+          '/api/posts',
           postData,
           { headers: { Authorization: `Bearer ${token}` } }
         );

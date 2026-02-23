@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from datetime import datetime
 from bson import ObjectId
-from backend.app.core.database import db
-from backend.app.core.security import get_current_user
-from backend.app.models.feedback import FeedbackCreate, FeedbackReply
+from app.core.database import db
+from app.core.security import get_current_user
+from app.models.feedback import FeedbackCreate, FeedbackReply
 
 router = APIRouter()
 
@@ -40,16 +40,16 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
     target_recipients = []
     
     if current_user["department"] == "VAN_PHONG_CANG":
-        bch_users = await db.users.find({"role": "BCH_VAN_PHONG"}).to_list(100)
+        bch_users = await db.users.find({"role": "BCH_VANPHONG"}).to_list(100)
         target_recipients = [str(u["_id"]) for u in bch_users]
     elif current_user["department"] == "CUA_LO":
         bch_users = await db.users.find({
-            "role": {"$in": ["BCH_CUA_LO", "BCH_VAN_PHONG"]}
+            "role": {"$in": ["BCH_CUALO", "BCH_VANPHONG"]}
         }).to_list(100)
         target_recipients = [str(u["_id"]) for u in bch_users]
     elif current_user["department"] == "BEN_THUY":
         bch_users = await db.users.find({
-            "role": {"$in": ["BCH_BEN_THUY", "BCH_VAN_PHONG"]}
+            "role": {"$in": ["BCH_BENTHUY", "BCH_VANPHONG"]}
         }).to_list(100)
         target_recipients = [str(u["_id"]) for u in bch_users]
     

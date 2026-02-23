@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from datetime import datetime
 from bson import ObjectId
-from backend.app.core.database import db
-from backend.app.core.security import get_current_user
-from backend.app.models.activity import ActivityCreate
+from app.core.database import db
+from app.core.security import get_current_user
+from app.models.activity import ActivityCreate
 
 router = APIRouter()
 

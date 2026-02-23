@@ -10,7 +10,7 @@ sys.path.append(str(root_path))
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from passlib.context import CryptContext
-from backend.app.core.config import settings
+from app.core.config import settings
 
 # Security Context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,7 +29,7 @@ async def seed_data():
             "password": "Admin@123",
             "fullName": "Super Admin",
             "role": "SUPER_ADMIN",
-            "department": "Hội sở",
+            "department": "VAN_PHONG_CANG",
             "unionId": "SA001",
             "phoneNumber": "0900000001",
             "email": "superadmin@example.com",
@@ -41,7 +41,7 @@ async def seed_data():
             "password": "VanPhong@123",
             "fullName": "BCH Văn phòng Cảng",
             "role": "BCH_VANPHONG",
-            "department": "Văn phòng",
+            "department": "VAN_PHONG_CANG",
             "unionId": "BCH001",
             "phoneNumber": "0900000002",
             "email": "bch_vp@example.com",
@@ -53,7 +53,7 @@ async def seed_data():
             "password": "CuaLo@123",
             "fullName": "BCH Cửa Lò",
             "role": "BCH_CUALO",
-            "department": "Cảng Cửa Lò",
+            "department": "CUA_LO",
             "unionId": "BCH002",
             "phoneNumber": "0900000003",
             "email": "bch_cl@example.com",
@@ -65,7 +65,7 @@ async def seed_data():
             "password": "BenThuy@123",
             "fullName": "BCH Bến Thủy",
             "role": "BCH_BENTHUY",
-            "department": "Cảng Bến Thủy",
+            "department": "BEN_THUY",
             "unionId": "BCH003",
             "phoneNumber": "0900000004",
             "email": "bch_bt@example.com",
@@ -77,7 +77,7 @@ async def seed_data():
             "password": "Member@123",
             "fullName": "Thành viên VP",
             "role": "MEMBER",
-            "department": "Văn phòng",
+            "department": "VAN_PHONG_CANG",
             "unionId": "TV001",
             "phoneNumber": "0900000005",
             "email": "tv_vp@example.com",
@@ -89,7 +89,7 @@ async def seed_data():
             "password": "Member@123",
             "fullName": "Thành viên Cửa Lò",
             "role": "MEMBER",
-            "department": "Cảng Cửa Lò",
+            "department": "CUA_LO",
             "unionId": "TV002",
             "phoneNumber": "0900000006",
             "email": "tv_cl@example.com",
@@ -101,7 +101,7 @@ async def seed_data():
             "password": "Member@123",
             "fullName": "Thành viên Bến Thủy",
             "role": "MEMBER",
-            "department": "Cảng Bến Thủy",
+            "department": "BEN_THUY",
             "unionId": "TV003",
             "phoneNumber": "0900000007",
             "email": "tv_bt@example.com",
@@ -154,7 +154,7 @@ async def seed_data():
             "summary": "Mục tiêu và kế hoạch hành động tháng 6.",
             "category": "Hoạt động",
             "image": "https://img.freepik.com/free-photo/business-people-meeting-office-writing-memo-sticky-notes_53876-13768.jpg",
-            "targetDepartments": ["Văn phòng", "Cảng Cửa Lò"],
+            "targetDepartments": ["VAN_PHONG_CANG", "CUA_LO"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -180,7 +180,7 @@ async def seed_data():
             "summary": "Lịch họp giao ban khối Văn phòng.",
             "category": "Thông báo",
             "image": "https://img.freepik.com/free-photo/corporate-workers-brainstorming-together_23-2148804520.jpg",
-            "targetDepartments": ["Văn phòng"],
+            "targetDepartments": ["VAN_PHONG_CANG"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -193,7 +193,7 @@ async def seed_data():
             "summary": "Lịch bảo trì hạ tầng Cảng Cửa Lò.",
             "category": "Thông báo",
             "image": "https://img.freepik.com/free-photo/container-ship-loading-unloading-port_1150-10946.jpg",
-            "targetDepartments": ["Cảng Cửa Lò"],
+            "targetDepartments": ["CUA_LO"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -206,7 +206,7 @@ async def seed_data():
             "summary": "Đảm bảo độ sâu luồng cho tàu ra vào.",
             "category": "Hoạt động",
             "image": "https://img.freepik.com/free-photo/excavator-working-construction-site_1150-11204.jpg",
-            "targetDepartments": ["Cảng Bến Thủy"],
+            "targetDepartments": ["BEN_THUY"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -220,7 +220,7 @@ async def seed_data():
             "summary": "Khóa học kỹ năng cho VP và BT.",
             "category": "Đào tạo",
             "image": "https://img.freepik.com/free-vector/business-team-discussing-ideas-startup_74855-4380.jpg",
-            "targetDepartments": ["Văn phòng", "Cảng Bến Thủy"],
+            "targetDepartments": ["VAN_PHONG_CANG", "BEN_THUY"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -233,7 +233,7 @@ async def seed_data():
             "summary": "Lịch trực Cảng Cửa Lò tháng 8.",
             "category": "Thông báo",
             "image": "https://img.freepik.com/free-vector/schedule-calendar-flat-style_23-2147541998.jpg",
-            "targetDepartments": ["Cảng Cửa Lò"],
+            "targetDepartments": ["CUA_LO"],
             "authorId": admin_id,
             "authorName": admin_name,
             "authorDepartment": admin_dept,
@@ -268,7 +268,7 @@ async def seed_data():
             "location": "Hội trường A",
             "type": "TRAINING",
             "image": "https://img.freepik.com/free-vector/construction-safety-equipment-concept_1284-18865.jpg",
-            "targetDepartments": ["Cảng Cửa Lò", "Cảng Bến Thủy"],
+            "targetDepartments": ["CUA_LO", "BEN_THUY"],
             "createdBy": admin_id,
             "registrations": [],
             "createdAt": "2024-06-01T08:00:00Z"
@@ -292,7 +292,7 @@ async def seed_data():
             "location": "Pantry Văn phòng",
             "type": "VACATION",
             "image": "https://img.freepik.com/free-photo/cup-coffee-with-heart-pattern_1150-4122.jpg",
-            "targetDepartments": ["Văn phòng"],
+            "targetDepartments": ["VAN_PHONG_CANG"],
             "createdBy": admin_id,
             "registrations": [],
             "createdAt": "2024-06-20T15:00:00Z"
@@ -304,7 +304,7 @@ async def seed_data():
             "location": "Biển Cửa Lò",
             "type": "SPORTS",
             "image": "https://img.freepik.com/free-photo/swimmer-swimming-pool_1150-1786.jpg",
-            "targetDepartments": ["Cảng Cửa Lò"],
+            "targetDepartments": ["CUA_LO"],
             "createdBy": admin_id,
             "registrations": [],
             "createdAt": "2024-06-15T09:00:00Z"
@@ -316,7 +316,7 @@ async def seed_data():
             "location": "Nhà văn hóa Tỉnh",
             "type": "ARTS",
             "image": "https://img.freepik.com/free-photo/singer-performing-stage-with-lights_23-2148943644.jpg",
-            "targetDepartments": ["Văn phòng", "Cảng Bến Thủy"],
+            "targetDepartments": ["VAN_PHONG_CANG", "BEN_THUY"],
             "createdBy": admin_id,
             "registrations": [],
             "createdAt": "2024-07-20T10:00:00Z"
@@ -351,7 +351,7 @@ async def seed_data():
             "category": "Quy chế",
             "fileSize": "300 KB",
             "uploadedBy": admin_id,
-            "targetDepartments": ["Văn phòng"],
+            "targetDepartments": ["VAN_PHONG_CANG"],
             "createdAt": "2024-05-01T08:00:00Z"
         },
         {
@@ -359,7 +359,7 @@ async def seed_data():
             "category": "Hướng dẫn",
             "fileSize": "5.0 MB",
             "uploadedBy": admin_id,
-            "targetDepartments": ["Cảng Bến Thủy"],
+            "targetDepartments": ["BEN_THUY"],
             "createdAt": "2024-05-15T14:00:00Z"
         },
          {
@@ -367,7 +367,7 @@ async def seed_data():
             "category": "Hướng dẫn",
             "fileSize": "4.2 MB",
             "uploadedBy": admin_id,
-            "targetDepartments": ["Cảng Cửa Lò"],
+            "targetDepartments": ["CUA_LO"],
             "createdAt": "2024-05-20T11:00:00Z"
         }
     ]
@@ -378,5 +378,4 @@ async def seed_data():
             print(f"Document '{doc['title']}' created.")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(seed_data())
+    asyncio.run(seed_data())

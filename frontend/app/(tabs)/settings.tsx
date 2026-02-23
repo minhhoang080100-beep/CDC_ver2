@@ -41,16 +41,16 @@ export default function SettingsScreen() {
   const handleLogout = async () => {
     try {
       console.log('🔵 Settings: Logout button pressed');
-      
+
       // Clear storage first
       console.log('🔵 Settings: Clearing AsyncStorage...');
       await AsyncStorage.clear();
-      
+
       console.log('🔵 Settings: Clearing auth state...');
       await logout();
-      
+
       console.log('🔵 Settings: Redirecting to login...');
-      
+
       // Force reload page for web
       if (Platform.OS === 'web') {
         console.log('🔵 Settings: Using window.location.href');
@@ -136,18 +136,14 @@ export default function SettingsScreen() {
     switch (role) {
       case 'SUPER_ADMIN':
         return 'Quản trị viên';
-      case 'BCH_VAN_PHONG':
+      case 'BCH_VANPHONG':
         return 'BCH Văn phòng Cảng';
-      case 'BCH_CUA_LO':
+      case 'BCH_CUALO':
         return 'BCH Cửa Lò';
-      case 'BCH_BEN_THUY':
+      case 'BCH_BENTHUY':
         return 'BCH Bến Thủy';
-      case 'THANH_VIEN_VAN_PHONG':
-        return 'Thành viên Văn phòng';
-      case 'THANH_VIEN_CUA_LO':
-        return 'Thành viên Cửa Lò';
-      case 'THANH_VIEN_BEN_THUY':
-        return 'Thành viên Bến Thủy';
+      case 'MEMBER':
+        return 'Thành viên';
       default:
         return role;
     }
@@ -184,7 +180,7 @@ export default function SettingsScreen() {
         {/* Account Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Cài đặt tài khoản</Text>
-          
+
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setChangePasswordModalVisible(true)}

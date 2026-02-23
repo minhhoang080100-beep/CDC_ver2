@@ -1,8 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../utils/api';
 
 interface User {
   id: string;
@@ -38,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const storedToken = await AsyncStorage.getItem('token');
       const storedUser = await AsyncStorage.getItem('user');
-      
+
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
@@ -52,16 +50,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await axios.post(`${EXPO_PUBLIC_BACKEND_URL}/api/auth/login`, {
+      const response = await api.post('/api/auth/login', {
         username,
         password
       });
 
       const { token: newToken, user: newUser } = response.data;
-      
+
       await AsyncStorage.setItem('token', newToken);
       await AsyncStorage.setItem('user', JSON.stringify(newUser));
-      
+
       setToken(newToken);
       setUser(newUser);
     } catch (error: any) {
@@ -79,11 +77,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('🔴 LOGOUT: Clearing state...');
       setUser(null);
       setToken(null);
-      
+
       // Step 2: Clear AsyncStorage
       console.log('🔴 LOGOUT: Clearing AsyncStorage...');
       await AsyncStorage.clear();
-      
+
       console.log('🔴 LOGOUT: Logout completed successfully');
     } catch (error) {
       console.error('🔴 LOGOUT ERROR:', error);

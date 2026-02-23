@@ -15,11 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
 import { Send, MessageCircle, ChevronRight } from 'lucide-react-native';
 import { format } from 'date-fns';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../../utils/api';
 
 interface Feedback {
   id: string;
@@ -57,7 +55,7 @@ export default function FeedbackScreen() {
 
   const fetchFeedback = async () => {
     try {
-      const response = await axios.get(`${EXPO_PUBLIC_BACKEND_URL}/api/feedback`, {
+      const response = await api.get('/api/feedback', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFeedbackList(response.data);
@@ -74,8 +72,8 @@ export default function FeedbackScreen() {
 
     setLoading(true);
     try {
-      await axios.post(
-        `${EXPO_PUBLIC_BACKEND_URL}/api/feedback`,
+      await api.post(
+        '/api/feedback',
         {
           subject,
           content,
@@ -103,8 +101,8 @@ export default function FeedbackScreen() {
     }
 
     try {
-      await axios.post(
-        `${EXPO_PUBLIC_BACKEND_URL}/api/feedback/${selectedFeedback?.id}/reply`,
+      await api.post(
+        `/api/feedback/${selectedFeedback?.id}/reply`,
         { content: replyContent },
         { headers: { Authorization: `Bearer ${token}` } }
       );

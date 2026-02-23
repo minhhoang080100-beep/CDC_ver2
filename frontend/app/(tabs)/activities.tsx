@@ -10,11 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
 import { Calendar, MapPin, Users, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import CreateActivityModal from '../../components/CreateActivityModal';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../../utils/api';
 
 interface Activity {
   id: string;
@@ -42,7 +40,7 @@ export default function ActivitiesScreen() {
 
   const fetchActivities = async () => {
     try {
-      const response = await axios.get(`${EXPO_PUBLIC_BACKEND_URL}/api/activities`, {
+      const response = await api.get('/api/activities', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setActivities(response.data);
@@ -65,8 +63,8 @@ export default function ActivitiesScreen() {
 
   const handleRegister = async (activityId: string) => {
     try {
-      await axios.post(
-        `${EXPO_PUBLIC_BACKEND_URL}/api/activities/${activityId}/register`,
+      await api.post(
+        `/api/activities/${activityId}/register`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -91,7 +89,7 @@ export default function ActivitiesScreen() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm('Bạn có chắc muốn xóa hoạt động này?')) {
         try {
-          await axios.delete(`${EXPO_PUBLIC_BACKEND_URL}/api/activities/${id}`, {
+          await api.delete(`/api/activities/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           fetchActivities();

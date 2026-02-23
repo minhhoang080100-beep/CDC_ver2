@@ -11,13 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
 import { format } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react-native';
 import CreatePostModal from '../../components/CreatePostModal';
 import { Colors } from '../../constants/Colors';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../../utils/api';
 
 interface Post {
   id: string;
@@ -48,7 +46,7 @@ export default function HomeScreen() {
 
   const fetchPosts = async () => {
     try {
-      const response = await axios.get(`${EXPO_PUBLIC_BACKEND_URL}/api/posts`, {
+      const response = await api.get('/api/posts', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setPosts(response.data);
@@ -97,7 +95,7 @@ export default function HomeScreen() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       if (window.confirm('Bạn có chắc muốn xóa bài viết này?')) {
         try {
-          await axios.delete(`${EXPO_PUBLIC_BACKEND_URL}/api/posts/${id}`, {
+          await api.delete(`/api/posts/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           fetchPosts();

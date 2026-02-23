@@ -7,8 +7,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import QRCode from 'react-native-qrcode-svg';
 import { User } from 'lucide-react-native';
+import { Platform } from 'react-native';
+
+// QRCode only works on native (uses Node.js modules incompatible with web)
+let QRCode: any = null;
+if (Platform.OS !== 'web') {
+  QRCode = require('react-native-qrcode-svg').default;
+}
 
 export default function ProfileScreen() {
   const { user } = useAuth();
@@ -30,18 +36,14 @@ export default function ProfileScreen() {
     switch (role) {
       case 'SUPER_ADMIN':
         return 'Quản trị viên';
-      case 'BCH_VAN_PHONG':
+      case 'BCH_VANPHONG':
         return 'BCH Văn phòng Cảng';
-      case 'BCH_CUA_LO':
+      case 'BCH_CUALO':
         return 'BCH Cửa Lò';
-      case 'BCH_BEN_THUY':
+      case 'BCH_BENTHUY':
         return 'BCH Bến Thủy';
-      case 'THANH_VIEN_VAN_PHONG':
-        return 'Thành viên Văn phòng';
-      case 'THANH_VIEN_CUA_LO':
-        return 'Thành viên Cửa Lò';
-      case 'THANH_VIEN_BEN_THUY':
-        return 'Thành viên Bến Thủy';
+      case 'MEMBER':
+        return 'Thành viên';
       default:
         return role;
     }
@@ -90,14 +92,20 @@ export default function ProfileScreen() {
 
             <View style={styles.qrSection}>
               <View style={styles.qrContainer}>
-                <QRCode
-                  value={JSON.stringify({
-                    id: user.id,
-                    unionId: user.unionId,
-                    name: user.fullName,
-                  })}
-                  size={120}
-                />
+                {Platform.OS !== 'web' && QRCode ? (
+                  <QRCode
+                    value={JSON.stringify({
+                      id: user.id,
+                      unionId: user.unionId,
+                      name: user.fullName,
+                    })}
+                    size={120}
+                  />
+                ) : (
+                  <View style={{ width: 120, height: 120, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, color: '#666', textAlign: 'center' }}>QR Code{"\n"}(Xem trên app)</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.qrLabel}>Mã QR đoàn viên</Text>
             </View>

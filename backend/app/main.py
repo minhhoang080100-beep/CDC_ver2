@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 import logging
-from backend.app.core.database import client
-from backend.app.routers import auth, posts, activities, feedback, documents
+from app.core.database import client
+from app.routers import auth, posts, activities, feedback, documents
 
 # Configure logging
 logging.basicConfig(

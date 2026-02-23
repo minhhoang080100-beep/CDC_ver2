@@ -11,9 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../utils/api';
 
 interface Document {
   id: string;
@@ -51,7 +49,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
   }, [editDocument, visible]);
 
   const categories = ['Thỏa ước lao động', 'Nội quy', 'An toàn'];
-  
+
   const departments = [
     { value: 'ALL', label: 'Tất cả' },
     { value: 'VAN_PHONG_CANG', label: 'Văn phòng Cảng' },
@@ -59,7 +57,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
     { value: 'BEN_THUY', label: 'Bến Thủy' },
   ];
 
-  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VAN_PHONG';
+  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VANPHONG';
 
   const toggleDept = (dept: string) => {
     if (dept === 'ALL') {
@@ -93,8 +91,8 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
 
       if (editDocument) {
         // Update existing document
-        await axios.put(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/documents/${editDocument.id}`,
+        await api.put(
+          `/api/documents/${editDocument.id}`,
           documentData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -103,8 +101,8 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
         }
       } else {
         // Create new document
-        await axios.post(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/documents`,
+        await api.post(
+          '/api/documents',
           documentData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -112,7 +110,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
           window.alert('Đã thêm tài liệu thành công!');
         }
       }
-      
+
       onSuccess();
       handleReset();
     } catch (error: any) {

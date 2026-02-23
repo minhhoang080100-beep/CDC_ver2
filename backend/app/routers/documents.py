@@ -2,15 +2,15 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from datetime import datetime
 from bson import ObjectId
-from backend.app.core.database import db
-from backend.app.core.security import get_current_user
-from backend.app.models.document import DocumentCreate
+from app.core.database import db
+from app.core.security import get_current_user
+from app.models.document import DocumentCreate
 
 router = APIRouter()
 
 @router.get("", response_model=List[dict])
 async def get_documents(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["SUPER_ADMIN", "BCH_VAN_PHONG"]:
+    if current_user["role"] in ["SUPER_ADMIN", "BCH_VANPHONG"]:
         documents = await db.documents.find().sort("createdAt", -1).to_list(100)
     elif current_user["role"].startswith("BCH_"):
         documents = await db.documents.find({
@@ -44,11 +44,11 @@ async def create_document(document: DocumentCreate, current_user: dict = Depends
     
     target_departments = document.targetDepartments
     
-    if current_user["role"] == "BCH_CUA_LO":
+    if current_user["role"] == "BCH_CUALO":
         target_departments = ["CUA_LO", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_BEN_THUY":
+    elif current_user["role"] == "BCH_BENTHUY":
         target_departments = ["BEN_THUY", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_VAN_PHONG" and not target_departments:
+    elif current_user["role"] == "BCH_VANPHONG" and not target_departments:
         target_departments = ["ALL"]
     
     document_data = {

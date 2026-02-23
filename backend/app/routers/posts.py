@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from datetime import datetime
 from bson import ObjectId
-from backend.app.core.database import db
-from backend.app.core.security import get_current_user
-from backend.app.models.post import PostCreate
+from app.core.database import db
+from app.core.security import get_current_user
+from app.models.post import PostCreate
 
 router = APIRouter()
 
@@ -89,11 +89,11 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
         raise HTTPException(status_code=403, detail="You don't have permission to edit this post")
     
     target_departments = post.targetDepartments
-    if current_user["role"] == "BCH_CUA_LO":
+    if current_user["role"] == "BCH_CUALO":
         target_departments = ["CUA_LO", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_BEN_THUY":
+    elif current_user["role"] == "BCH_BENTHUY":
         target_departments = ["BEN_THUY", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_VAN_PHONG" and not target_departments:
+    elif current_user["role"] == "BCH_VANPHONG" and not target_departments:
         target_departments = ["ALL"]
     
     update_data = {

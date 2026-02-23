@@ -11,9 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../utils/api';
 
 interface Activity {
   id: string;
@@ -69,7 +67,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
     { value: 'BEN_THUY', label: 'Bến Thủy' },
   ];
 
-  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VAN_PHONG';
+  const canSelectDepts = user?.role === 'SUPER_ADMIN' || user?.role === 'BCH_VANPHONG';
 
   const toggleDept = (dept: string) => {
     if (dept === 'ALL') {
@@ -105,8 +103,8 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
 
       if (editActivity) {
         // Update existing activity
-        await axios.put(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/activities/${editActivity.id}`,
+        await api.put(
+          `/api/activities/${editActivity.id}`,
           activityData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -115,8 +113,8 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         }
       } else {
         // Create new activity
-        await axios.post(
-          `${EXPO_PUBLIC_BACKEND_URL}/api/activities`,
+        await api.post(
+          '/api/activities',
           activityData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -124,7 +122,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
           window.alert('Đã tạo hoạt động thành công!');
         }
       }
-      
+
       onSuccess();
       handleReset();
     } catch (error: any) {

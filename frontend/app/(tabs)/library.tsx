@@ -9,11 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
 import { FileText, Search, Plus } from 'lucide-react-native';
 import CreateDocumentModal from '../../components/CreateDocumentModal';
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import { api } from '../../utils/api';
 
 interface Document {
   id: string;
@@ -43,7 +41,7 @@ export default function LibraryScreen() {
 
   const fetchDocuments = async () => {
     try {
-      const response = await axios.get(`${EXPO_PUBLIC_BACKEND_URL}/api/documents`, {
+      const response = await api.get('/api/documents', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setDocuments(response.data);
@@ -125,7 +123,7 @@ export default function LibraryScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>THƯ VIỆN SỐ</Text>
         {canCreateDocument && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => setModalVisible(true)}
           >
@@ -154,7 +152,7 @@ export default function LibraryScreen() {
           </View>
         }
       />
-      
+
       <CreateDocumentModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
