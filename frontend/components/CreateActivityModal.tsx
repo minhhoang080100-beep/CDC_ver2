@@ -49,8 +49,15 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
       setLocation(editActivity.location);
       setType(editActivity.type);
       setSelectedDepts(editActivity.targetDepartments || ['ALL']);
-    } else {
-      handleReset();
+    } else if (visible) {
+      // Reset form fields without closing the modal
+      setName('');
+      setDescription('');
+      setTime('');
+      setLocation('');
+      setType('TRAINING');
+      setSelectedDepts(['ALL']);
+      setLoading(false);
     }
   }, [editActivity, visible]);
 
@@ -146,7 +153,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.modalContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -271,13 +278,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 600,
     maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

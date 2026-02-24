@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../utils/api';
 import {
   User,
   Lock,
@@ -27,10 +28,12 @@ import {
   Moon,
   Globe,
 } from 'lucide-react-native';
+import { useResponsive } from '../../hooks/useResponsive';
 
 export default function SettingsScreen() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const router = useRouter();  // Keep this for handleFeedback navigation
+  const { isDesktop } = useResponsive();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [changePasswordModalVisible, setChangePasswordModalVisible] = useState(false);
@@ -71,7 +74,7 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.alert('Vui lòng nhập đầy đủ thông tin');
@@ -93,14 +96,29 @@ export default function SettingsScreen() {
       return;
     }
 
-    // TODO: Implement change password API
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.alert('Tính năng đổi mật khẩu đang được phát triển');
+    try {
+      await api.put(
+        '/api/auth/change-password',
+        {
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert('Đổi mật khẩu thành công!');
+      }
+      setChangePasswordModalVisible(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert(error.response?.data?.detail || 'Không thể đổi mật khẩu');
+      }
     }
-    setChangePasswordModalVisible(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
   };
 
   const handleFeedback = () => {
@@ -159,138 +177,145 @@ export default function SettingsScreen() {
         <Text style={styles.headerTitle}>CÀI ĐẶT</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* User Info Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tài khoản</Text>
-          <View style={styles.userInfoCard}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <User color="#ffffff" size={40} />
-              </View>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{user.fullName}</Text>
-                <Text style={styles.userRole}>{getRoleName(user.role)}</Text>
-                <Text style={styles.userDepartment}>{getDepartmentName(user.department)}</Text>
+      <ScrollView contentContainerStyle={[styles.content, isDesktop && { alignItems: 'center' as any }]}>
+        <View style={isDesktop ? { width: '100%', maxWidth: 600 } as any : undefined}>
+          {/* User Info Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tài khoản</Text>
+            <View style={styles.userInfoCard}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <User color="#ffffff" size={40} />
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{user.fullName}</Text>
+                  <Text style={styles.userRole}>{getRoleName(user.role)}</Text>
+                  <Text style={styles.userDepartment}>{getDepartmentName(user.department)}</Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Account Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cài đặt tài khoản</Text>
+          {/* Account Settings */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cài đặt tài khoản</Text>
 
-          <TouchableOpacity
-            style={styles.settingItem}
-            onPress={() => setChangePasswordModalVisible(true)}
-          >
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#fef3c7' }]}>
-                <Lock color="#f59e0b" size={20} />
+            <TouchableOpacity
+              style={styles.settingItem}
+              onPress={() => setChangePasswordModalVisible(true)}
+            >
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#fef3c7' }]}>
+                  <Lock color="#f59e0b" size={20} />
+                </View>
+                <Text style={styles.settingItemText}>Đổi mật khẩu</Text>
               </View>
-              <Text style={styles.settingItemText}>Đổi mật khẩu</Text>
-            </View>
-            <ChevronRight color="#94a3b8" size={20} />
-          </TouchableOpacity>
+              <ChevronRight color="#94a3b8" size={20} />
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem} onPress={handleFeedback}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
-                <MessageSquare color="#3b82f6" size={20} />
+            <TouchableOpacity style={styles.settingItem} onPress={handleFeedback}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
+                  <MessageSquare color="#3b82f6" size={20} />
+                </View>
+                <Text style={styles.settingItemText}>Gửi phản hồi</Text>
               </View>
-              <Text style={styles.settingItemText}>Gửi phản hồi</Text>
-            </View>
-            <ChevronRight color="#94a3b8" size={20} />
-          </TouchableOpacity>
-        </View>
-
-        {/* App Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ứng dụng</Text>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#dcfce7' }]}>
-                <Bell color="#10b981" size={20} />
-              </View>
-              <Text style={styles.settingItemText}>Thông báo</Text>
-            </View>
-            <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
-              trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
-              thumbColor={notificationsEnabled ? '#ffffff' : '#f4f4f5'}
-            />
+              <ChevronRight color="#94a3b8" size={20} />
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#e0e7ff' }]}>
-                <Moon color="#6366f1" size={20} />
+          {/* App Settings */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Ứng dụng</Text>
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#dcfce7' }]}>
+                  <Bell color="#10b981" size={20} />
+                </View>
+                <View>
+                  <Text style={styles.settingItemText}>Thông báo</Text>
+                  <Text style={styles.comingSoonText}>Sắp ra mắt</Text>
+                </View>
               </View>
-              <Text style={styles.settingItemText}>Chế độ tối</Text>
+              <Switch
+                value={false}
+                trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
+                thumbColor={'#f4f4f5'}
+                disabled
+              />
             </View>
-            <Switch
-              value={darkModeEnabled}
-              onValueChange={setDarkModeEnabled}
-              trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
-              thumbColor={darkModeEnabled ? '#ffffff' : '#f4f4f5'}
-              disabled
-            />
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#e0e7ff' }]}>
+                  <Moon color="#6366f1" size={20} />
+                </View>
+                <View>
+                  <Text style={styles.settingItemText}>Chế độ tối</Text>
+                  <Text style={styles.comingSoonText}>Sắp ra mắt</Text>
+                </View>
+              </View>
+              <Switch
+                value={false}
+                trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
+                thumbColor={'#f4f4f5'}
+                disabled
+              />
+            </View>
+
+            <View style={styles.settingItem}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#fce7f3' }]}>
+                  <Globe color="#ec4899" size={20} />
+                </View>
+                <Text style={styles.settingItemText}>Ngôn ngữ</Text>
+              </View>
+              <Text style={styles.settingValue}>Tiếng Việt</Text>
+            </View>
           </View>
 
-          <View style={styles.settingItem}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#fce7f3' }]}>
-                <Globe color="#ec4899" size={20} />
+          {/* Support */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Hỗ trợ</Text>
+
+            <TouchableOpacity style={styles.settingItem} onPress={handleHelp}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#fef3c7' }]}>
+                  <HelpCircle color="#f59e0b" size={20} />
+                </View>
+                <Text style={styles.settingItemText}>Trợ giúp</Text>
               </View>
-              <Text style={styles.settingItemText}>Ngôn ngữ</Text>
-            </View>
-            <Text style={styles.settingValue}>Tiếng Việt</Text>
+              <ChevronRight color="#94a3b8" size={20} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.settingItem} onPress={handleAbout}>
+              <View style={styles.settingItemLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
+                  <Info color="#3b82f6" size={20} />
+                </View>
+                <Text style={styles.settingItemText}>Thông tin ứng dụng</Text>
+              </View>
+              <ChevronRight color="#94a3b8" size={20} />
+            </TouchableOpacity>
           </View>
+
+          {/* Logout */}
+          <View style={styles.section}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <LogOut color="#ef4444" size={24} />
+              <Text style={styles.logoutButtonText}>Đăng xuất</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.version}>Phiên bản 1.0.0</Text>
         </View>
-
-        {/* Support */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hỗ trợ</Text>
-
-          <TouchableOpacity style={styles.settingItem} onPress={handleHelp}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#fef3c7' }]}>
-                <HelpCircle color="#f59e0b" size={20} />
-              </View>
-              <Text style={styles.settingItemText}>Trợ giúp</Text>
-            </View>
-            <ChevronRight color="#94a3b8" size={20} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingItem} onPress={handleAbout}>
-            <View style={styles.settingItemLeft}>
-              <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
-                <Info color="#3b82f6" size={20} />
-              </View>
-              <Text style={styles.settingItemText}>Thông tin ứng dụng</Text>
-            </View>
-            <ChevronRight color="#94a3b8" size={20} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Logout */}
-        <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <LogOut color="#ef4444" size={24} />
-            <Text style={styles.logoutButtonText}>Đăng xuất</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.version}>Phiên bản 1.0.0</Text>
       </ScrollView>
 
       {/* Change Password Modal */}
       <Modal
         visible={changePasswordModalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setChangePasswordModalVisible(false)}
       >
@@ -481,13 +506,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 600,
+    maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -538,5 +567,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  comingSoonText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
 });

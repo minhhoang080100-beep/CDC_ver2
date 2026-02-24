@@ -47,8 +47,14 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       setContent(editPost.content);
       setCategory(editPost.category);
       setSelectedDepts(editPost.targetDepartments || ['ALL']);
-    } else {
-      handleReset();
+    } else if (visible) {
+      // Reset form fields without closing the modal
+      setTitle('');
+      setSummary('');
+      setContent('');
+      setCategory('Thông báo');
+      setSelectedDepts(['ALL']);
+      setLoading(false);
     }
   }, [editPost, visible]);
 
@@ -137,7 +143,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.modalContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -253,13 +259,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 600,
     maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

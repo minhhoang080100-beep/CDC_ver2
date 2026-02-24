@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { User } from 'lucide-react-native';
 import { Platform } from 'react-native';
+import { useResponsive } from '../../hooks/useResponsive';
 
 // QRCode only works on native (uses Node.js modules incompatible with web)
 let QRCode: any = null;
@@ -18,6 +19,7 @@ if (Platform.OS !== 'web') {
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { isDesktop } = useResponsive();
 
   const getDepartmentName = (dept: string) => {
     switch (dept) {
@@ -59,75 +61,77 @@ export default function ProfileScreen() {
         <Text style={styles.headerTitle}>THẺ ĐOÀN VIÊN</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.cardContainer}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>CÔNG ĐOÀN CẢNG NGHỆ TĨNH</Text>
-            </View>
-
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <User color="#ffffff" size={60} />
+      <ScrollView contentContainerStyle={[styles.content, isDesktop && { alignItems: 'center' as any }]}>
+        <View style={isDesktop ? { width: '100%', maxWidth: 500 } as any : undefined}>
+          <View style={styles.cardContainer}>
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>CÔNG ĐOÀN CẢNG NGHỆ TĨNH</Text>
               </View>
-            </View>
 
-            <View style={styles.infoSection}>
-              <Text style={styles.name}>{user.fullName}</Text>
-              <Text style={styles.unionId}>Mã đoàn viên: {user.unionId}</Text>
-            </View>
-
-            <View style={styles.detailsSection}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Bộ phận:</Text>
-                <Text style={styles.detailValue}>
-                  {getDepartmentName(user.department)}
-                </Text>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <User color="#ffffff" size={60} />
+                </View>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Chức vụ:</Text>
-                <Text style={styles.detailValue}>{getRoleName(user.role)}</Text>
-              </View>
-            </View>
 
-            <View style={styles.qrSection}>
-              <View style={styles.qrContainer}>
-                {Platform.OS !== 'web' && QRCode ? (
-                  <QRCode
-                    value={JSON.stringify({
-                      id: user.id,
-                      unionId: user.unionId,
-                      name: user.fullName,
-                    })}
-                    size={120}
-                  />
-                ) : (
-                  <View style={{ width: 120, height: 120, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
-                    <Text style={{ fontSize: 12, color: '#666', textAlign: 'center' }}>QR Code{"\n"}(Xem trên app)</Text>
-                  </View>
-                )}
+              <View style={styles.infoSection}>
+                <Text style={styles.name}>{user.fullName}</Text>
+                <Text style={styles.unionId}>Mã đoàn viên: {user.unionId}</Text>
               </View>
-              <Text style={styles.qrLabel}>Mã QR đoàn viên</Text>
-            </View>
 
-            <View style={styles.statusBadge}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Đang hoạt động</Text>
+              <View style={styles.detailsSection}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Bộ phận:</Text>
+                  <Text style={styles.detailValue}>
+                    {getDepartmentName(user.department)}
+                  </Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Chức vụ:</Text>
+                  <Text style={styles.detailValue}>{getRoleName(user.role)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.qrSection}>
+                <View style={styles.qrContainer}>
+                  {Platform.OS !== 'web' && QRCode ? (
+                    <QRCode
+                      value={JSON.stringify({
+                        id: user.id,
+                        unionId: user.unionId,
+                        name: user.fullName,
+                      })}
+                      size={120}
+                    />
+                  ) : (
+                    <View style={{ width: 120, height: 120, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
+                      <Text style={{ fontSize: 12, color: '#666', textAlign: 'center' }}>QR Code{"\n"}(Xem trên app)</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.qrLabel}>Mã QR đoàn viên</Text>
+              </View>
+
+              <View style={styles.statusBadge}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Đang hoạt động</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.infoBox}>
-          <Text style={styles.infoBoxTitle}>Thông tin tài khoản</Text>
-          <View style={styles.infoBoxRow}>
-            <Text style={styles.infoBoxLabel}>Tên đăng nhập:</Text>
-            <Text style={styles.infoBoxValue}>{user.username}</Text>
-          </View>
-          <View style={styles.infoBoxRow}>
-            <Text style={styles.infoBoxLabel}>Trạng thái:</Text>
-            <Text style={[styles.infoBoxValue, styles.activeStatus]}>
-              {user.status === 'ACTIVE' ? 'Hoạt động' : 'Ngưng hoạt động'}
-            </Text>
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxTitle}>Thông tin tài khoản</Text>
+            <View style={styles.infoBoxRow}>
+              <Text style={styles.infoBoxLabel}>Tên đăng nhập:</Text>
+              <Text style={styles.infoBoxValue}>{user.username}</Text>
+            </View>
+            <View style={styles.infoBoxRow}>
+              <Text style={styles.infoBoxLabel}>Trạng thái:</Text>
+              <Text style={[styles.infoBoxValue, styles.activeStatus]}>
+                {user.status === 'ACTIVE' ? 'Hoạt động' : 'Ngưng hoạt động'}
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>

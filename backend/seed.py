@@ -377,5 +377,63 @@ async def seed_data():
             await db.documents.insert_one(doc)
             print(f"Document '{doc['title']}' created.")
 
+    # Seed Feedback
+    tv_vp = await db.users.find_one({"username": "tv_vanphong"})
+    tv_cl = await db.users.find_one({"username": "tv_cualo"})
+    bch_vp = await db.users.find_one({"username": "bch_vanphong"})
+    bch_cl = await db.users.find_one({"username": "bch_cualo"})
+
+    if tv_vp and tv_cl and bch_vp and bch_cl:
+        feedbacks = [
+            {
+                "subject": "Đề xuất thêm tính năng theo dõi lịch tàu",
+                "content": "Kính gửi Ban Lãnh đạo, tôi xin đề xuất thêm tính năng xem lịch tàu cập cảng trực tiếp trên app để anh em dễ dàng theo dõi kế hoạch làm hàng.",
+                "senderId": str(tv_vp["_id"]),
+                "senderName": tv_vp["fullName"],
+                "senderDepartment": tv_vp["department"],
+                "isAnonymous": False,
+                "status": "PENDING",
+                "targetRecipients": [str(bch_vp["_id"])],
+                "replies": [],
+                "createdAt": "2024-07-10T10:00:00Z"
+            },
+            {
+                "subject": "Báo cáo hỏng hóc thiết bị bốc xếp tại Cửa Lò",
+                "content": "Tại cần cẩu số 2 khu vực bãi Cửa Lò đang có dấu hiệu mòn tời thép, cần bộ phận kỹ thuật kiểm tra và thay thế sớm để đảm bảo an toàn.",
+                "senderId": str(tv_cl["_id"]),
+                "senderName": tv_cl["fullName"],
+                "senderDepartment": tv_cl["department"],
+                "isAnonymous": False,
+                "status": "REPLIED",
+                "targetRecipients": [str(bch_cl["_id"]), str(bch_vp["_id"])],
+                "replies": [
+                    {
+                        "userId": str(bch_cl["_id"]),
+                        "userName": bch_cl["fullName"],
+                        "content": "Đã ghi nhận, bộ phận kỹ thuật sẽ điều người tới kiểm tra trong chiều nay.",
+                        "repliedAt": "2024-07-11T14:30:00Z"
+                    }
+                ],
+                "createdAt": "2024-07-11T09:00:00Z"
+            },
+            {
+                "subject": "Góp ý về suất ăn trưa",
+                "content": "Suất ăn trưa gần đây hơi ít rau xanh, mong ban đời sống có thể điều chỉnh lại thực đơn cho anh em công nhân ạ.",
+                "senderId": str(tv_vp["_id"]),
+                "senderName": tv_vp["fullName"],
+                "senderDepartment": tv_vp["department"],
+                "isAnonymous": True,
+                "status": "PENDING",
+                "targetRecipients": [str(bch_vp["_id"])],
+                "replies": [],
+                "createdAt": "2024-07-12T12:00:00Z"
+            }
+        ]
+        
+        for fb in feedbacks:
+            if await db.feedback.count_documents({"subject": fb["subject"]}) == 0:
+                await db.feedback.insert_one(fb)
+                print(f"Feedback '{fb['subject']}' created.")
+
 if __name__ == "__main__":
     asyncio.run(seed_data())

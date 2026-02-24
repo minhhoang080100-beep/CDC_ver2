@@ -1,31 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
 from datetime import datetime
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
+from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.activity import ActivityCreate
 
 router = APIRouter()
 
 @router.get("", response_model=List[dict])
-async def get_activities(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] in ["SUPER_ADMIN", "BCH_VANPHONG"]:
-        activities = await db.activities.find().sort("createdAt", -1).to_list(100)
-    elif current_user["role"].startswith("BCH_"):
-        activities = await db.activities.find({
-            "$or": [
-                {"targetDepartments": current_user["department"]},
-                {"targetDepartments": "ALL"}
-            ]
-        }).sort("createdAt", -1).to_list(100)
-    else:
-        activities = await db.activities.find({
-            "$or": [
-                {"targetDepartments": current_user["department"]},
-                {"targetDepartments": "ALL"}
-            ]
-        }).sort("createdAt", -1).to_list(100)
+async def get_activities(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user)
+):
+    content_filter = build_content_filter(current_user)
+    activities = await db.activities.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
     return [{
         "id": str(activity["_id"]),
@@ -70,17 +61,10 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
 
 @router.post("")
 async def create_activity(activity: ActivityCreate, current_user: dict = Depends(get_current_user)):
-    if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
+    if not can_manage_content(current_user):
         raise HTTPException(status_code=403, detail="You don't have permission to create activities")
     
-    target_departments = activity.targetDepartments
-    
-    if current_user["role"] == "BCH_CUALO":
-        target_departments = ["CUA_LO", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_BENTHUY":
-        target_departments = ["BEN_THUY", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_VANPHONG" and not target_departments:
-        target_departments = ["ALL"]
+    target_departments = resolve_target_departments(current_user, activity.targetDepartments)
     
     activity_data = {
         "name": activity.name,
@@ -102,3 +86,45 @@ async def create_activity(activity: ActivityCreate, current_user: dict = Depends
         "id": str(activity_data["_id"]),
         **{k: v for k, v in activity_data.items() if k != "_id"}
     }
+
+@router.put("/{activity_id}")
+async def update_activity(activity_id: str, activity: ActivityCreate, current_user: dict = Depends(get_current_user)):
+    existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    if not existing_activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    
+    if current_user["role"] != "SUPER_ADMIN" and existing_activity["createdBy"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to edit this activity")
+    
+    target_departments = resolve_target_departments(current_user, activity.targetDepartments)
+    
+    update_data = {
+        "name": activity.name,
+        "description": activity.description,
+        "time": activity.time,
+        "location": activity.location,
+        "type": activity.type,
+        "image": activity.image,
+        "targetDepartments": target_departments,
+        "updatedAt": datetime.utcnow()
+    }
+    
+    await db.activities.update_one(
+        {"_id": ObjectId(activity_id)},
+        {"$set": update_data}
+    )
+    
+    return {"status": "success", "message": "Activity updated"}
+
+@router.delete("/{activity_id}")
+async def delete_activity(activity_id: str, current_user: dict = Depends(get_current_user)):
+    existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    if not existing_activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    
+    if current_user["role"] != "SUPER_ADMIN" and existing_activity["createdBy"] != current_user["_id"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to delete this activity")
+    
+    await db.activities.delete_one({"_id": ObjectId(activity_id)})
+    
+    return {"status": "success", "message": "Activity deleted"}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
 from datetime import datetime
 from bson import ObjectId
@@ -9,17 +9,21 @@ from app.models.feedback import FeedbackCreate, FeedbackReply
 router = APIRouter()
 
 @router.get("", response_model=List[dict])
-async def get_feedback(current_user: dict = Depends(get_current_user)):
+async def get_feedback(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user)
+):
     if current_user["role"] == "SUPER_ADMIN":
-        feedback_list = await db.feedback.find().sort("createdAt", -1).to_list(100)
+        feedback_list = await db.feedback.find().sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     elif current_user["role"].startswith("BCH_"):
         feedback_list = await db.feedback.find({
             "targetRecipients": current_user["_id"]
-        }).sort("createdAt", -1).to_list(100)
+        }).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     else:
         feedback_list = await db.feedback.find({
             "senderId": current_user["_id"]
-        }).sort("createdAt", -1).to_list(100)
+        }).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
     return [{
         "id": str(fb["_id"]),

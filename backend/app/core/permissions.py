@@ -1,0 +1,42 @@
+"""
+Centralized permission helpers to avoid code duplication across routers.
+"""
+
+
+def build_content_filter(user: dict) -> dict:
+    """
+    Build MongoDB query filter based on user role/department.
+    - SUPER_ADMIN & BCH_VANPHONG: see all content
+    - BCH regional & MEMBER: see content targeting their department or ALL
+    """
+    if user["role"] in ["SUPER_ADMIN", "BCH_VANPHONG"]:
+        return {}  # No filter, see everything
+    
+    return {
+        "$or": [
+            {"targetDepartments": user["department"]},
+            {"targetDepartments": "ALL"}
+        ]
+    }
+
+
+def resolve_target_departments(user: dict, requested_departments: list) -> list:
+    """
+    Resolve target departments based on user role.
+    - BCH_CUALO: always targets CUA_LO + VAN_PHONG_CANG
+    - BCH_BENTHUY: always targets BEN_THUY + VAN_PHONG_CANG
+    - BCH_VANPHONG/SUPER_ADMIN: uses requested or defaults to ALL
+    """
+    if user["role"] == "BCH_CUALO":
+        return ["CUA_LO", "VAN_PHONG_CANG"]
+    elif user["role"] == "BCH_BENTHUY":
+        return ["BEN_THUY", "VAN_PHONG_CANG"]
+    elif user["role"] in ["BCH_VANPHONG", "SUPER_ADMIN"] and not requested_departments:
+        return ["ALL"]
+    
+    return requested_departments
+
+
+def can_manage_content(user: dict) -> bool:
+    """Check if user can create/edit content (SUPER_ADMIN or BCH_*)."""
+    return user["role"] == "SUPER_ADMIN" or user["role"].startswith("BCH_")

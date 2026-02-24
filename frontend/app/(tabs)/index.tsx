@@ -11,9 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { useResponsive } from '../../hooks/useResponsive';
 import { format } from 'date-fns';
 import { Plus, Edit2, Trash2 } from 'lucide-react-native';
 import CreatePostModal from '../../components/CreatePostModal';
+import WebHoverCard from '../../components/WebHoverCard';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 
@@ -34,6 +37,8 @@ interface Post {
 
 export default function HomeScreen() {
   const { user, token } = useAuth();
+  const router = useRouter();
+  const { gridColumns, isDesktop } = useResponsive();
   const [posts, setPosts] = useState<Post[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -108,51 +113,85 @@ export default function HomeScreen() {
   };
 
   const renderPost = ({ item }: { item: Post }) => (
-    <View style={styles.postCard}>
-      {item.image && (
-        <Image source={{ uri: item.image }} style={styles.postImage} />
-      )}
-      <View style={styles.postContent}>
-        <View style={styles.postHeader}>
-          <View
-            style={[
-              styles.categoryBadge,
-              { backgroundColor: getCategoryColor(item.category) },
-            ]}
-          >
-            <Text style={styles.categoryText}>{item.category}</Text>
-          </View>
-          <Text style={styles.postDate}>
-            {format(new Date(item.createdAt), 'dd/MM/yyyy')}
-          </Text>
-        </View>
-        <Text style={styles.postTitle}>{item.title}</Text>
-        <Text style={styles.postSummary}>{item.summary}</Text>
-        <View style={styles.postFooter}>
-          <Text style={styles.postAuthor}>
-            {item.authorName} - {getDepartmentName(item.authorDepartment)}
-          </Text>
-        </View>
-        {canEditDelete(item) && (
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleEdit(item)}
-            >
-              <Edit2 color="#3b82f6" size={20} />
-              <Text style={styles.actionTextEdit}>Sửa</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDelete(item.id)}
-            >
-              <Trash2 color="#ef4444" size={20} />
-              <Text style={styles.actionTextDelete}>Xóa</Text>
-            </TouchableOpacity>
-          </View>
+    <TouchableOpacity
+      style={{ flex: 1 }}
+      activeOpacity={0.7}
+      onPress={() => {
+        router.push({
+          pathname: '/(tabs)/post-detail' as any,
+          params: {
+            title: item.title,
+            content: item.content,
+            summary: item.summary,
+            category: item.category,
+            authorName: item.authorName,
+            createdAt: item.createdAt,
+          },
+        });
+      }}
+    >
+      <WebHoverCard style={[styles.postCard, isDesktop && styles.postCardDesktop]}>
+        {item.image && (
+          <Image source={{ uri: item.image }} style={[styles.postImage, isDesktop && styles.postImageDesktop]} />
         )}
-      </View>
-    </View>
+        <View style={[styles.postContent, isDesktop && styles.postContentDesktop]}>
+          <View style={styles.postHeader}>
+            <View
+              style={[
+                styles.categoryBadge,
+                { backgroundColor: getCategoryColor(item.category) },
+              ]}
+            >
+              <Text style={styles.categoryText}>{item.category}</Text>
+            </View>
+            <Text style={styles.postDate}>
+              {format(new Date(item.createdAt), 'dd/MM/yyyy')}
+            </Text>
+          </View>
+          <Text style={[styles.postTitle, isDesktop && styles.postTitleDesktop]} numberOfLines={2}>{item.title}</Text>
+          <Text style={[styles.postSummary, isDesktop && { marginBottom: 4 }]} numberOfLines={isDesktop ? 1 : 3}>{item.summary}</Text>
+          <View style={[styles.postFooter, isDesktop && styles.postFooterDesktop]}>
+            <Text style={styles.postAuthor} numberOfLines={1}>
+              {item.authorName} - {getDepartmentName(item.authorDepartment)}
+            </Text>
+            {isDesktop && canEditDelete(item) && (
+              <View style={styles.actionsRowInline}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleEdit(item)}
+                >
+                  <Edit2 color="#3b82f6" size={16} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => handleDelete(item.id)}
+                >
+                  <Trash2 color="#ef4444" size={16} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {(!isDesktop) && canEditDelete(item) && (
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleEdit(item)}
+              >
+                <Edit2 color="#3b82f6" size={18} />
+                <Text style={styles.actionTextEdit}>Sửa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleDelete(item.id)}
+              >
+                <Trash2 color="#ef4444" size={18} />
+                <Text style={styles.actionTextDelete}>Xóa</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </WebHoverCard>
+    </TouchableOpacity>
   );
 
   const getDepartmentName = (dept: string) => {
@@ -183,7 +222,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
         <Text style={styles.headerTitle}>BẢNG TIN CÔNG ĐOÀN</Text>
         {canCreatePost && (
           <TouchableOpacity
@@ -198,7 +237,10 @@ export default function HomeScreen() {
         data={posts}
         renderItem={renderPost}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        key={gridColumns}
+        numColumns={gridColumns}
+        columnWrapperStyle={gridColumns > 1 ? { gap: 16 } : undefined}
+        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -239,6 +281,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  headerDesktop: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -266,9 +312,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   postCard: {
+    flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -276,13 +323,27 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: 'hidden',
   },
+  postCardDesktop: {
+    flexDirection: 'row',
+    height: 180,
+  },
   postImage: {
     width: '100%',
-    height: 200,
+    height: 160,
     backgroundColor: Colors.divider,
   },
+  postImageDesktop: {
+    width: 160,
+    height: 180,
+    resizeMode: 'cover',
+  },
   postContent: {
-    padding: 16,
+    padding: 14,
+  },
+  postContentDesktop: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'center',
   },
   postHeader: {
     flexDirection: 'row',
@@ -305,21 +366,33 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
   },
   postTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text.primary,
-    marginBottom: 8,
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  postTitleDesktop: {
+    fontSize: 15,
   },
   postSummary: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text.secondary,
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 19,
+    marginBottom: 10,
   },
   postFooter: {
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
-    paddingTop: 12,
+    paddingTop: 8,
+  },
+  postFooterDesktop: {
+    borderTopWidth: 0,
+    paddingTop: 0,
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   postAuthor: {
     fontSize: 13,
@@ -343,6 +416,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
     justifyContent: 'flex-end',
+  },
+  actionsRowInline: {
+    flexDirection: 'row',
+    gap: 8,
   },
   actionButton: {
     flexDirection: 'row',

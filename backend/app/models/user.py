@@ -14,3 +14,7 @@ class UserResponse(BaseModel):
     department: str
     avatar: Optional[str] = None
     status: str
+
+class ChangePassword(BaseModel):
+    currentPassword: str
+    newPassword: str

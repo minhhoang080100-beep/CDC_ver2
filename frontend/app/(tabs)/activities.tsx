@@ -10,8 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { Colors } from '../../constants/Colors';
+import { useResponsive } from '../../hooks/useResponsive';
 import { Calendar, MapPin, Users, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import CreateActivityModal from '../../components/CreateActivityModal';
+import WebHoverCard from '../../components/WebHoverCard';
 import { api } from '../../utils/api';
 
 interface Activity {
@@ -28,6 +31,7 @@ interface Activity {
 
 export default function ActivitiesScreen() {
   const { user, token } = useAuth();
+  const { gridColumns, isDesktop } = useResponsive();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -134,70 +138,72 @@ export default function ActivitiesScreen() {
   const renderActivity = ({ item }: { item: Activity }) => {
     const registered = isRegistered(item);
     return (
-      <View style={styles.activityCard}>
-        <View
-          style={[
-            styles.typeBadge,
-            { backgroundColor: getTypeColor(item.type) },
-          ]}
-        >
-          <Text style={styles.typeText}>{getTypeName(item.type)}</Text>
-        </View>
-        <Text style={styles.activityName}>{item.name}</Text>
-        <Text style={styles.activityDescription}>{item.description}</Text>
-
-        <View style={styles.infoRow}>
-          <Calendar color="#64748b" size={18} />
-          <Text style={styles.infoText}>{item.time}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <MapPin color="#64748b" size={18} />
-          <Text style={styles.infoText}>{item.location}</Text>
-        </View>
-
-        <View style={styles.infoRow}>
-          <Users color="#64748b" size={18} />
-          <Text style={styles.infoText}>
-            {item.registrations.length} người đăng ký
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.registerButton,
-            registered && styles.registeredButton,
-          ]}
-          onPress={() => handleRegister(item.id)}
-        >
-          <Text
+      <View style={{ flex: 1 }}>
+        <WebHoverCard style={styles.activityCard}>
+          <View
             style={[
-              styles.registerButtonText,
-              registered && styles.registeredButtonText,
+              styles.typeBadge,
+              { backgroundColor: getTypeColor(item.type) },
             ]}
           >
-            {registered ? 'Đã đăng ký' : 'Đăng ký ngay'}
-          </Text>
-        </TouchableOpacity>
-
-        {canEditDelete(item) && (
-          <View style={styles.actionsRow}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleEdit(item)}
-            >
-              <Edit2 color="#3b82f6" size={20} />
-              <Text style={styles.actionTextEdit}>Sửa</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleDelete(item.id)}
-            >
-              <Trash2 color="#ef4444" size={20} />
-              <Text style={styles.actionTextDelete}>Xóa</Text>
-            </TouchableOpacity>
+            <Text style={styles.typeText}>{getTypeName(item.type)}</Text>
           </View>
-        )}
+          <Text style={styles.activityName}>{item.name}</Text>
+          <Text style={styles.activityDescription}>{item.description}</Text>
+
+          <View style={styles.infoRow}>
+            <Calendar color="#64748b" size={18} />
+            <Text style={styles.infoText}>{item.time}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <MapPin color="#64748b" size={18} />
+            <Text style={styles.infoText}>{item.location}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Users color="#64748b" size={18} />
+            <Text style={styles.infoText}>
+              {item.registrations.length} người đăng ký
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.registerButton,
+              registered && styles.registeredButton,
+            ]}
+            onPress={() => handleRegister(item.id)}
+          >
+            <Text
+              style={[
+                styles.registerButtonText,
+                registered && styles.registeredButtonText,
+              ]}
+            >
+              {registered ? 'Đã đăng ký' : 'Đăng ký ngay'}
+            </Text>
+          </TouchableOpacity>
+
+          {canEditDelete(item) && (
+            <View style={styles.actionsRow}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleEdit(item)}
+              >
+                <Edit2 color="#3b82f6" size={20} />
+                <Text style={styles.actionTextEdit}>Sửa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleDelete(item.id)}
+              >
+                <Trash2 color="#ef4444" size={20} />
+                <Text style={styles.actionTextDelete}>Xóa</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </WebHoverCard>
       </View>
     );
   };
@@ -217,7 +223,7 @@ export default function ActivitiesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
         <Text style={styles.headerTitle}>HOẠT ĐỘNG CÔNG ĐOÀN</Text>
         {canCreateActivity && (
           <TouchableOpacity
@@ -232,7 +238,10 @@ export default function ActivitiesScreen() {
         data={activities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
+        key={gridColumns}
+        numColumns={gridColumns}
+        columnWrapperStyle={gridColumns > 1 ? { gap: 16 } : undefined}
+        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -263,29 +272,33 @@ export default function ActivitiesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1e3a8a',
+    backgroundColor: Colors.header.background,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: Colors.header.text,
     letterSpacing: 1,
   },
   addButton: {
     width: 40,
     height: 40,
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerDesktop: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -294,16 +307,17 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#64748b',
+    color: Colors.text.secondary,
   },
   listContent: {
     padding: 16,
   },
   activityCard: {
-    backgroundColor: '#ffffff',
+    flex: 1,
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -320,12 +334,12 @@ const styles = StyleSheet.create({
   typeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: Colors.text.light,
   },
   activityName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: Colors.text.primary,
     marginBottom: 8,
   },
   activityDescription: {
@@ -341,26 +355,26 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: '#64748b',
+    color: Colors.text.secondary,
     marginLeft: 8,
   },
   registerButton: {
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 12,
   },
   registeredButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: Colors.status.success,
   },
   registerButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: Colors.text.light,
   },
   registeredButtonText: {
-    color: '#ffffff',
+    color: Colors.text.light,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -369,7 +383,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: Colors.text.placeholder,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -377,7 +391,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: Colors.divider,
     justifyContent: 'flex-end',
   },
   actionButton: {
@@ -390,12 +404,12 @@ const styles = StyleSheet.create({
   },
   actionTextEdit: {
     fontSize: 14,
-    color: '#3b82f6',
+    color: Colors.status.info,
     fontWeight: '600',
   },
   actionTextDelete: {
     fontSize: 14,
-    color: '#ef4444',
+    color: Colors.status.error,
     fontWeight: '600',
   },
 });

@@ -12,12 +12,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Send, MessageCircle, ChevronRight } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { api } from '../../utils/api';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface Feedback {
   id: string;
@@ -37,12 +40,14 @@ interface Feedback {
 
 export default function FeedbackScreen() {
   const { user, token } = useAuth();
+  const { isDesktop } = useResponsive();
   const [activeTab, setActiveTab] = useState<'send' | 'view'>('send');
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
@@ -54,13 +59,17 @@ export default function FeedbackScreen() {
   }, [activeTab]);
 
   const fetchFeedback = async () => {
+    setListLoading(true);
     try {
       const response = await api.get('/api/feedback', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFeedbackList(response.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching feedback:', error);
+      Alert.alert('Lỗi', error.detail || 'Không thể tải phản hồi');
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -86,9 +95,9 @@ export default function FeedbackScreen() {
       setSubject('');
       setContent('');
       setIsAnonymous(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      Alert.alert('Lỗi', 'Không thể gửi phản hồi');
+      Alert.alert('Lỗi', error.detail || 'Không thể gửi phản hồi');
     } finally {
       setLoading(false);
     }
@@ -172,7 +181,7 @@ export default function FeedbackScreen() {
         <Text style={styles.headerTitle}>PHẢN HỒI</Text>
       </View>
 
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, isDesktop && { maxWidth: 800, alignSelf: 'center' as any, width: '100%' as any }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'send' && styles.activeTab]}
           onPress={() => setActiveTab('send')}
@@ -257,7 +266,7 @@ export default function FeedbackScreen() {
       {/* Feedback Detail Modal */}
       <Modal
         visible={modalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
@@ -343,27 +352,34 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 4,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 8,
   },
   tab: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: 8,
   },
   activeTab: {
-    borderBottomColor: '#0891b2',
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#64748b',
   },
   activeTabText: {
-    color: '#0891b2',
+    color: '#0f172a',
   },
   formContainer: {
     flex: 1,
@@ -505,13 +521,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 600,
     maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',

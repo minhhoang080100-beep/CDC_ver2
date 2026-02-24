@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 class DocumentCreate(BaseModel):
     title: str
     category: str
     fileSize: str
+    fileUrl: Optional[str] = None
     targetDepartments: List[str] = []
 
 class DocumentResponse(BaseModel):
@@ -13,6 +14,7 @@ class DocumentResponse(BaseModel):
     title: str
     category: str
     fileSize: str
+    fileUrl: Optional[str] = None
     uploadedBy: str
     targetDepartments: List[str] = []
     createdAt: datetime

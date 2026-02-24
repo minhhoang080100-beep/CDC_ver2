@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../utils/api';
+import { api, setTokenExpiredCallback } from '../utils/api';
 
 interface User {
   id: string;
@@ -73,23 +73,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     console.log('🔴 LOGOUT: Starting logout process...');
     try {
-      // Step 1: Clear state immediately
-      console.log('🔴 LOGOUT: Clearing state...');
       setUser(null);
       setToken(null);
-
-      // Step 2: Clear AsyncStorage
-      console.log('🔴 LOGOUT: Clearing AsyncStorage...');
       await AsyncStorage.clear();
-
       console.log('🔴 LOGOUT: Logout completed successfully');
     } catch (error) {
       console.error('🔴 LOGOUT ERROR:', error);
-      // Force clear state even on error
       setUser(null);
       setToken(null);
     }
   };
+
+  // Register token expiry callback
+  useEffect(() => {
+    setTokenExpiredCallback(() => {
+      console.log('🔴 Token expired - auto logout');
+      logout();
+    });
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>

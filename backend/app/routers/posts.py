@@ -1,32 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
 from datetime import datetime
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
+from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.post import PostCreate
 
 router = APIRouter()
 
 @router.get("", response_model=List[dict])
-async def get_posts(current_user: dict = Depends(get_current_user)):
-    # Permission logic
-    if current_user["role"] in ["SUPER_ADMIN", "BCH_VANPHONG"]:
-        posts = await db.posts.find().sort("createdAt", -1).to_list(100)
-    elif current_user["role"].startswith("BCH_"):
-        posts = await db.posts.find({
-            "$or": [
-                {"targetDepartments": current_user["department"]},
-                {"targetDepartments": "ALL"}
-            ]
-        }).sort("createdAt", -1).to_list(100)
-    else:
-        posts = await db.posts.find({
-            "$or": [
-                {"targetDepartments": current_user["department"]},
-                {"targetDepartments": "ALL"}
-            ]
-        }).sort("createdAt", -1).to_list(100)
+async def get_posts(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: dict = Depends(get_current_user)
+):
+    content_filter = build_content_filter(current_user)
+    posts = await db.posts.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
     return [{
         "id": str(post["_id"]),
@@ -45,17 +35,10 @@ async def get_posts(current_user: dict = Depends(get_current_user)):
 
 @router.post("")
 async def create_post(post: PostCreate, current_user: dict = Depends(get_current_user)):
-    if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
+    if not can_manage_content(current_user):
         raise HTTPException(status_code=403, detail="You don't have permission to create posts")
     
-    target_departments = post.targetDepartments
-    
-    if current_user["role"] == "BCH_CUALO":
-        target_departments = ["CUA_LO", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_BENTHUY":
-        target_departments = ["BEN_THUY", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_VANPHONG" and not target_departments:
-        target_departments = ["ALL"]
+    target_departments = resolve_target_departments(current_user, post.targetDepartments)
     
     post_data = {
         "title": post.title,
@@ -88,13 +71,7 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
     if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this post")
     
-    target_departments = post.targetDepartments
-    if current_user["role"] == "BCH_CUALO":
-        target_departments = ["CUA_LO", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_BENTHUY":
-        target_departments = ["BEN_THUY", "VAN_PHONG_CANG"]
-    elif current_user["role"] == "BCH_VANPHONG" and not target_departments:
-        target_departments = ["ALL"]
+    target_departments = resolve_target_departments(current_user, post.targetDepartments)
     
     update_data = {
         "title": post.title,

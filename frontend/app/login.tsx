@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
+import { useResponsive } from '../hooks/useResponsive';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -21,6 +22,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const { isDesktop } = useResponsive();
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -44,53 +46,55 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>CÔNG ĐOÀN</Text>
-          <Text style={styles.subtitle}>CẢNG NGHỆ TĨNH</Text>
-          <View style={styles.divider} />
-        </View>
+      <ScrollView contentContainerStyle={[styles.scrollContent, isDesktop && { alignItems: 'center' as any }]}>
+        <View style={isDesktop ? { width: '100%', maxWidth: 440 } as any : undefined}>
+          <View style={styles.header}>
+            <Text style={styles.title}>CÔNG ĐOÀN</Text>
+            <Text style={styles.subtitle}>CẢNG NGHỆ TĨNH</Text>
+            <View style={styles.divider} />
+          </View>
 
-        <View style={styles.form}>
-          <Text style={styles.label}>Tên đăng nhập</Text>
-          <TextInput
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Nhập tên đăng nhập"
-            placeholderTextColor="#94a3b8"
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
+          <View style={styles.form}>
+            <Text style={styles.label}>Tên đăng nhập</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Nhập tên đăng nhập"
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="none"
+              editable={!isLoading}
+            />
 
-          <Text style={styles.label}>Mật khẩu</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Nhập mật khẩu"
-            placeholderTextColor="#94a3b8"
-            secureTextEntry
-            editable={!isLoading}
-          />
+            <Text style={styles.label}>Mật khẩu</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Nhập mật khẩu"
+              placeholderTextColor="#94a3b8"
+              secureTextEntry
+              editable={!isLoading}
+            />
 
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.buttonText}>ĐĂNG NHẬP</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.buttonText}>ĐĂNG NHẬP</Text>
+              )}
+            </TouchableOpacity>
 
-          <View style={styles.demoInfo}>
-            <Text style={styles.demoTitle}>Tài khoản demo:</Text>
-            <Text style={styles.demoText}>• superadmin / Admin@123</Text>
-            <Text style={styles.demoText}>• bch_vanphong / VanPhong@123</Text>
-            <Text style={styles.demoText}>• tv_cualo / Member@123</Text>
+            <View style={styles.demoInfo}>
+              <Text style={styles.demoTitle}>Tài khoản demo:</Text>
+              <Text style={styles.demoText}>• superadmin / Admin@123</Text>
+              <Text style={styles.demoText}>• bch_vanphong / VanPhong@123</Text>
+              <Text style={styles.demoText}>• tv_cualo / Member@123</Text>
+            </View>
           </View>
         </View>
       </ScrollView>

@@ -18,6 +18,7 @@ interface Document {
   title: string;
   category: string;
   fileSize: string;
+  fileUrl?: string;
   targetDepartments: string[];
 }
 
@@ -33,6 +34,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Nội quy');
   const [fileSize, setFileSize] = useState('');
+  const [fileUrl, setFileUrl] = useState('');
   const [selectedDepts, setSelectedDepts] = useState<string[]>(['ALL']);
   const [loading, setLoading] = useState(false);
 
@@ -42,9 +44,16 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
       setTitle(editDocument.title);
       setCategory(editDocument.category);
       setFileSize(editDocument.fileSize);
+      setFileUrl(editDocument.fileUrl || '');
       setSelectedDepts(editDocument.targetDepartments || ['ALL']);
-    } else {
-      handleReset();
+    } else if (visible) {
+      // Reset form fields without closing the modal
+      setTitle('');
+      setCategory('Nội quy');
+      setFileSize('');
+      setFileUrl('');
+      setSelectedDepts(['ALL']);
+      setLoading(false);
     }
   }, [editDocument, visible]);
 
@@ -86,6 +95,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
         title,
         category,
         fileSize: fileSize || '1.0 MB',
+        fileUrl: fileUrl || null,
         targetDepartments: selectedDepts,
       };
 
@@ -126,13 +136,14 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
     setTitle('');
     setCategory('Nội quy');
     setFileSize('');
+    setFileUrl('');
     setSelectedDepts(['ALL']);
     setLoading(false);
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={styles.modalContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -189,6 +200,17 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
               placeholderTextColor="#94a3b8"
             />
 
+            <Text style={styles.label}>Link tài liệu (URL)</Text>
+            <TextInput
+              style={styles.input}
+              value={fileUrl}
+              onChangeText={setFileUrl}
+              placeholder="VD: https://drive.google.com/..."
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+
             {canSelectDepts && (
               <>
                 <Text style={styles.label}>Bộ phận được xem</Text>
@@ -240,13 +262,17 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 600,
     maxHeight: '90%',
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
