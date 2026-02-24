@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -49,6 +50,10 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, isDesktop && { alignItems: 'center' as any }]}>
         <View style={isDesktop ? { width: '100%', maxWidth: 440 } as any : undefined}>
           <View style={styles.header}>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logo}
+            />
             <Text style={styles.title}>CÔNG ĐOÀN</Text>
             <Text style={styles.subtitle}>CẢNG NGHỆ TĨNH</Text>
             <View style={styles.divider} />
@@ -115,6 +120,12 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 48,
+  },
+  logo: {
+    width: 200,
+    height: 100,
+    marginBottom: 12,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 32,

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
@@ -65,8 +65,11 @@ function DesktopSidebar({ width }: Props) {
         <View style={[styles.sidebar, { width }]}>
             {/* Logo / Brand */}
             <View style={styles.brand}>
-                <View style={styles.logoContainer}>
-                    <Shield color="#ffffff" size={28} />
+                <View style={[styles.logoContainer, { backgroundColor: 'transparent' }]}>
+                    <Image
+                        source={require('../assets/images/logo.png')}
+                        style={{ width: 40, height: 40, resizeMode: 'contain' }}
+                    />
                 </View>
                 <View style={styles.brandText}>
                     <Text style={styles.brandTitle}>Công Đoàn</Text>
