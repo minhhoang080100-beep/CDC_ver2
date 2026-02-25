@@ -14,9 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Users, Plus, Edit2, Trash2, Shield, Search, Filter, Lock, Unplug, Download, Upload } from 'lucide-react-native';
+import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2 } from 'lucide-react-native';
 import WebHoverCard from '../../components/WebHoverCard';
 import UserModal from '../../components/UserModal';
+import FeedbackManagement from '../../components/admin/FeedbackManagement';
+import AnalyticsDashboard from '../../components/admin/AnalyticsDashboard';
 import { api } from '../../utils/api';
 
 interface User {
@@ -37,6 +39,7 @@ export default function AdminScreen() {
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [activeTab, setActiveTab] = useState<'users' | 'feedbacks' | 'analytics'>('users');
 
     // Search & Filter Stats
     const [searchText, setSearchText] = useState('');
@@ -332,139 +335,180 @@ export default function AdminScreen() {
                     </View>
                 </View>
                 <View style={styles.headerActions}>
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                        onPress={handleExportCSV}
-                    >
-                        <Download color={Colors.text.primary} size={20} />
-                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                        onPress={handleImportCSV}
-                    >
-                        <Upload color={Colors.text.primary} size={20} />
-                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={() => {
-                            setEditingUser(null);
-                            setModalVisible(true);
-                        }}
-                    >
-                        <Plus color="#ffffff" size={20} />
-                        {isDesktop && <Text style={styles.addButtonText}>Thêm</Text>}
-                    </TouchableOpacity>
+                    {activeTab === 'users' && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                                onPress={handleExportCSV}
+                            >
+                                <Download color={Colors.text.primary} size={20} />
+                                {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                                onPress={handleImportCSV}
+                            >
+                                <Upload color={Colors.text.primary} size={20} />
+                                {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.addButton}
+                                onPress={() => {
+                                    setEditingUser(null);
+                                    setModalVisible(true);
+                                }}
+                            >
+                                <Plus color="#ffffff" size={20} />
+                                {isDesktop && <Text style={styles.addButtonText}>Thêm</Text>}
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             </View>
 
-            <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+            {/* Tabs */}
+            <View style={[styles.tabContainer, isDesktop && styles.tabContainerDesktop]}>
+                <TouchableOpacity
+                    style={[styles.tabItem, activeTab === 'users' && styles.tabItemActive]}
+                    onPress={() => setActiveTab('users')}
+                >
+                    <Users color={activeTab === 'users' ? Colors.primary : Colors.text.secondary} size={20} />
+                    <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>Tài khoản</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tabItem, activeTab === 'feedbacks' && styles.tabItemActive]}
+                    onPress={() => setActiveTab('feedbacks')}
+                >
+                    <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
+                    <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Phản hồi khiếu nại</Text>
+                </TouchableOpacity>
+            </View>
 
-                {/* Dashboard Stats */}
-                <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
-                    <View style={styles.statCard}>
-                        <Users color={Colors.primary} size={24} />
-                        <View style={styles.statInfo}>
-                            <Text style={styles.statValue}>{totalUsers}</Text>
-                            <Text style={styles.statLabel}>Tổng số</Text>
+            {activeTab === 'users' ? (
+                <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+
+                    {/* Dashboard Stats */}
+                    <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
+                        <View style={styles.statCard}>
+                            <Users color={Colors.primary} size={24} />
+                            <View style={styles.statInfo}>
+                                <Text style={styles.statValue}>{totalUsers}</Text>
+                                <Text style={styles.statLabel}>Tổng số</Text>
+                            </View>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Shield color={Colors.status.success} size={24} />
+                            <View style={styles.statInfo}>
+                                <Text style={styles.statValue}>{activeUsers}</Text>
+                                <Text style={styles.statLabel}>Hoạt động</Text>
+                            </View>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Unplug color={Colors.status.error} size={24} />
+                            <View style={styles.statInfo}>
+                                <Text style={styles.statValue}>{lockedUsers}</Text>
+                                <Text style={styles.statLabel}>Bị khóa</Text>
+                            </View>
                         </View>
                     </View>
-                    <View style={styles.statCard}>
-                        <Shield color={Colors.status.success} size={24} />
-                        <View style={styles.statInfo}>
-                            <Text style={styles.statValue}>{activeUsers}</Text>
-                            <Text style={styles.statLabel}>Hoạt động</Text>
+
+                    {/* Search & Filter Bar */}
+                    <View style={styles.filterBar}>
+                        <View style={styles.searchContainer}>
+                            <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Tìm kiếm tài khoản (Tên, Mã ĐV, Username)..."
+                                value={searchText}
+                                onChangeText={setSearchText}
+                            />
                         </View>
                     </View>
-                    <View style={styles.statCard}>
-                        <Unplug color={Colors.status.error} size={24} />
-                        <View style={styles.statInfo}>
-                            <Text style={styles.statValue}>{lockedUsers}</Text>
-                            <Text style={styles.statLabel}>Bị khóa</Text>
+
+                    {isDesktop ? (
+                        <View style={styles.tableContainer}>
+                            {/* Table Header */}
+                            <View style={styles.tableHeader}>
+                                <Text style={[styles.tableHeaderText, { flex: 2 }]}>Nhân sự</Text>
+                                <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Vai trò</Text>
+                                <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Phòng ban</Text>
+                                <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Trạng thái</Text>
+                                <Text style={[styles.tableHeaderText, { width: 120, textAlign: 'center' }]}>Thao tác</Text>
+                            </View>
+
+                            {/* Table Body */}
+                            <FlatList
+                                data={users}
+                                renderItem={({ item }) => (
+                                    <View style={styles.tableRow}>
+                                        <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
+                                            <Text style={styles.userName}>{item.fullName}</Text>
+                                            <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
+                                        </View>
+                                        <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
+                                            <View style={styles.roleBadge}>
+                                                <Text style={styles.roleText}>{getRoleName(item.role)}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
+                                            <View style={styles.deptBadge}>
+                                                <Text style={styles.deptText}>{getDeptName(item.department)}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
+                                            <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
+                                                <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={[styles.tableCell, { width: 120, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}>
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
+                                                onPress={() => {
+                                                    setEditingUser(item);
+                                                    setModalVisible(true);
+                                                }}
+                                            >
+                                                <Edit2 color={Colors.primary} size={16} />
+                                            </TouchableOpacity>
+                                            {item.id !== user?.id && (
+                                                <TouchableOpacity
+                                                    style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6 }]}
+                                                    onPress={() => handleResetPassword(item.id, item.username)}
+                                                >
+                                                    <Lock color="#f59e0b" size={16} />
+                                                </TouchableOpacity>
+                                            )}
+                                            {item.id !== user?.id && (
+                                                <TouchableOpacity
+                                                    style={[styles.actionBtn, styles.deleteBtn, { padding: 6 }]}
+                                                    onPress={() => handleDelete(item.id)}
+                                                >
+                                                    <Trash2 color={Colors.status.error} size={16} />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    </View>
+                                )}
+                                keyExtractor={(item) => item.id}
+                                contentContainerStyle={{ paddingBottom: 20 }}
+                                refreshControl={
+                                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                                }
+                                ListEmptyComponent={
+                                    !loading ? (
+                                        <View style={styles.emptyContainer}>
+                                            <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
+                                        </View>
+                                    ) : null
+                                }
+                            />
                         </View>
-                    </View>
-                </View>
-
-                {/* Search & Filter Bar */}
-                <View style={styles.filterBar}>
-                    <View style={styles.searchContainer}>
-                        <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="Tìm kiếm tài khoản (Tên, Mã ĐV, Username)..."
-                            value={searchText}
-                            onChangeText={setSearchText}
-                        />
-                    </View>
-                </View>
-
-                {isDesktop ? (
-                    <View style={styles.tableContainer}>
-                        {/* Table Header */}
-                        <View style={styles.tableHeader}>
-                            <Text style={[styles.tableHeaderText, { flex: 2 }]}>Nhân sự</Text>
-                            <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Vai trò</Text>
-                            <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Phòng ban</Text>
-                            <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Trạng thái</Text>
-                            <Text style={[styles.tableHeaderText, { width: 120, textAlign: 'center' }]}>Thao tác</Text>
-                        </View>
-
-                        {/* Table Body */}
+                    ) : (
                         <FlatList
                             data={users}
-                            renderItem={({ item }) => (
-                                <View style={styles.tableRow}>
-                                    <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
-                                        <Text style={styles.userName}>{item.fullName}</Text>
-                                        <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
-                                    </View>
-                                    <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
-                                        <View style={styles.roleBadge}>
-                                            <Text style={styles.roleText}>{getRoleName(item.role)}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
-                                        <View style={styles.deptBadge}>
-                                            <Text style={styles.deptText}>{getDeptName(item.department)}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
-                                        <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
-                                            <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.tableCell, { width: 120, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}>
-                                        <TouchableOpacity
-                                            style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
-                                            onPress={() => {
-                                                setEditingUser(item);
-                                                setModalVisible(true);
-                                            }}
-                                        >
-                                            <Edit2 color={Colors.primary} size={16} />
-                                        </TouchableOpacity>
-                                        {item.id !== user?.id && (
-                                            <TouchableOpacity
-                                                style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6 }]}
-                                                onPress={() => handleResetPassword(item.id, item.username)}
-                                            >
-                                                <Lock color="#f59e0b" size={16} />
-                                            </TouchableOpacity>
-                                        )}
-                                        {item.id !== user?.id && (
-                                            <TouchableOpacity
-                                                style={[styles.actionBtn, styles.deleteBtn, { padding: 6 }]}
-                                                onPress={() => handleDelete(item.id)}
-                                            >
-                                                <Trash2 color={Colors.status.error} size={16} />
-                                            </TouchableOpacity>
-                                        )}
-                                    </View>
-                                </View>
-                            )}
+                            renderItem={renderUser}
                             keyExtractor={(item) => item.id}
-                            contentContainerStyle={{ paddingBottom: 20 }}
+                            contentContainerStyle={styles.listContent}
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                             }
@@ -476,26 +520,13 @@ export default function AdminScreen() {
                                 ) : null
                             }
                         />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={users}
-                        renderItem={renderUser}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                        }
-                        ListEmptyComponent={
-                            !loading ? (
-                                <View style={styles.emptyContainer}>
-                                    <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
-                                </View>
-                            ) : null
-                        }
-                    />
-                )}
-            </View>
+                    )}
+                </View>
+            ) : activeTab === 'feedbacks' ? (
+                <FeedbackManagement />
+            ) : (
+                <AnalyticsDashboard />
+            )}
 
             <UserModal
                 visible={modalVisible}
@@ -580,8 +611,43 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
     },
+    tabContainer: {
+        flexDirection: 'row',
+        backgroundColor: Colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+        paddingHorizontal: 20,
+    },
+    tabContainerDesktop: {
+        marginHorizontal: 'auto',
+        width: '100%',
+        maxWidth: 800,
+        backgroundColor: 'transparent',
+        paddingHorizontal: 0,
+    },
+    tabItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        marginRight: 24,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
+        gap: 8,
+    },
+    tabItemActive: {
+        borderBottomColor: Colors.primary,
+    },
+    tabText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: Colors.text.secondary,
+    },
+    tabTextActive: {
+        color: Colors.primary,
+    },
     content: {
         flex: 1,
+        padding: 16,
     },
     contentDesktop: {
         maxWidth: 1000,

@@ -12,8 +12,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Calendar, MapPin, Users, Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode } from 'lucide-react-native';
 import CreateActivityModal from '../../components/CreateActivityModal';
+import QRScannerModal from '../../components/QRScannerModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { api } from '../../utils/api';
 
@@ -27,6 +28,7 @@ interface Activity {
   createdBy: string;
   targetDepartments: string[];
   registrations: Array<{ userId: string; userName: string }>;
+  attendances?: Array<{ userId: string; userName: string; checkedInAt: string }>;
 }
 
 export default function ActivitiesScreen() {
@@ -37,6 +39,8 @@ export default function ActivitiesScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [scannerActivityId, setScannerActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchActivities();
@@ -164,26 +168,41 @@ export default function ActivitiesScreen() {
           <View style={styles.infoRow}>
             <Users color="#64748b" size={18} />
             <Text style={styles.infoText}>
-              {item.registrations.length} người đăng ký
+              {item.registrations.length} đăng ký • {item.attendances?.length || 0} có mặt
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.registerButton,
-              registered && styles.registeredButton,
-            ]}
-            onPress={() => handleRegister(item.id)}
-          >
-            <Text
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
               style={[
-                styles.registerButtonText,
-                registered && styles.registeredButtonText,
+                styles.registerButton,
+                registered && styles.registeredButton,
+                { flex: 1 }
               ]}
+              onPress={() => handleRegister(item.id)}
             >
-              {registered ? 'Đã đăng ký' : 'Đăng ký ngay'}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.registerButtonText,
+                  registered && styles.registeredButtonText,
+                ]}
+              >
+                {registered ? 'Đã đăng ký' : 'Đăng ký ngay'}
+              </Text>
+            </TouchableOpacity>
+
+            {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+              <TouchableOpacity
+                style={styles.scanButton}
+                onPress={() => {
+                  setScannerActivityId(item.id);
+                  setScannerVisible(true);
+                }}
+              >
+                <QrCode color="#ffffff" size={20} />
+              </TouchableOpacity>
+            )}
+          </View>
 
           {canEditDelete(item) && (
             <View style={styles.actionsRow}>
@@ -264,6 +283,15 @@ export default function ActivitiesScreen() {
         }}
         onSuccess={handleCreateSuccess}
         editActivity={editingActivity}
+      />
+
+      <QRScannerModal
+        visible={scannerVisible}
+        activityId={scannerActivityId}
+        onClose={() => setScannerVisible(false)}
+        onSuccess={(msg) => {
+          fetchActivities();
+        }}
       />
     </SafeAreaView>
   );
@@ -411,5 +439,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.status.error,
     fontWeight: '600',
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  scanButton: {
+    backgroundColor: Colors.primary,
+    width: 44,
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
   },
 });

@@ -6,9 +6,11 @@ import { Home, Calendar, BookOpen, IdCard, Settings } from 'lucide-react-native'
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import DesktopSidebar from '../../components/DesktopSidebar';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
 
 export default function TabsLayout() {
   const { isDesktop, sidebarWidth } = useResponsive();
+  usePushNotifications(); // Registers token in the background
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>

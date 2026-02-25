@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    TextInput,
+    Alert,
+    Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { ArrowLeft, Calendar, User, Tag } from 'lucide-react-native';
+import { useAuth } from '../../contexts/AuthContext';
+import { api } from '../../utils/api';
+import { ArrowLeft, Calendar, User, Tag, Heart, MessageCircle, Send } from 'lucide-react-native';
 
 export default function PostDetailScreen() {
     const router = useRouter();
@@ -23,6 +28,55 @@ export default function PostDetailScreen() {
     const category = params.category as string || '';
     const authorName = params.authorName as string || 'Không rõ';
     const createdAt = params.createdAt as string || '';
+    const postId = params.id as string;
+
+    const { token, user } = useAuth();
+    const [likes, setLikes] = useState<string[]>([]);
+    const [comments, setComments] = useState<any[]>([]);
+    const [commentText, setCommentText] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    React.useEffect(() => {
+        try {
+            if (params.likes) setLikes(JSON.parse(params.likes as string));
+            if (params.comments) setComments(JSON.parse(params.comments as string));
+        } catch (e) {
+            console.error('Error parsing likes/comments', e);
+        }
+    }, [params.likes, params.comments]);
+
+    const handleToggleLike = async () => {
+        if (!postId) return;
+        try {
+            const res = await api.post(`/api/posts/${postId}/like`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setLikes(res.data.likes);
+        } catch (error) {
+            console.error('Lỗi khi like:', error);
+        }
+    };
+
+    const handleAddComment = async () => {
+        if (!commentText.trim() || !postId) return;
+        setIsSubmitting(true);
+        try {
+            const res = await api.post(`/api/posts/${postId}/comments`, { content: commentText.trim() }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setComments([...comments, res.data.comment]);
+            setCommentText('');
+        } catch (error) {
+            console.error('Lỗi khi bình luận:', error);
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                window.alert('Không thể gửi bình luận');
+            } else {
+                Alert.alert('Lỗi', 'Không thể gửi bình luận');
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
@@ -100,6 +154,62 @@ export default function PostDetailScreen() {
 
                 {/* Content */}
                 <Text style={styles.content}>{content}</Text>
+
+                {/* Interactions */}
+                <View style={styles.interactionBar}>
+                    <TouchableOpacity style={styles.interactionBtn} onPress={handleToggleLike}>
+                        <Heart
+                            size={20}
+                            color={likes.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary}
+                            fill={likes.includes(user?.id || '') ? Colors.status.error : 'transparent'}
+                        />
+                        <Text style={[styles.interactionText, { color: likes.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary }]}>
+                            {likes.length} Thích
+                        </Text>
+                    </TouchableOpacity>
+                    <View style={styles.interactionBtn}>
+                        <MessageCircle size={20} color={Colors.text.secondary} />
+                        <Text style={styles.interactionText}>{comments.length} Bình luận</Text>
+                    </View>
+                </View>
+
+                {/* Comments Section */}
+                <View style={styles.commentsSection}>
+                    <Text style={styles.commentsHeader}>Bình luận</Text>
+                    {comments.map((cmt: any, idx: number) => (
+                        <View key={idx} style={styles.commentBox}>
+                            <View style={styles.commentAvatar}>
+                                <User size={16} color="#64748b" />
+                            </View>
+                            <View style={styles.commentContent}>
+                                <View style={styles.commentAuthorRow}>
+                                    <Text style={styles.commentAuthor}>{cmt.userName}</Text>
+                                    <Text style={styles.commentTime}>{formatDate(cmt.createdAt)}</Text>
+                                </View>
+                                <Text style={styles.commentText}>{cmt.content}</Text>
+                            </View>
+                        </View>
+                    ))}
+
+                    <View style={styles.commentInputContainer}>
+                        <TextInput
+                            style={styles.commentInput}
+                            placeholder="Viết bình luận..."
+                            placeholderTextColor={Colors.text.placeholder}
+                            value={commentText}
+                            onChangeText={setCommentText}
+                            multiline
+                            maxLength={500}
+                        />
+                        <TouchableOpacity
+                            style={[styles.sendButton, !commentText.trim() && { opacity: 0.5 }]}
+                            onPress={handleAddComment}
+                            disabled={!commentText.trim() || isSubmitting}
+                        >
+                            <Send size={18} color="#ffffff" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -202,6 +312,98 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: Colors.text.primary,
         lineHeight: 26,
+        marginBottom: 20,
+    },
+    interactionBar: {
+        flexDirection: 'row',
+        borderTopWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: Colors.divider,
+        paddingVertical: 12,
+        marginBottom: 24,
+        gap: 24,
+    },
+    interactionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    interactionText: {
+        fontSize: 15,
+        fontWeight: '500',
+    },
+    commentsSection: {
         marginBottom: 40,
+    },
+    commentsHeader: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+        marginBottom: 16,
+    },
+    commentBox: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 16,
+    },
+    commentAvatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#e2e8f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    commentContent: {
+        flex: 1,
+        backgroundColor: '#f1f5f9',
+        padding: 12,
+        borderRadius: 12,
+        borderTopLeftRadius: 4,
+    },
+    commentAuthorRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    commentAuthor: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+    },
+    commentTime: {
+        fontSize: 11,
+        color: Colors.text.secondary,
+    },
+    commentText: {
+        fontSize: 14,
+        color: Colors.text.primary,
+        lineHeight: 20,
+    },
+    commentInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: 12,
+        marginTop: 8,
+    },
+    commentInput: {
+        flex: 1,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        borderRadius: 20,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        paddingBottom: 10,
+        minHeight: 40,
+        maxHeight: 120,
+        backgroundColor: '#fff',
+    },
+    sendButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });

@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
 import { format } from 'date-fns';
-import { Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Heart, MessageCircle } from 'lucide-react-native';
 import CreatePostModal from '../../components/CreatePostModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { Colors } from '../../constants/Colors';
@@ -31,6 +31,8 @@ interface Post {
   authorName: string;
   authorDepartment: string;
   targetDepartments: string[];
+  likes?: string[];
+  comments?: any[];
   createdAt: string;
   updatedAt: string;
 }
@@ -126,6 +128,10 @@ export default function HomeScreen() {
             category: item.category,
             authorName: item.authorName,
             createdAt: item.createdAt,
+            image: item.image,
+            id: item.id,
+            likes: item.likes ? JSON.stringify(item.likes) : '[]',
+            comments: item.comments ? JSON.stringify(item.comments) : '[]',
           },
         });
       }}
@@ -154,6 +160,18 @@ export default function HomeScreen() {
             <Text style={styles.postAuthor} numberOfLines={1}>
               {item.authorName} - {getDepartmentName(item.authorDepartment)}
             </Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Heart size={16} color={item.likes?.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary} fill={item.likes?.includes(user?.id || '') ? Colors.status.error : 'transparent'} />
+                <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.likes?.length || 0}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MessageCircle size={16} color={Colors.text.secondary} />
+                <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.comments?.length || 0}</Text>
+              </View>
+            </View>
+
             {isDesktop && canEditDelete(item) && (
               <View style={styles.actionsRowInline}>
                 <TouchableOpacity
