@@ -12,6 +12,7 @@ import {
     MessageSquare,
     LogOut,
     Shield,
+    Users,
 } from 'lucide-react-native';
 
 interface MenuItem {
@@ -29,6 +30,8 @@ const MENU_ITEMS: MenuItem[] = [
     { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Phản hồi' },
     { name: 'settings', path: '/(tabs)/settings', icon: Settings, label: 'Cài đặt' },
 ];
+
+const ADMIN_MENU_ITEM: MenuItem = { name: 'admin', path: '/(tabs)/admin', icon: Users, label: 'Quản trị' };
 
 interface Props {
     width: number;
@@ -79,7 +82,7 @@ function DesktopSidebar({ width }: Props) {
 
             {/* Navigation Items */}
             <View style={styles.nav}>
-                {MENU_ITEMS.map((item) => {
+                {[...MENU_ITEMS, ...(user?.role === 'SUPER_ADMIN' ? [ADMIN_MENU_ITEM] : [])].map((item) => {
                     const active = isActive(item);
                     const IconComponent = item.icon;
                     return (

@@ -1,0 +1,804 @@
+import React, { useEffect, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    TouchableOpacity,
+    RefreshControl,
+    Platform,
+    Alert,
+    TextInput
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../../contexts/AuthContext';
+import { Colors } from '../../constants/Colors';
+import { useResponsive } from '../../hooks/useResponsive';
+import { Users, Plus, Edit2, Trash2, Shield, Search, Filter, Lock, Unplug, Download, Upload } from 'lucide-react-native';
+import WebHoverCard from '../../components/WebHoverCard';
+import UserModal from '../../components/UserModal';
+import { api } from '../../utils/api';
+
+interface User {
+    id: string;
+    username: string;
+    fullName: string;
+    unionId: string;
+    role: string;
+    department: string;
+    status: string;
+}
+
+export default function AdminScreen() {
+    const { user, token } = useAuth();
+    const { isDesktop } = useResponsive();
+    const [users, setUsers] = useState<User[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+
+    // Search & Filter Stats
+    const [searchText, setSearchText] = useState('');
+    const [totalUsers, setTotalUsers] = useState(0);
+
+    // Derived stats from current fetched users (or could be fetched separately)
+    const activeUsers = users.filter(u => u.status === 'active').length;
+    const lockedUsers = users.filter(u => u.status !== 'active').length;
+
+    useEffect(() => {
+        if (user?.role === 'SUPER_ADMIN') {
+            fetchUsers();
+        }
+    }, [user]);
+
+    const fetchUsers = async () => {
+        try {
+            const response = await api.get(`/api/users?search=${encodeURIComponent(searchText)}&limit=100`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // Handle both new API format {items, total} and old array format just in case
+            if (response.data && response.data.items) {
+                setUsers(response.data.items);
+                setTotalUsers(response.data.total);
+            } else {
+                setUsers(response.data);
+                setTotalUsers(response.data.length);
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    // Debounce search
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (user?.role === 'SUPER_ADMIN') {
+                fetchUsers();
+            }
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [searchText]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchUsers();
+    };
+
+    const handleDelete = async (id: string) => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            if (window.confirm('Bạn có chắc muốn xóa người dùng này?')) {
+                try {
+                    await api.delete(`/api/users/${id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    fetchUsers();
+                } catch (error) {
+                    console.error('Error deleting user:', error);
+                    window.alert('Không thể xóa người dùng');
+                }
+            }
+        } else {
+            Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa người dùng này?', [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await api.delete(`/api/users/${id}`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                            });
+                            fetchUsers();
+                        } catch (error) {
+                            console.error('Error deleting user:', error);
+                            Alert.alert('Lỗi', 'Không thể xóa người dùng');
+                        }
+                    }
+                }
+            ]);
+        }
+    };
+
+    const handleResetPassword = async (id: string, username: string) => {
+        const defaultPassword = '123456';
+        const confirmMessage = `Bạn có chắc muốn cấp lại mật khẩu mặc định (${defaultPassword}) cho người dùng @${username}?`;
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            if (window.confirm(confirmMessage)) {
+                try {
+                    await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    window.alert('Cấp lại mật khẩu thành công! Mật khẩu mới là: ' + defaultPassword);
+                } catch (error: any) {
+                    console.error('Error resetting password:', error);
+                    window.alert(error.response?.data?.detail || 'Không thể cấp lại mật khẩu');
+                }
+            }
+        } else {
+            Alert.alert('Xác nhận', confirmMessage, [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Cấp lại',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            Alert.alert('Thành công', 'Mật khẩu đã được cấp lại về mặc định: ' + defaultPassword);
+                        } catch (error: any) {
+                            console.error('Error resetting password:', error);
+                            Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cấp lại mật khẩu');
+                        }
+                    }
+                }
+            ]);
+        }
+    };
+
+    const handleExportCSV = () => {
+        if (users.length === 0) {
+            Alert.alert('Thông báo', 'Không có dữ liệu để xuất');
+            return;
+        }
+
+        const headers = ['Họ Tên', 'Tài Khoản', 'Mã Đoàn Viên', 'Vai Trò', 'Phòng Ban', 'Trạng Thái'];
+        const csvRows = [headers.join(',')];
+
+        users.forEach(u => {
+            const values = [
+                `"${u.fullName}"`,
+                `"${u.username}"`,
+                `"${u.unionId}"`,
+                `"${getRoleName(u.role)}"`,
+                `"${getDeptName(u.department)}"`,
+                `"${u.status === 'active' ? 'Hoạt động' : 'Khóa'}"`
+            ];
+            csvRows.push(values.join(','));
+        });
+
+        const csvContent = csvRows.join('\n');
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            // BOM for UTF-8 Excel compatibility
+            const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `danh_sach_tai_khoan_${new Date().getTime()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            Alert.alert('Thông báo', 'Chức năng xuất File hiện chỉ tối ưu cho máy tính (Web).');
+        }
+    };
+
+    const handleImportCSV = () => {
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.csv';
+            fileInput.onchange = async (e: any) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const text = event.target?.result as string;
+                    if (text) {
+                        try {
+                            const rows = text.split('\n').map(row => row.split(','));
+                            // Basic parsing: Assuming order Username, Password, FullName, UnionId, Role, Department
+                            // Real app needs solid parsing/mapping logic or generic backend handler
+                            const validUsersToImport = []; // Populate payload
+
+                            // Placeholder logic... Wait, let's just alert for now since parsing logic would be complex.
+                            window.alert("Chức năng Import đang trong quá trình thử nghiệm. Vui lòng quay lại sau.");
+
+                            /*
+                            await api.post('/api/users/bulk', { users: validUsersToImport }, {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            fetchUsers();
+                            window.alert('Import thành công!');
+                            */
+                        } catch (err: any) {
+                            window.alert('Lỗi import: ' + err.message);
+                        }
+                    }
+                };
+                reader.readAsText(file);
+            };
+            fileInput.click();
+        } else {
+            Alert.alert('Thông báo', 'Chức năng Import hiện chỉ hỗ trợ trên máy tính (Web).');
+        }
+    }
+
+    if (user?.role !== 'SUPER_ADMIN') {
+        return (
+            <View style={styles.centerContainer}>
+                <Shield color={Colors.status.error} size={48} />
+                <Text style={styles.errorText}>Bạn không có quyền truy cập trang này</Text>
+            </View>
+        );
+    }
+
+    const getRoleName = (role: string) => {
+        switch (role) {
+            case 'SUPER_ADMIN': return 'Quản trị viên';
+            case 'BCH_VANPHONG': return 'BCH Văn phòng';
+            case 'BCH_CUALO': return 'BCH Cửa Lò';
+            case 'BCH_BENTHUY': return 'BCH Bến Thủy';
+            default: return 'Đoàn viên';
+        }
+    };
+
+    const getDeptName = (dept: string) => {
+        switch (dept) {
+            case 'VAN_PHONG_CANG': return 'Văn phòng Cảng';
+            case 'CUA_LO': return 'Cảng Cửa Lò';
+            case 'BEN_THUY': return 'Cảng Bến Thủy';
+            default: return dept;
+        }
+    };
+
+    const renderUser = ({ item }: { item: User }) => {
+        return (
+            <WebHoverCard style={styles.userCard}>
+                <View style={styles.userInfo}>
+                    <View style={styles.userMainInfo}>
+                        <Text style={styles.userName}>{item.fullName}</Text>
+                        <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
+                    </View>
+                    <View style={styles.badgesWrapper}>
+                        <View style={styles.roleBadge}>
+                            <Text style={styles.roleText}>{getRoleName(item.role)}</Text>
+                        </View>
+                        <View style={styles.deptBadge}>
+                            <Text style={styles.deptText}>{getDeptName(item.department)}</Text>
+                        </View>
+                        <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
+                            <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                        style={[styles.actionBtn, styles.editBtn]}
+                        onPress={() => {
+                            setEditingUser(item);
+                            setModalVisible(true);
+                        }}
+                    >
+                        <Edit2 color={Colors.primary} size={18} />
+                    </TouchableOpacity>
+                    {item.id !== user?.id && (
+                        <TouchableOpacity
+                            style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}
+                            onPress={() => handleResetPassword(item.id, item.username)}
+                        >
+                            <Lock color="#f59e0b" size={18} />
+                        </TouchableOpacity>
+                    )}
+                    {item.id !== user?.id && (
+                        <TouchableOpacity
+                            style={[styles.actionBtn, styles.deleteBtn]}
+                            onPress={() => handleDelete(item.id)}
+                        >
+                            <Trash2 color={Colors.status.error} size={18} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </WebHoverCard>
+        );
+    };
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <View style={[styles.header, isDesktop && styles.headerDesktop]}>
+                <View style={styles.headerLeft}>
+                    <Users color={Colors.primary} size={28} />
+                    <View>
+                        <Text style={styles.headerTitle}>Quản lý người dùng</Text>
+                        <Text style={styles.headerSubtitle}>Danh sách tài khoản hệ thống</Text>
+                    </View>
+                </View>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                        onPress={handleExportCSV}
+                    >
+                        <Download color={Colors.text.primary} size={20} />
+                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                        onPress={handleImportCSV}
+                    >
+                        <Upload color={Colors.text.primary} size={20} />
+                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => {
+                            setEditingUser(null);
+                            setModalVisible(true);
+                        }}
+                    >
+                        <Plus color="#ffffff" size={20} />
+                        {isDesktop && <Text style={styles.addButtonText}>Thêm</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            <View style={[styles.content, isDesktop && styles.contentDesktop]}>
+
+                {/* Dashboard Stats */}
+                <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
+                    <View style={styles.statCard}>
+                        <Users color={Colors.primary} size={24} />
+                        <View style={styles.statInfo}>
+                            <Text style={styles.statValue}>{totalUsers}</Text>
+                            <Text style={styles.statLabel}>Tổng số</Text>
+                        </View>
+                    </View>
+                    <View style={styles.statCard}>
+                        <Shield color={Colors.status.success} size={24} />
+                        <View style={styles.statInfo}>
+                            <Text style={styles.statValue}>{activeUsers}</Text>
+                            <Text style={styles.statLabel}>Hoạt động</Text>
+                        </View>
+                    </View>
+                    <View style={styles.statCard}>
+                        <Unplug color={Colors.status.error} size={24} />
+                        <View style={styles.statInfo}>
+                            <Text style={styles.statValue}>{lockedUsers}</Text>
+                            <Text style={styles.statLabel}>Bị khóa</Text>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Search & Filter Bar */}
+                <View style={styles.filterBar}>
+                    <View style={styles.searchContainer}>
+                        <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Tìm kiếm tài khoản (Tên, Mã ĐV, Username)..."
+                            value={searchText}
+                            onChangeText={setSearchText}
+                        />
+                    </View>
+                </View>
+
+                {isDesktop ? (
+                    <View style={styles.tableContainer}>
+                        {/* Table Header */}
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.tableHeaderText, { flex: 2 }]}>Nhân sự</Text>
+                            <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Vai trò</Text>
+                            <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Phòng ban</Text>
+                            <Text style={[styles.tableHeaderText, { flex: 1, textAlign: 'center' }]}>Trạng thái</Text>
+                            <Text style={[styles.tableHeaderText, { width: 120, textAlign: 'center' }]}>Thao tác</Text>
+                        </View>
+
+                        {/* Table Body */}
+                        <FlatList
+                            data={users}
+                            renderItem={({ item }) => (
+                                <View style={styles.tableRow}>
+                                    <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
+                                        <Text style={styles.userName}>{item.fullName}</Text>
+                                        <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
+                                    </View>
+                                    <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
+                                        <View style={styles.roleBadge}>
+                                            <Text style={styles.roleText}>{getRoleName(item.role)}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
+                                        <View style={styles.deptBadge}>
+                                            <Text style={styles.deptText}>{getDeptName(item.department)}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
+                                        <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
+                                            <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
+                                        </View>
+                                    </View>
+                                    <View style={[styles.tableCell, { width: 120, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}>
+                                        <TouchableOpacity
+                                            style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
+                                            onPress={() => {
+                                                setEditingUser(item);
+                                                setModalVisible(true);
+                                            }}
+                                        >
+                                            <Edit2 color={Colors.primary} size={16} />
+                                        </TouchableOpacity>
+                                        {item.id !== user?.id && (
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6 }]}
+                                                onPress={() => handleResetPassword(item.id, item.username)}
+                                            >
+                                                <Lock color="#f59e0b" size={16} />
+                                            </TouchableOpacity>
+                                        )}
+                                        {item.id !== user?.id && (
+                                            <TouchableOpacity
+                                                style={[styles.actionBtn, styles.deleteBtn, { padding: 6 }]}
+                                                onPress={() => handleDelete(item.id)}
+                                            >
+                                                <Trash2 color={Colors.status.error} size={16} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={{ paddingBottom: 20 }}
+                            refreshControl={
+                                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                            }
+                            ListEmptyComponent={
+                                !loading ? (
+                                    <View style={styles.emptyContainer}>
+                                        <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
+                                    </View>
+                                ) : null
+                            }
+                        />
+                    </View>
+                ) : (
+                    <FlatList
+                        data={users}
+                        renderItem={renderUser}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.listContent}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        }
+                        ListEmptyComponent={
+                            !loading ? (
+                                <View style={styles.emptyContainer}>
+                                    <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
+                                </View>
+                            ) : null
+                        }
+                    />
+                )}
+            </View>
+
+            <UserModal
+                visible={modalVisible}
+                onClose={() => setModalVisible(false)}
+                onSuccess={() => {
+                    setModalVisible(false);
+                    fetchUsers();
+                }}
+                editUser={editingUser}
+            />
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: Colors.background,
+    },
+    centerContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Colors.background,
+    },
+    errorText: {
+        marginTop: 16,
+        fontSize: 18,
+        color: Colors.text.secondary,
+        fontWeight: '500',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        backgroundColor: Colors.surface,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+    },
+    headerDesktop: {
+        paddingVertical: 10,
+        marginHorizontal: 'auto',
+        width: '100%',
+        maxWidth: 800,
+        borderBottomWidth: 0,
+        backgroundColor: 'transparent',
+        paddingTop: 24,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+    },
+    headerSubtitle: {
+        fontSize: 13,
+        color: Colors.text.secondary,
+        marginTop: 2,
+    },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+        gap: 8,
+    },
+    addButtonText: {
+        color: '#ffffff',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    content: {
+        flex: 1,
+    },
+    contentDesktop: {
+        maxWidth: 1000,
+        width: '100%',
+        alignSelf: 'center',
+    },
+    statsContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        gap: 12,
+    },
+    statsContainerMobile: {
+        flexDirection: 'column',
+    },
+    statCard: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.surface,
+        padding: 16,
+        borderRadius: 12,
+        gap: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+    },
+    statInfo: {
+        flex: 1,
+    },
+    statValue: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+    },
+    statLabel: {
+        fontSize: 13,
+        color: Colors.text.secondary,
+        marginTop: 2,
+    },
+    filterBar: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        gap: 12,
+    },
+    searchContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        paddingHorizontal: 12,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        paddingVertical: 10,
+        fontSize: 15,
+        color: Colors.text.primary,
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.surface,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    filterText: {
+        color: Colors.text.secondary,
+        fontWeight: '500',
+    },
+    listContent: {
+        padding: 16,
+        gap: 12,
+    },
+    // Table Styles
+    tableContainer: {
+        flex: 1,
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        margin: 16,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        overflow: 'hidden',
+    },
+    tableHeader: {
+        flexDirection: 'row',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: Colors.background,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+    },
+    tableHeaderText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: Colors.text.secondary,
+        textTransform: 'uppercase',
+    },
+    tableRow: {
+        flexDirection: 'row',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
+        alignItems: 'center',
+    },
+    tableCell: {
+        justifyContent: 'center',
+    },
+    userCard: {
+        flexDirection: 'row',
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        padding: 16,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+    },
+    userInfo: {
+        flex: 1,
+    },
+    userMainInfo: {
+        marginBottom: 8,
+    },
+    userName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+        marginBottom: 4,
+    },
+    userSubtitle: {
+        fontSize: 14,
+        color: Colors.text.secondary,
+        marginBottom: 8,
+    },
+    badgesWrapper: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    roleBadge: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    roleText: {
+        color: '#3b82f6',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    deptBadge: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    deptText: {
+        color: '#10b981',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    statusBadge: {
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    statusInactive: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    statusText: {
+        color: '#6366f1',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    actionButtons: {
+        flexDirection: 'row',
+        gap: 8,
+        marginLeft: 16,
+    },
+    actionBtn: {
+        padding: 8,
+        borderRadius: 8,
+        backgroundColor: Colors.background,
+    },
+    editBtn: {
+        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    },
+    deleteBtn: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    emptyContainer: {
+        padding: 32,
+        alignItems: 'center',
+    },
+    emptyText: {
+        color: Colors.text.secondary,
+        fontSize: 16,
+    },
+});

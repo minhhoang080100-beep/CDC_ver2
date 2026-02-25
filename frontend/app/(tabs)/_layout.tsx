@@ -80,6 +80,12 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
+            name="admin"
+            options={{
+              href: null, // Only accessible via sidebar or custom logic
+            }}
+          />
+          <Tabs.Screen
             name="post-detail"
             options={{
               href: null,
