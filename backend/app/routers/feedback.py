@@ -4,7 +4,7 @@ from datetime import datetime
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
-from app.models.feedback import FeedbackCreate, FeedbackReply
+from app.models.feedback import FeedbackCreate, FeedbackReply, FeedbackStatusUpdate
 
 router = APIRouter()
 
@@ -105,3 +105,26 @@ async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: d
     )
     
     return {"status": "success", "message": "Reply added"}
+
+@router.put("/{feedback_id}/status")
+async def update_feedback_status(feedback_id: str, status_update: FeedbackStatusUpdate, current_user: dict = Depends(get_current_user)):
+    if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
+        raise HTTPException(status_code=403, detail="You don't have permission to update status")
+    
+    feedback_doc = await db.feedback.find_one({"_id": ObjectId(feedback_id)})
+    if not feedback_doc:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+        
+    if current_user["role"] != "SUPER_ADMIN" and current_user["_id"] not in feedback_doc["targetRecipients"]:
+        raise HTTPException(status_code=403, detail="You don't have permission to modify this feedback")
+        
+    valid_statuses = ["PENDING", "IN_PROGRESS", "REPLIED", "RESOLVED", "CLOSED"]
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    await db.feedback.update_one(
+        {"_id": ObjectId(feedback_id)},
+        {"$set": {"status": status_update.status}}
+    )
+    
+    return {"status": "success", "message": "Status updated successfully"}

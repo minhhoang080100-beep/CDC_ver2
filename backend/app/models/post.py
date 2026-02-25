@@ -10,6 +10,9 @@ class PostCreate(BaseModel):
     image: Optional[str] = None
     targetDepartments: List[str] = []
 
+class PostCommentCreate(BaseModel):
+    content: str
+
 class PostResponse(BaseModel):
     id: str
     title: str
@@ -21,5 +24,7 @@ class PostResponse(BaseModel):
     authorName: str
     authorDepartment: str
     targetDepartments: List[str]
+    likes: List[str] = []
+    comments: List[dict] = []
     createdAt: datetime
     updatedAt: datetime

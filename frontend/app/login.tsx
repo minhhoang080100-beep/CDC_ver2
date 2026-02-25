@@ -23,7 +23,6 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
-  const { isDesktop } = useResponsive();
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -47,8 +46,8 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={[styles.scrollContent, isDesktop && { alignItems: 'center' as any }]}>
-        <View style={isDesktop ? { width: '100%', maxWidth: 440 } as any : undefined}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.formWrapper}>
           <View style={styles.header}>
             <Image
               source={require('../assets/images/logo.png')}
@@ -94,12 +93,13 @@ export default function LoginScreen() {
               )}
             </TouchableOpacity>
 
-            <View style={styles.demoInfo}>
-              <Text style={styles.demoTitle}>Tài khoản demo:</Text>
-              <Text style={styles.demoText}>• superadmin / Admin@123</Text>
-              <Text style={styles.demoText}>• bch_vanphong / VanPhong@123</Text>
-              <Text style={styles.demoText}>• tv_cualo / Member@123</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.registerButton}
+              onPress={() => router.push('/register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.registerButtonText}>Chưa có tài khoản? Đăng ký ngay</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -115,7 +115,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     padding: 24,
+  },
+  formWrapper: {
+    width: '100%',
+    maxWidth: 440,
   },
   header: {
     alignItems: 'center',
@@ -195,6 +200,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text.light,
     letterSpacing: 1,
+  },
+  registerButton: {
+    marginTop: 20,
+    alignItems: 'center',
+    padding: 8,
+  },
+  registerButtonText: {
+    color: Colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
   },
   demoInfo: {
     marginTop: 24,

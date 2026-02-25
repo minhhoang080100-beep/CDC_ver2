@@ -45,9 +45,10 @@ export default function AdminScreen() {
     const [searchText, setSearchText] = useState('');
     const [totalUsers, setTotalUsers] = useState(0);
 
-    // Derived stats from current fetched users (or could be fetched separately)
-    const activeUsers = users.filter(u => u.status === 'active').length;
-    const lockedUsers = users.filter(u => u.status !== 'active').length;
+    // Derived stats from current fetched users
+    const activeUsers = users.filter(u => u.status === 'active' || u.status === 'ACTIVE').length;
+    const lockedUsers = users.filter(u => u.status !== 'active' && u.status !== 'ACTIVE' && u.status !== 'PENDING').length;
+    const pendingUsers = users.filter(u => u.status === 'PENDING').length;
 
     useEffect(() => {
         if (user?.role === 'SUPER_ADMIN') {
@@ -157,6 +158,38 @@ export default function AdminScreen() {
                         } catch (error: any) {
                             console.error('Error resetting password:', error);
                             Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cấp lại mật khẩu');
+                        }
+                    }
+                }
+            ]);
+        }
+    };
+
+    const handleApprove = async (id: string, fullName: string) => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            if (window.confirm(`Bạn có chắc muốn phê duyệt tài khoản cho "${fullName}"?`)) {
+                try {
+                    await api.put(`/api/users/${id}/approve`, {}, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    });
+                    fetchUsers();
+                } catch (error: any) {
+                    window.alert(error.response?.data?.detail || 'Không thể phê duyệt tài khoản');
+                }
+            }
+        } else {
+            Alert.alert('Xác nhận', `Phê duyệt tài khoản cho "${fullName}"?`, [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Phê duyệt',
+                    onPress: async () => {
+                        try {
+                            await api.put(`/api/users/${id}/approve`, {}, {
+                                headers: { Authorization: `Bearer ${token}` }
+                            });
+                            fetchUsers();
+                        } catch (error: any) {
+                            Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể phê duyệt');
                         }
                     }
                 }
@@ -287,13 +320,23 @@ export default function AdminScreen() {
                         <View style={styles.deptBadge}>
                             <Text style={styles.deptText}>{getDeptName(item.department)}</Text>
                         </View>
-                        <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
-                            <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
+                        <View style={[styles.statusBadge, item.status !== 'active' && item.status !== 'ACTIVE' && item.status !== 'PENDING' && styles.statusInactive, item.status === 'PENDING' && { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                            <Text style={[styles.statusText, item.status === 'PENDING' && { color: '#f59e0b' }]}>
+                                {item.status === 'active' || item.status === 'ACTIVE' ? 'Hoạt động' : item.status === 'PENDING' ? 'Chờ duyệt' : 'Khóa'}
+                            </Text>
                         </View>
                     </View>
                 </View>
 
                 <View style={styles.actionButtons}>
+                    {item.status === 'PENDING' && (
+                        <TouchableOpacity
+                            style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}
+                            onPress={() => handleApprove(item.id, item.fullName)}
+                        >
+                            <Shield color={Colors.status.success} size={18} />
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         style={[styles.actionBtn, styles.editBtn]}
                         onPress={() => {
@@ -404,6 +447,13 @@ export default function AdminScreen() {
                             </View>
                         </View>
                         <View style={styles.statCard}>
+                            <Users color="#f59e0b" size={24} />
+                            <View style={styles.statInfo}>
+                                <Text style={styles.statValue}>{pendingUsers}</Text>
+                                <Text style={styles.statLabel}>Chờ duyệt</Text>
+                            </View>
+                        </View>
+                        <View style={styles.statCard}>
                             <Unplug color={Colors.status.error} size={24} />
                             <View style={styles.statInfo}>
                                 <Text style={styles.statValue}>{lockedUsers}</Text>
@@ -456,11 +506,21 @@ export default function AdminScreen() {
                                             </View>
                                         </View>
                                         <View style={[styles.tableCell, { flex: 1, alignItems: 'center' }]}>
-                                            <View style={[styles.statusBadge, item.status !== 'active' && styles.statusInactive]}>
-                                                <Text style={styles.statusText}>{item.status === 'active' ? 'Hoạt động' : 'Khóa'}</Text>
+                                            <View style={[styles.statusBadge, item.status !== 'active' && item.status !== 'ACTIVE' && item.status !== 'PENDING' && styles.statusInactive, item.status === 'PENDING' && { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                                                <Text style={[styles.statusText, item.status === 'PENDING' && { color: '#f59e0b' }]}>
+                                                    {item.status === 'active' || item.status === 'ACTIVE' ? 'Hoạt động' : item.status === 'PENDING' ? 'Chờ duyệt' : 'Khóa'}
+                                                </Text>
                                             </View>
                                         </View>
                                         <View style={[styles.tableCell, { width: 120, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}>
+                                            {item.status === 'PENDING' && (
+                                                <TouchableOpacity
+                                                    style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 6 }]}
+                                                    onPress={() => handleApprove(item.id, item.fullName)}
+                                                >
+                                                    <Shield color={Colors.status.success} size={16} />
+                                                </TouchableOpacity>
+                                            )}
                                             <TouchableOpacity
                                                 style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
                                                 onPress={() => {

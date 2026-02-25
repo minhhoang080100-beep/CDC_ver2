@@ -10,6 +10,9 @@ class FeedbackCreate(BaseModel):
 class FeedbackReply(BaseModel):
     content: str
 
+class FeedbackStatusUpdate(BaseModel):
+    status: str
+
 class FeedbackResponse(BaseModel):
     id: str
     subject: str

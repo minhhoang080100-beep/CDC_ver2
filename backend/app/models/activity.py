@@ -11,6 +11,9 @@ class ActivityCreate(BaseModel):
     image: Optional[str] = None
     targetDepartments: List[str] = []
 
+class CheckInRequest(BaseModel):
+    qr_data: str # Contains JSON string from QR code
+
 class ActivityResponse(BaseModel):
     id: str
     name: str
@@ -21,4 +24,5 @@ class ActivityResponse(BaseModel):
     image: Optional[str] = None
     createdBy: str
     registrations: List[Dict[str, Any]] = []
+    attendances: List[Dict[str, Any]] = []
     createdAt: datetime

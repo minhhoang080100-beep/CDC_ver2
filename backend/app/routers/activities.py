@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List
 from datetime import datetime
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
-from app.models.activity import ActivityCreate
+from app.models.activity import ActivityCreate, CheckInRequest
+from app.core.push import send_bulk_push_notifications
+import json
 
 router = APIRouter()
 
@@ -29,6 +31,7 @@ async def get_activities(
         "createdBy": activity["createdBy"],
         "targetDepartments": activity.get("targetDepartments", ["ALL"]),
         "registrations": activity.get("registrations", []),
+        "attendances": activity.get("attendances", []),
         "createdAt": activity["createdAt"]
     } for activity in activities]
 
@@ -59,8 +62,57 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
     
     return {"status": "success", "action": action}
 
+@router.post("/{activity_id}/checkin")
+async def checkin_activity(activity_id: str, request: CheckInRequest, current_user: dict = Depends(get_current_user)):
+    if not can_manage_content(current_user):
+         raise HTTPException(status_code=403, detail="Chỉ có BCH mới được phép điểm danh bằng QR")
+         
+    activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    if not activity:
+        raise HTTPException(status_code=404, detail="Không tìm thấy hoạt động")
+        
+    try:
+        qr_json = json.loads(request.qr_data)
+        user_id = qr_json.get("id")
+        union_id = qr_json.get("unionId")
+        user_name = qr_json.get("name")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Mã QR không hợp lệ")
+        
+    if not user_id or not union_id:
+        raise HTTPException(status_code=400, detail="Dữ liệu QR không đủ thông tin")
+        
+    # Check if user exists in DB to be safe
+    attendee = await db.users.find_one({"_id": ObjectId(user_id), "unionId": union_id})
+    if not attendee:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản đoàn viên này trong hệ thống")
+
+    # Record attendance
+    # We can store attendances directly in the activity document or a separate collection.
+    # Storing in activity is easier to fetch details. Let's add "attendances" array to activity.
+    attendances = activity.get("attendances", [])
+    already_checked_in = any(a["userId"] == user_id for a in attendances)
+    
+    if already_checked_in:
+        return {"status": "success", "message": f"Đoàn viên {attendee['fullName']} đã được điểm danh trước đó.", "already_checked_in": True}
+        
+    attendances.append({
+        "userId": user_id,
+        "userName": attendee["fullName"],
+        "unionId": union_id,
+        "checkedInAt": datetime.utcnow(),
+        "checkedInBy": current_user["_id"] # Admin who scanned it
+    })
+    
+    await db.activities.update_one(
+        {"_id": ObjectId(activity_id)},
+        {"$set": {"attendances": attendances}}
+    )
+    
+    return {"status": "success", "message": f"Điểm danh thành công cho {attendee['fullName']}", "already_checked_in": False}
+
 @router.post("")
-async def create_activity(activity: ActivityCreate, current_user: dict = Depends(get_current_user)):
+async def create_activity(activity: ActivityCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     if not can_manage_content(current_user):
         raise HTTPException(status_code=403, detail="You don't have permission to create activities")
     
@@ -82,10 +134,34 @@ async def create_activity(activity: ActivityCreate, current_user: dict = Depends
     result = await db.activities.insert_one(activity_data)
     activity_data["_id"] = result.inserted_id
     
+    background_tasks.add_task(
+        notify_new_activity,
+        title=f"Hoạt động mới: {activity.name}",
+        body=activity.description,
+        target_departments=target_departments,
+        activity_id=str(activity_data["_id"])
+    )
+    
     return {
         "id": str(activity_data["_id"]),
         **{k: v for k, v in activity_data.items() if k != "_id"}
     }
+
+async def notify_new_activity(title: str, body: str, target_departments: list, activity_id: str):
+    query = {"status": "active", "pushToken": {"$exists": True, "$ne": None}}
+    if "ALL" not in target_departments and target_departments:
+        query["department"] = {"$in": target_departments}
+        
+    users = await db.users.find(query).to_list(1000)
+    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
+    
+    if tokens:
+        send_bulk_push_notifications(
+            tokens=tokens, 
+            title=title, 
+            body=body,
+            data={"activityId": activity_id}
+        )
 
 @router.put("/{activity_id}")
 async def update_activity(activity_id: str, activity: ActivityCreate, current_user: dict = Depends(get_current_user)):
