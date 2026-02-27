@@ -15,6 +15,21 @@ import {
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const registerSchema = z.object({
+    fullName: z.string().min(2, 'Họ và tên quá ngắn').max(100, 'Họ và tên quá dài'),
+    unionId: z.string().min(3, 'Mã đoàn viên không hợp lệ').max(50, 'Mã đoàn viên quá dài'),
+    username: z.string()
+        .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
+        .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
+    password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    department: z.string(),
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const DEPARTMENTS = [
     { id: 'VAN_PHONG_CANG', name: 'Văn phòng Cảng' },
@@ -23,34 +38,33 @@ const DEPARTMENTS = [
 ];
 
 export default function RegisterScreen() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
-    const [unionId, setUnionId] = useState('');
-    const [department, setDepartment] = useState('VAN_PHONG_CANG');
     const [isLoading, setIsLoading] = useState(false);
-
     const router = useRouter();
 
-    const handleRegister = async () => {
-        if (!username || !password || !fullName || !unionId) {
-            Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
-            return;
-        }
+    const {
+        control,
+        handleSubmit,
+        setValue,
+        watch,
+        formState: { errors },
+    } = useForm<RegisterFormValues>({
+        resolver: zodResolver(registerSchema),
+        defaultValues: {
+            fullName: '',
+            unionId: '',
+            username: '',
+            password: '',
+            department: 'VAN_PHONG_CANG',
+        },
+    });
 
-        if (password.length < 6) {
-            Alert.alert('Lỗi', 'Mật khẩu phải có ít nhất 6 ký tự');
-            return;
-        }
+    const watchedDepartment = watch('department');
 
+    const onSubmit = async (data: RegisterFormValues) => {
         setIsLoading(true);
         try {
             const response = await api.post('/api/auth/register', {
-                username,
-                password,
-                fullName,
-                unionId,
-                department,
+                ...data,
                 role: 'MEMBER'
             });
 
@@ -83,46 +97,78 @@ export default function RegisterScreen() {
 
                     <View style={styles.form}>
                         <Text style={styles.label}>Họ và tên</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={fullName}
-                            onChangeText={setFullName}
-                            placeholder="VD: Nguyễn Văn A"
-                            placeholderTextColor="#94a3b8"
-                            editable={!isLoading}
+                        <Controller
+                            control={control}
+                            name="fullName"
+                            render={({ field: { onChange, onBlur, value } }) => (
+                                <TextInput
+                                    style={[styles.input, errors.fullName && styles.inputError]}
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                    placeholder="VD: Nguyễn Văn A"
+                                    placeholderTextColor="#94a3b8"
+                                    editable={!isLoading}
+                                />
+                            )}
                         />
+                        {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
 
                         <Text style={styles.label}>Mã Đoàn viên</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={unionId}
-                            onChangeText={setUnionId}
-                            placeholder="Nhập mã ĐV của bạn"
-                            placeholderTextColor="#94a3b8"
-                            editable={!isLoading}
+                        <Controller
+                            control={control}
+                            name="unionId"
+                            render={({ field: { onChange, onBlur, value } }) => (
+                                <TextInput
+                                    style={[styles.input, errors.unionId && styles.inputError]}
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                    placeholder="Nhập mã ĐV của bạn"
+                                    placeholderTextColor="#94a3b8"
+                                    editable={!isLoading}
+                                />
+                            )}
                         />
+                        {errors.unionId && <Text style={styles.errorText}>{errors.unionId.message}</Text>}
 
                         <Text style={styles.label}>Tên đăng nhập (Tài khoản)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={username}
-                            onChangeText={setUsername}
-                            placeholder="Nhập tên đăng nhập"
-                            placeholderTextColor="#94a3b8"
-                            autoCapitalize="none"
-                            editable={!isLoading}
+                        <Controller
+                            control={control}
+                            name="username"
+                            render={({ field: { onChange, onBlur, value } }) => (
+                                <TextInput
+                                    style={[styles.input, errors.username && styles.inputError]}
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                    placeholder="Nhập tên đăng nhập"
+                                    placeholderTextColor="#94a3b8"
+                                    autoCapitalize="none"
+                                    editable={!isLoading}
+                                />
+                            )}
                         />
+                        {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
 
                         <Text style={styles.label}>Mật khẩu</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="Ít nhất 6 ký tự"
-                            placeholderTextColor="#94a3b8"
-                            secureTextEntry
-                            editable={!isLoading}
+                        <Controller
+                            control={control}
+                            name="password"
+                            render={({ field: { onChange, onBlur, value } }) => (
+                                <TextInput
+                                    style={[styles.input, errors.password && styles.inputError]}
+                                    value={value}
+                                    onChangeText={onChange}
+                                    onBlur={onBlur}
+                                    placeholder="Ít nhất 6 ký tự"
+                                    placeholderTextColor="#94a3b8"
+                                    secureTextEntry
+                                    editable={!isLoading}
+                                />
+                            )}
                         />
+                        {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
                         <Text style={styles.label}>Phòng ban / Đơn vị</Text>
                         <View style={styles.departmentContainer}>
@@ -131,14 +177,14 @@ export default function RegisterScreen() {
                                     key={dept.id}
                                     style={[
                                         styles.deptChip,
-                                        department === dept.id && styles.deptChipActive
+                                        watchedDepartment === dept.id && styles.deptChipActive
                                     ]}
-                                    onPress={() => setDepartment(dept.id)}
+                                    onPress={() => setValue('department', dept.id)}
                                     disabled={isLoading}
                                 >
                                     <Text style={[
                                         styles.deptChipText,
-                                        department === dept.id && styles.deptChipTextActive
+                                        watchedDepartment === dept.id && styles.deptChipTextActive
                                     ]}>
                                         {dept.name}
                                     </Text>
@@ -151,7 +197,7 @@ export default function RegisterScreen() {
 
                         <TouchableOpacity
                             style={[styles.button, isLoading && styles.buttonDisabled]}
-                            onPress={handleRegister}
+                            onPress={handleSubmit(onSubmit)}
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -306,5 +352,13 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         fontSize: 15,
         fontWeight: '600',
+    },
+    inputError: {
+        borderColor: Colors.status?.error || '#ef4444',
+    },
+    errorText: {
+        color: Colors.status?.error || '#ef4444',
+        fontSize: 12,
+        marginTop: 4,
     }
 });

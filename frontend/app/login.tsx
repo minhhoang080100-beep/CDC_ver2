@@ -16,23 +16,41 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
 import { useResponsive } from '../hooks/useResponsive';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const loginSchema = z.object({
+  username: z.string()
+    .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
+    .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
+  password: z.string()
+    .min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
-      return;
-    }
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      username: '',
+      password: '',
+    },
+  });
 
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await login(username, password);
+      await login(data.username, data.password);
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Đăng nhập thất bại', error.message || 'Vui lòng kiểm tra lại thông tin');
@@ -60,30 +78,46 @@ export default function LoginScreen() {
 
           <View style={styles.form}>
             <Text style={styles.label}>Tên đăng nhập</Text>
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Nhập tên đăng nhập"
-              placeholderTextColor="#94a3b8"
-              autoCapitalize="none"
-              editable={!isLoading}
+            <Controller
+              control={control}
+              name="username"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.username && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập tên đăng nhập"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                />
+              )}
             />
+            {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
 
             <Text style={styles.label}>Mật khẩu</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Nhập mật khẩu"
-              placeholderTextColor="#94a3b8"
-              secureTextEntry
-              editable={!isLoading}
+            <Controller
+              control={control}
+              name="password"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.password && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập mật khẩu"
+                  placeholderTextColor="#94a3b8"
+                  secureTextEntry
+                  editable={!isLoading}
+                />
+              )}
             />
+            {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleLogin}
+              onPress={handleSubmit(onSubmit)}
               disabled={isLoading}
             >
               {isLoading ? (
@@ -226,6 +260,14 @@ const styles = StyleSheet.create({
   demoText: {
     fontSize: 13,
     color: Colors.text.secondary,
+    marginTop: 4,
+  },
+  inputError: {
+    borderColor: Colors.status.error || '#ef4444',
+  },
+  errorText: {
+    color: Colors.status.error || '#ef4444',
+    fontSize: 12,
     marginTop: 4,
   },
 });

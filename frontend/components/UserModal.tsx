@@ -33,7 +33,7 @@ interface UserModalProps {
 }
 
 export default function UserModal({ visible, onClose, onSuccess, editUser }: UserModalProps) {
-    const { token } = useAuth();
+    const { token, user } = useAuth();
 
     // Form fields
     const [username, setUsername] = useState('');
@@ -60,12 +60,21 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
             setPassword('');
             setFullName('');
             setUnionId('');
-            setRole('MEMBER');
-            setDepartment('VAN_PHONG_CANG');
             setStatus('active');
             setLoading(false);
+
+            // Default values based on manager role
+            if (user?.role?.startsWith('BCH_')) {
+                setRole('MEMBER');
+                if (user?.role === 'BCH_VANPHONG') setDepartment('VAN_PHONG_CANG');
+                else if (user?.role === 'BCH_CUALO') setDepartment('CUA_LO');
+                else if (user?.role === 'BCH_BENTHUY') setDepartment('BEN_THUY');
+            } else {
+                setRole('MEMBER');
+                setDepartment('VAN_PHONG_CANG');
+            }
         }
-    }, [editUser, visible]);
+    }, [editUser, visible, user]);
 
     const roles = [
         { value: 'SUPER_ADMIN', label: 'Quản trị viên (Super Admin)' },
@@ -234,8 +243,29 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                             />
                         </View>
 
-                        {renderSelect('Vai trò', role, roles, setRole)}
-                        {renderSelect('Phòng ban', department, departments, setDepartment)}
+                        {user?.role === 'SUPER_ADMIN' && (
+                            <>
+                                {renderSelect('Vai trò', role, roles, setRole)}
+                                {renderSelect('Phòng ban', department, departments, setDepartment)}
+                            </>
+                        )}
+                        {/* Manager sees read-only info about role and department */}
+                        {user?.role !== 'SUPER_ADMIN' && user?.role?.startsWith('BCH_') && (
+                            <>
+                                <View style={styles.inputContainer}>
+                                    <Text style={styles.label}>Vai trò</Text>
+                                    <TextInput style={[styles.input, { backgroundColor: '#e2e8f0', color: '#64748b' }]} value="Đoàn viên" editable={false} />
+                                </View>
+                                <View style={styles.inputContainer}>
+                                    <Text style={styles.label}>Phòng ban</Text>
+                                    <TextInput
+                                        style={[styles.input, { backgroundColor: '#e2e8f0', color: '#64748b' }]}
+                                        value={departments.find(d => d.value === department)?.label || department}
+                                        editable={false}
+                                    />
+                                </View>
+                            </>
+                        )}
 
                         {editUser && renderSelect('Trạng thái', status, statuses, setStatus)}
                     </ScrollView>

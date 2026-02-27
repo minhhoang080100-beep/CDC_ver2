@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 from app.core.database import db
@@ -14,9 +14,15 @@ router = APIRouter()
 async def get_posts(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    cursor: Optional[datetime] = Query(None, description="Cursor for pagination (ISO datetime string)"),
     current_user: dict = Depends(get_current_user)
 ):
     content_filter = build_content_filter(current_user)
+    content_filter["isDeleted"] = {"$ne": True}
+    
+    if cursor:
+        content_filter["createdAt"] = {"$lt": cursor}
+        
     posts = await db.posts.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
     return [{
@@ -55,6 +61,7 @@ async def create_post(post: PostCreate, background_tasks: BackgroundTasks, curre
         "targetDepartments": target_departments,
         "likes": [],
         "comments": [],
+        "isDeleted": False,
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow()
     }
@@ -95,7 +102,7 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
 
 @router.put("/{post_id}")
 async def update_post(post_id: str, post: PostCreate, current_user: dict = Depends(get_current_user)):
-    existing_post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
     
@@ -123,20 +130,20 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
 
 @router.delete("/{post_id}")
 async def delete_post(post_id: str, current_user: dict = Depends(get_current_user)):
-    existing_post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
     
     if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this post")
     
-    await db.posts.delete_one({"_id": ObjectId(post_id)})
+    await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"isDeleted": True}})
     
     return {"status": "success", "message": "Post deleted"}
 
 @router.post("/{post_id}/like")
 async def toggle_like(post_id: str, current_user: dict = Depends(get_current_user)):
-    post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
@@ -159,7 +166,7 @@ async def toggle_like(post_id: str, current_user: dict = Depends(get_current_use
 
 @router.post("/{post_id}/comments")
 async def add_comment(post_id: str, comment: PostCommentCreate, current_user: dict = Depends(get_current_user)):
-    post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         

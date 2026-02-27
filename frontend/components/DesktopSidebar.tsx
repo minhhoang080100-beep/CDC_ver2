@@ -82,7 +82,7 @@ function DesktopSidebar({ width }: Props) {
 
             {/* Navigation Items */}
             <View style={styles.nav}>
-                {[...MENU_ITEMS, ...(user?.role === 'SUPER_ADMIN' ? [ADMIN_MENU_ITEM] : [])].map((item) => {
+                {[...MENU_ITEMS, ...(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_') ? [ADMIN_MENU_ITEM] : [])].map((item) => {
                     const active = isActive(item);
                     const IconComponent = item.icon;
                     return (

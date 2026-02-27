@@ -7,9 +7,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { User } from 'lucide-react-native';
-import { Platform } from 'react-native';
+import { User, ShieldCheck } from 'lucide-react-native';
+import { Platform, TouchableOpacity } from 'react-native';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useRouter } from 'expo-router';
 
 // QRCode only works on native (uses Node.js modules incompatible with web)
 let QRCode: any = null;
@@ -20,6 +21,7 @@ if (Platform.OS !== 'web') {
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { isDesktop } = useResponsive();
+  const router = useRouter();
 
   const getDepartmentName = (dept: string) => {
     switch (dept) {
@@ -133,6 +135,17 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {(!isDesktop && (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_'))) && (
+            <TouchableOpacity
+              style={styles.adminButton}
+              onPress={() => router.push('/(tabs)/admin')}
+              activeOpacity={0.8}
+            >
+              <ShieldCheck color="#ffffff" size={24} />
+              <Text style={styles.adminButtonText}>Quản trị hệ thống</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -327,4 +340,26 @@ const styles = StyleSheet.create({
   activeStatus: {
     color: '#10b981',
   },
+  adminButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0f172a',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
+    gap: 12,
+    marginBottom: 20,
+  },
+  adminButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  }
 });

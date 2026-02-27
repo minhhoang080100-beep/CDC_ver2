@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class UserLogin(BaseModel):
-    username: str
-    password: str
+    username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
+    password: str = Field(..., min_length=6)
 
 class UserResponse(BaseModel):
     id: str
@@ -20,14 +20,14 @@ class UpdatePushToken(BaseModel):
     token: str
 
 class ChangePassword(BaseModel):
-    currentPassword: str
-    newPassword: str
+    currentPassword: str = Field(..., min_length=6)
+    newPassword: str = Field(..., min_length=6)
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
-    fullName: str
-    unionId: str
+    username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
+    password: str = Field(..., min_length=6)
+    fullName: str = Field(..., min_length=2, max_length=100)
+    unionId: str = Field(..., min_length=3, max_length=50)
     role: str
     department: str
     avatar: Optional[str] = None
@@ -40,7 +40,7 @@ class UserUpdate(BaseModel):
     avatar: Optional[str] = None
 
 class ResetPasswordRequest(BaseModel):
-    newPassword: str
+    newPassword: str = Field(..., min_length=6)
 
 from typing import List
 class BulkUserCreate(BaseModel):

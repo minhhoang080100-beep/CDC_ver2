@@ -40,6 +40,33 @@ class BulkUserCreate(BaseModel):
 VALID_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY", "MEMBER"]
 VALID_DEPARTMENTS = ["VAN_PHONG_CANG", "CUA_LO", "BEN_THUY"]
 
+# Mapping BCH roles to their respective manageable departments
+MANAGER_ROLE_TO_DEPT = {
+    "BCH_VANPHONG": "VAN_PHONG_CANG",
+    "BCH_CUALO": "CUA_LO",
+    "BCH_BENTHUY": "BEN_THUY"
+}
+
+def can_manage_department(current_user: dict, target_dept: str) -> bool:
+    if current_user["role"] == "SUPER_ADMIN":
+        return True
+    if current_user["role"] in MANAGER_ROLE_TO_DEPT:
+        return MANAGER_ROLE_TO_DEPT[current_user["role"]] == target_dept
+    return False
+
+def can_manage_user(current_user: dict, target_user: dict) -> bool:
+    if current_user["role"] == "SUPER_ADMIN":
+        return True
+    
+    # Manager can only manage MEMBER roles within their department
+    # They shouldn't be able to manage other BCH or SUPER_ADMINs
+    if current_user["role"] in MANAGER_ROLE_TO_DEPT:
+        is_same_dept = MANAGER_ROLE_TO_DEPT[current_user["role"]] == target_user.get("department")
+        is_target_member = target_user.get("role") == "MEMBER"
+        return is_same_dept and is_target_member
+        
+    return False
+
 
 @router.get("")
 async def get_users(
@@ -51,11 +78,23 @@ async def get_users(
     status: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can manage users")
+    # Check if user has permission to view any users
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to manage users")
     
     query = {}
     
+    # If Manager, force filter by their department and only show MEMBERs
+    if current_user["role"] in MANAGER_ROLE_TO_DEPT:
+        query["department"] = MANAGER_ROLE_TO_DEPT[current_user["role"]]
+        query["role"] = "MEMBER"
+    else:
+        # SUPER_ADMIN can apply explicit filters
+        if department:
+            query["department"] = department
+        if role:
+            query["role"] = role
+
     # Filter conditions
     if search:
         search_regex = re.compile(search, re.IGNORECASE)
@@ -64,10 +103,6 @@ async def get_users(
             {"username": search_regex},
             {"unionId": search_regex}
         ]
-    if department:
-        query["department"] = department
-    if role:
-        query["role"] = role
     if status:
         query["status"] = status
 
@@ -90,9 +125,21 @@ async def get_users(
         "createdAt": user.get("createdAt")
     } for user in users]
 
+    result_users = [{
+        "id": str(user["_id"]),
+        "username": user["username"],
+        "fullName": user["fullName"],
+        "unionId": user["unionId"],
+        "role": user["role"],
+        "department": user["department"],
+        "avatar": user.get("avatar"),
+        "status": user.get("status", "active"),
+        "createdAt": user.get("createdAt")
+    } for user in users]
+
     return {
         "total": total,
-        "items": result_users
+        "items": result_users 
     }
 
 
@@ -142,12 +189,16 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
 
 @router.put("/{user_id}")
 async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can update users")
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to update users")
     
     existing = await db.users.find_one({"_id": ObjectId(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    # Check if Manager can manage this specific user
+    if not can_manage_user(current_user, existing):
+        raise HTTPException(status_code=403, detail="Cannot modify this user")
     
     update_fields = {}
     if user_data.fullName is not None:
@@ -155,11 +206,19 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
     if user_data.role is not None:
         if user_data.role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid role")
+        # Managers cannot change roles
+        if current_user["role"] in MANAGER_ROLE_TO_DEPT and user_data.role != existing.get("role"):
+             raise HTTPException(status_code=403, detail="Managers cannot change user roles")
         update_fields["role"] = user_data.role
+        
     if user_data.department is not None:
         if user_data.department not in VALID_DEPARTMENTS:
             raise HTTPException(status_code=400, detail=f"Invalid department")
+        # Managers cannot move users between departments
+        if current_user["role"] in MANAGER_ROLE_TO_DEPT and user_data.department != existing.get("department"):
+             raise HTTPException(status_code=403, detail="Managers cannot change user departments")
         update_fields["department"] = user_data.department
+        
     if user_data.status is not None:
         update_fields["status"] = user_data.status
     if user_data.avatar is not None:
@@ -180,12 +239,15 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
 
 @router.put("/{user_id}/approve")
 async def approve_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can approve users")
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to approve users")
     
     existing = await db.users.find_one({"_id": ObjectId(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if not can_manage_user(current_user, existing):
+        raise HTTPException(status_code=403, detail="Cannot approve this user")
         
     if existing.get("status") != "PENDING":
         raise HTTPException(status_code=400, detail="Tài khoản này không ở trạng thái Chờ phê duyệt")
@@ -200,8 +262,8 @@ async def approve_user(user_id: str, current_user: dict = Depends(get_current_us
 
 @router.delete("/{user_id}")
 async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can delete users")
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to delete users")
     
     # Prevent self-deletion
     if user_id == current_user["_id"]:
@@ -210,6 +272,9 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     existing = await db.users.find_one({"_id": ObjectId(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if not can_manage_user(current_user, existing):
+        raise HTTPException(status_code=403, detail="Cannot delete this user")
     
     await db.users.delete_one({"_id": ObjectId(user_id)})
     
@@ -218,12 +283,15 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
 
 @router.post("/{user_id}/reset-password")
 async def reset_password(user_id: str, request: ResetPasswordRequest, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can reset passwords")
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to reset passwords")
     
     existing = await db.users.find_one({"_id": ObjectId(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if not can_manage_user(current_user, existing):
+        raise HTTPException(status_code=403, detail="Cannot reset password for this user")
         
     if len(request.newPassword) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
@@ -239,8 +307,8 @@ async def reset_password(user_id: str, request: ResetPasswordRequest, current_us
 
 @router.post("/bulk")
 async def bulk_import_users(data: BulkUserCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can import users")
+    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
+        raise HTTPException(status_code=403, detail="Not authorized to import users")
         
     if not data.users:
         raise HTTPException(status_code=400, detail="No users provided")
@@ -256,17 +324,30 @@ async def bulk_import_users(data: BulkUserCreate, current_user: dict = Depends(g
         raise HTTPException(status_code=400, detail=f"Usernames already exist in database: {', '.join(duplicates)}")
         
     new_users = []
+    manager_dept = MANAGER_ROLE_TO_DEPT.get(current_user["role"])
+    
     for user_data in data.users:
         if user_data.role not in VALID_ROLES:
             continue # Skip invalid roles instead of failing the whole batch or throw error? Let's throw an error for now.
              
+        # Enforce Manager rules
+        final_role = user_data.role
+        final_department = user_data.department
+        
+        if current_user["role"] in MANAGER_ROLE_TO_DEPT:
+            final_role = "MEMBER" # Managers can only create members
+            final_department = manager_dept # Managers can only add to their dept
+        else:
+            final_role = user_data.role if user_data.role in VALID_ROLES else "MEMBER"
+            final_department = user_data.department if user_data.department in VALID_DEPARTMENTS else "VAN_PHONG_CANG"
+
         new_users.append({
             "username": user_data.username,
             "password": hash_password(user_data.password),
             "fullName": user_data.fullName,
             "unionId": user_data.unionId,
-            "role": user_data.role if user_data.role in VALID_ROLES else "MEMBER",
-            "department": user_data.department if user_data.department in VALID_DEPARTMENTS else "VAN_PHONG_CANG",
+            "role": final_role,
+            "department": final_department,
             "avatar": user_data.avatar,
             "status": "active",
             "createdAt": datetime.utcnow()

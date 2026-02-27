@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 import logging
-from app.core.database import client
+from app.core.database import client, init_db_indexes
 from app.routers import auth, posts, activities, feedback, documents, users, analytics
 
 # Configure logging
@@ -23,7 +23,7 @@ app.add_middleware(
         "http://localhost:19006", 
         "http://localhost:3000"
     ],
-    allow_origin_regex="https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -36,6 +36,10 @@ app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+
+@app.on_event("startup")
+async def startup_db_client():
+    await init_db_indexes()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

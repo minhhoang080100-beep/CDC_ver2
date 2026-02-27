@@ -51,7 +51,7 @@ export default function AdminScreen() {
     const pendingUsers = users.filter(u => u.status === 'PENDING').length;
 
     useEffect(() => {
-        if (user?.role === 'SUPER_ADMIN') {
+        if (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) {
             fetchUsers();
         }
     }, [user]);
@@ -80,7 +80,7 @@ export default function AdminScreen() {
     // Debounce search
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (user?.role === 'SUPER_ADMIN') {
+            if (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) {
                 fetchUsers();
             }
         }, 500);
@@ -277,7 +277,7 @@ export default function AdminScreen() {
         }
     }
 
-    if (user?.role !== 'SUPER_ADMIN') {
+    if (user?.role !== 'SUPER_ADMIN' && !user?.role?.startsWith('BCH_')) {
         return (
             <View style={styles.centerContainer}>
                 <Shield color={Colors.status.error} size={48} />
@@ -380,20 +380,24 @@ export default function AdminScreen() {
                 <View style={styles.headerActions}>
                     {activeTab === 'users' && (
                         <>
-                            <TouchableOpacity
-                                style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                                onPress={handleExportCSV}
-                            >
-                                <Download color={Colors.text.primary} size={20} />
-                                {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                                onPress={handleImportCSV}
-                            >
-                                <Upload color={Colors.text.primary} size={20} />
-                                {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
-                            </TouchableOpacity>
+                            {user?.role === 'SUPER_ADMIN' && (
+                                <>
+                                    <TouchableOpacity
+                                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                                        onPress={handleExportCSV}
+                                    >
+                                        <Download color={Colors.text.primary} size={20} />
+                                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
+                                        onPress={handleImportCSV}
+                                    >
+                                        <Upload color={Colors.text.primary} size={20} />
+                                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
+                                    </TouchableOpacity>
+                                </>
+                            )}
                             <TouchableOpacity
                                 style={styles.addButton}
                                 onPress={() => {
@@ -418,13 +422,24 @@ export default function AdminScreen() {
                     <Users color={activeTab === 'users' ? Colors.primary : Colors.text.secondary} size={20} />
                     <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>Tài khoản</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tabItem, activeTab === 'feedbacks' && styles.tabItemActive]}
-                    onPress={() => setActiveTab('feedbacks')}
-                >
-                    <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
-                    <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Phản hồi khiếu nại</Text>
-                </TouchableOpacity>
+                {user?.role === 'SUPER_ADMIN' && (
+                    <TouchableOpacity
+                        style={[styles.tabItem, activeTab === 'feedbacks' && styles.tabItemActive]}
+                        onPress={() => setActiveTab('feedbacks')}
+                    >
+                        <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
+                        <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Phản hồi</Text>
+                    </TouchableOpacity>
+                )}
+                {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                    <TouchableOpacity
+                        style={[styles.tabItem, activeTab === 'analytics' && styles.tabItemActive]}
+                        onPress={() => setActiveTab('analytics')}
+                    >
+                        <BarChart2 color={activeTab === 'analytics' ? Colors.primary : Colors.text.secondary} size={20} />
+                        <Text style={[styles.tabText, activeTab === 'analytics' && styles.tabTextActive]}>Thống kê</Text>
+                    </TouchableOpacity>
+                )}
             </View>
 
             {activeTab === 'users' ? (
@@ -538,7 +553,7 @@ export default function AdminScreen() {
                                                     <Lock color="#f59e0b" size={16} />
                                                 </TouchableOpacity>
                                             )}
-                                            {item.id !== user?.id && (
+                                            {item.id !== user?.id && user?.role === 'SUPER_ADMIN' && (
                                                 <TouchableOpacity
                                                     style={[styles.actionBtn, styles.deleteBtn, { padding: 6 }]}
                                                     onPress={() => handleDelete(item.id)}
