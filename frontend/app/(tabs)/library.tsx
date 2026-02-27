@@ -9,6 +9,7 @@ import {
   Platform,
   Linking,
   RefreshControl,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -31,6 +32,55 @@ interface Document {
   targetDepartments: string[];
   createdAt: string;
 }
+
+const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
+  const animatedValue = React.useRef(new Animated.Value(0.5)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const renderSkeletonItem = (item: number) => (
+    <Animated.View style={[styles.docCard, isDesktop && styles.docCardDesktop, { opacity: animatedValue, marginBottom: isDesktop ? 16 : 12 }]} key={item}>
+      <View style={[styles.docMain, isDesktop && { flex: 1 }]}>
+        <View style={[styles.iconContainer, { backgroundColor: Colors.divider }]} />
+        <View style={styles.docContent}>
+          <View style={{ width: '80%', height: 20, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 8 }} />
+          <View style={{ width: '60%', height: 16, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 8 }} />
+          <View style={{ width: '90%', height: 16, backgroundColor: Colors.divider, borderRadius: 4 }} />
+        </View>
+      </View>
+      {isDesktop && (
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', marginLeft: 16 }}>
+          <View style={{ width: 100, height: 36, backgroundColor: Colors.divider, borderRadius: 20 }} />
+          <View style={{ width: 32, height: 32, backgroundColor: Colors.divider, borderRadius: 16 }} />
+          <View style={{ width: 32, height: 32, backgroundColor: Colors.divider, borderRadius: 16 }} />
+        </View>
+      )}
+    </Animated.View>
+  );
+
+  return (
+    <View style={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%' }]}>
+      <View style={{ flexDirection: 'column', gap: 16 }}>
+        {[1, 2, 3, 4].map(renderSkeletonItem)}
+      </View>
+    </View>
+  );
+};
 
 export default function LibraryScreen() {
   const { user, token } = useAuth();
@@ -128,72 +178,116 @@ export default function LibraryScreen() {
   };
 
   const renderDocument = ({ item }: { item: Document }) => (
-    <WebHoverCard style={styles.docCard}>
-      <View style={styles.docMain}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: getCategoryColor(item.category) + '20' },
-          ]}
-        >
-          <FileText color={getCategoryColor(item.category)} size={32} />
-        </View>
-        <View style={styles.docContent}>
-          <Text style={styles.docTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={styles.docMetaRow}>
-            <Text style={styles.docMetaText}>{item.category} • {item.fileSize}</Text>
-          </View>
-          <View style={styles.docMetaRow}>
-            <Text style={styles.docMetaText}>Đăng bởi: {item.uploadedBy} • {item.createdAt ? format(new Date(item.createdAt), 'dd/MM/yyyy') : 'N/A'}</Text>
-          </View>
-        </View>
-      </View>
-      {item.fileUrl && (
-        <TouchableOpacity
-          style={styles.openDocButton}
-          onPress={() => {
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-              window.open(item.fileUrl!, '_blank');
-            } else {
-              Linking.openURL(item.fileUrl!);
-            }
-          }}
-        >
-          <Text style={styles.openDocButtonText}>📄 Mở tài liệu</Text>
-        </TouchableOpacity>
-      )}
-      {canEditDelete(item) && (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleEdit(item)}
+    <View style={{ flex: 1 }}>
+      <WebHoverCard style={[styles.docCard, isDesktop && styles.docCardDesktop]}>
+        <View style={[styles.docMain, isDesktop && { flex: 1 }]}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: getCategoryColor(item.category) + '15' },
+            ]}
           >
-            <Edit2 color="#3b82f6" size={18} />
-            <Text style={styles.actionTextEdit}>Sửa</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleDelete(item.id)}
-          >
-            <Trash2 color="#ef4444" size={18} />
-            <Text style={styles.actionTextDelete}>Xóa</Text>
-          </TouchableOpacity>
+            <FileText color={getCategoryColor(item.category)} size={32} />
+          </View>
+          <View style={styles.docContent}>
+            <Text style={styles.docTitle} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <View style={styles.docMetaRow}>
+              <Text style={styles.docMetaText}>{item.category} • {item.fileSize}</Text>
+            </View>
+            <View style={styles.docMetaRow}>
+              <Text style={styles.docMetaText} numberOfLines={1}>Đăng bởi: {item.uploadedBy} • {item.createdAt ? format(new Date(item.createdAt), 'dd/MM/yyyy') : 'N/A'}</Text>
+            </View>
+          </View>
         </View>
-      )}
-    </WebHoverCard>
+
+        <View style={[styles.cardFooter, isDesktop && styles.cardFooterDesktop]}>
+          <View style={[styles.actionsRowInline, isDesktop && styles.actionsRowInlineDesktop]}>
+            {item.fileUrl && (
+              isDesktop ? (
+                <TouchableOpacity
+                  style={styles.actionIconBtnOpen}
+                  onPress={() => {
+                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                      window.open(item.fileUrl!, '_blank');
+                    } else {
+                      Linking.openURL(item.fileUrl!);
+                    }
+                  }}
+                >
+                  <FileText color={Colors.primary} size={16} />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => {
+                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                      window.open(item.fileUrl!, '_blank');
+                    } else {
+                      Linking.openURL(item.fileUrl!);
+                    }
+                  }}
+                >
+                  <FileText color={Colors.primary} size={16} />
+                  <Text style={styles.actionTextOpen}>Mở tài liệu</Text>
+                </TouchableOpacity>
+              )
+            )}
+
+            {canEditDelete(item) && (
+              isDesktop ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionIconBtnEdit}
+                    onPress={() => handleEdit(item)}
+                  >
+                    <Edit2 color="#3b82f6" size={16} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionIconBtnDelete}
+                    onPress={() => handleDelete(item.id)}
+                  >
+                    <Trash2 color="#ef4444" size={16} />
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleEdit(item)}
+                  >
+                    <Edit2 color="#3b82f6" size={16} />
+                    <Text style={styles.actionTextEdit}>Sửa</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleDelete(item.id)}
+                  >
+                    <Trash2 color="#ef4444" size={16} />
+                    <Text style={styles.actionTextDelete}>Xóa</Text>
+                  </TouchableOpacity>
+                </>
+              )
+            )}
+          </View>
+        </View>
+      </WebHoverCard>
+    </View>
   );
+  // Replaced by renderDocument content above
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
           <Text style={styles.headerTitle}>THƯ VIỆN SỐ</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Đang tải...</Text>
+        <View style={styles.searchContainer}>
+          <Search color="#64748b" size={20} />
+          <TextInput style={styles.searchInput} placeholder="Tìm kiếm tài liệu..." editable={false} />
         </View>
+        <SkeletonLoader isDesktop={isDesktop} gridColumns={gridColumns} />
       </SafeAreaView>
     );
   }
@@ -228,7 +322,7 @@ export default function LibraryScreen() {
         data={filteredDocs}
         renderItem={renderDocument}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
+        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 800, alignSelf: 'center' as any, width: '100%' as any }]}
         refreshControl={
           <RefreshControl
             refreshing={loading}
@@ -321,16 +415,19 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   docCard: {
-    width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    ...Colors.shadows.md,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
+  },
+  docCardDesktop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
   },
   docMain: {
     flexDirection: 'row',
@@ -362,22 +459,68 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12,
-    paddingTop: 12,
+  cardFooter: {
+    marginTop: 16,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: Colors.divider,
+  },
+  cardFooterDesktop: {
+    flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 0,
+    paddingTop: 0,
+    borderTopWidth: 0,
+    marginLeft: 16,
+    gap: 12,
+  },
+  actionsRowInline: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    justifyContent: 'flex-end',
+  },
+  actionsRowInlineDesktop: {
+    marginTop: 0,
+  },
+  actionIconBtnOpen: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(8, 145, 178, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconBtnEdit: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconBtnDelete: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+  },
+  actionTextOpen: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
   },
   actionTextEdit: {
     fontSize: 14,
@@ -398,20 +541,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#94a3b8',
   },
-  openDocButton: {
-    backgroundColor: '#eef2ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    marginTop: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#c7d2fe',
-  },
-  openDocButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4f46e5',
-  },
-
 });

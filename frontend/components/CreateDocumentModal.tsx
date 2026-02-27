@@ -9,10 +9,14 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
+import * as DocumentPicker from 'expo-document-picker';
+import { FileUp, X, FileText, CheckCircle } from 'lucide-react-native';
 
 interface Document {
   id: string;
@@ -37,8 +41,13 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
   const [category, setCategory] = useState('Nội quy');
   const [fileSize, setFileSize] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+  const [fileName, setFileName] = useState('');
   const [selectedDepts, setSelectedDepts] = useState<string[]>(['ALL']);
   const [loading, setLoading] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const CLOUD_NAME = 'dljjearo2';
+  const UPLOAD_PRESET = 'CDCnghetinh';
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -47,6 +56,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
       setCategory(editDocument.category);
       setFileSize(editDocument.fileSize);
       setFileUrl(editDocument.fileUrl || '');
+      setFileName(editDocument.title || ''); // Fallback for name
       setSelectedDepts(editDocument.targetDepartments || ['ALL']);
     } else if (visible) {
       // Reset form fields without closing the modal
@@ -54,8 +64,10 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
       setCategory('Nội quy');
       setFileSize('');
       setFileUrl('');
+      setFileName('');
       setSelectedDepts(['ALL']);
       setLoading(false);
+      setUploadingFile(false);
     }
   }, [editDocument, visible]);
 
@@ -80,6 +92,82 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
       } else {
         setSelectedDepts([...newDepts, dept]);
       }
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Allow all files, or specify pdf/doc etc.
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setFileName(file.name);
+
+        // Convert the bytes to MB or KB
+        if (file.size) {
+          const mbSize = (file.size / (1024 * 1024)).toFixed(2);
+          setFileSize(`${mbSize} MB`);
+        }
+
+        if (!title) {
+          setTitle(file.name.replace(/\.[^/.]+$/, "")); // Strip extension for title default
+        }
+
+        await uploadToCloudinary(file);
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+      showToast({ message: 'Lỗi khi chọn tài liệu', type: 'error' });
+    }
+  };
+
+  const uploadToCloudinary = async (fileObj: any) => {
+    setUploadingFile(true);
+    try {
+      const formData = new FormData();
+
+      if (Platform.OS === 'web' && fileObj.file) {
+        // On web, fileObj.file is the actual HTML5 DOM File. This preserves bytes 100% perfectly.
+        formData.append('file', fileObj.file);
+      } else if (Platform.OS === 'web') {
+        // Fallback: send the base64 data URI string directly to Cloudinary
+        formData.append('file', fileObj.uri);
+      } else {
+        // React Native mobile approach
+        formData.append('file', {
+          uri: fileObj.uri,
+          type: fileObj.mimeType || 'application/pdf',
+          name: fileObj.name,
+        } as any);
+      }
+
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'cong-doan-docs');
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.secure_url) {
+        setFileUrl(data.secure_url);
+        showToast({ message: 'Tải tài liệu lên thành công!', type: 'success' });
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading document to Cloudinary:', error);
+      showToast({ message: 'Upload tài liệu thất bại', type: 'error' });
+      setFileUrl('');
+      setFileName('');
+      setFileSize('');
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -134,8 +222,10 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
     setCategory('Nội quy');
     setFileSize('');
     setFileUrl('');
+    setFileName('');
     setSelectedDepts(['ALL']);
     setLoading(false);
+    setUploadingFile(false);
     onClose();
   };
 
@@ -188,25 +278,50 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
               ))}
             </View>
 
-            <Text style={styles.label}>Kích thước file (VD: 2.5 MB)</Text>
-            <TextInput
-              style={styles.input}
-              value={fileSize}
-              onChangeText={setFileSize}
-              placeholder="VD: 2.5 MB"
-              placeholderTextColor="#94a3b8"
-            />
-
-            <Text style={styles.label}>Link tài liệu (URL)</Text>
-            <TextInput
-              style={styles.input}
-              value={fileUrl}
-              onChangeText={setFileUrl}
-              placeholder="VD: https://drive.google.com/..."
-              placeholderTextColor="#94a3b8"
-              autoCapitalize="none"
-              keyboardType="url"
-            />
+            <Text style={styles.label}>Tệp Đính Kèm (Upload) *</Text>
+            {fileUrl ? (
+              <View style={styles.filePreviewContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 }}>
+                  <FileText color={Colors.status.success} size={32} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fileNameText} numberOfLines={1}>{fileName || 'Đã đính kèm tệp'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                      <CheckCircle color={Colors.status.success} size={14} />
+                      <Text style={{ fontSize: 13, color: Colors.text.secondary, marginLeft: 4 }}>Đã tải lên • {fileSize}</Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.removeFileButton}
+                  onPress={() => {
+                    setFileUrl('');
+                    setFileName('');
+                    setFileSize('');
+                  }}
+                >
+                  <X color={Colors.text.secondary} size={20} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.fileUploadButton}
+                onPress={pickDocument}
+                disabled={uploadingFile}
+              >
+                {uploadingFile ? (
+                  <>
+                    <ActivityIndicator color={Colors.primary} style={{ marginBottom: 8 }} />
+                    <Text style={styles.fileUploadText}>Đang tải tệp lên máy chủ...</Text>
+                  </>
+                ) : (
+                  <>
+                    <FileUp color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
+                    <Text style={styles.fileUploadText}>Nhấn để chọn và tải tệp lên</Text>
+                    <Text style={styles.fileUploadSubText}>Hỗ trợ PDF, Word, Excel, PPT...</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             {canSelectDepts && (
               <>
@@ -236,16 +351,16 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
             )}
 
             <View style={styles.note}>
-              <Text style={styles.noteText}>💡 Lưu ý: Đây là tài liệu demo. Trong phiên bản thực tế, bạn có thể upload file PDF, Word, v.v.</Text>
+              <Text style={styles.noteText}>💡 Tính năng hỗ trợ tải trực tiếp tài liệu lên Cloud. Sau khi lưu, tài liệu có thể được xem hoặc tải xuống trên mọi thiết bị.</Text>
             </View>
 
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (loading || uploadingFile || !fileUrl) && styles.submitButtonDisabled]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || uploadingFile || !fileUrl}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? 'Đang thêm...' : 'Thêm tài liệu'}
+                {loading ? 'Đang lưu...' : (editDocument ? 'Cập nhật tài liệu' : 'Thêm tài liệu')}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -372,7 +487,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   submitButton: {
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -380,11 +495,52 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   submitButtonDisabled: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: Colors.text.placeholder,
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  fileUploadButton: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  fileUploadText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  fileUploadSubText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 4,
+  },
+  filePreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  fileNameText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.text.primary,
+  },
+  removeFileButton: {
+    padding: 4,
+    borderRadius: 20,
+    backgroundColor: Colors.divider,
   },
 });

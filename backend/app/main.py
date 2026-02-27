@@ -3,6 +3,8 @@ from starlette.middleware.cors import CORSMiddleware
 import logging
 from app.core.database import client, init_db_indexes
 from app.routers import auth, posts, activities, feedback, documents, users, analytics
+import cloudinary
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -36,6 +38,15 @@ app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+
+# Cloudinary Configuration
+cloudinary_url = os.getenv("CLOUDINARY_URL")
+if cloudinary_url:
+    cloudinary.config(
+        secure=True
+    )
+else:
+    logger.warning("CLOUDINARY_URL not found in environment variables. Image/Document deletion will not work.")
 
 @app.on_event("startup")
 async def startup_db_client():
