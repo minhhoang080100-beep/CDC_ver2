@@ -19,6 +19,7 @@ import { api } from '../utils/api';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useToast } from '../contexts/ToastContext';
 
 const registerSchema = z.object({
     fullName: z.string().min(2, 'Họ và tên quá ngắn').max(100, 'Họ và tên quá dài'),
@@ -41,6 +42,7 @@ const DEPARTMENTS = [
 export default function RegisterScreen() {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { showToast } = useToast();
 
     const {
         control,
@@ -69,11 +71,20 @@ export default function RegisterScreen() {
                 role: 'MEMBER'
             });
 
-            Alert.alert('Thành công', response.data.message, [
-                { text: 'Về trang Đăng nhập', onPress: () => router.replace('/login') }
-            ]);
+            showToast({
+                message: response.data.message || 'Đăng ký thành công',
+                type: 'success'
+            });
+
+            setTimeout(() => {
+                router.replace('/login');
+            }, 1000);
+
         } catch (error: any) {
-            Alert.alert('Đăng ký thất bại', error.response?.data?.detail || 'Vui lòng kiểm tra lại thông tin');
+            showToast({
+                message: error.response?.data?.detail || 'Vui lòng kiểm tra lại thông tin',
+                type: 'error'
+            });
         } finally {
             setIsLoading(false);
         }

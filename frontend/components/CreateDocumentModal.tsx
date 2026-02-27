@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/api';
 
 interface Document {
@@ -31,6 +32,7 @@ interface CreateDocumentModalProps {
 
 export default function CreateDocumentModal({ visible, onClose, onSuccess, editDocument }: CreateDocumentModalProps) {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Nội quy');
   const [fileSize, setFileSize] = useState('');
@@ -83,9 +85,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
 
   const handleSubmit = async () => {
     if (!title.trim()) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Vui lòng nhập tên tài liệu');
-      }
+      showToast({ message: 'Vui lòng nhập tên tài liệu', type: 'error' });
       return;
     }
 
@@ -106,9 +106,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
           documentData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã cập nhật tài liệu thành công!');
-        }
+        showToast({ message: 'Đã cập nhật tài liệu thành công!', type: 'success' });
       } else {
         // Create new document
         await api.post(
@@ -116,18 +114,17 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
           documentData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã thêm tài liệu thành công!');
-        }
+        showToast({ message: 'Đã thêm tài liệu thành công!', type: 'success' });
       }
 
       onSuccess();
       handleReset();
     } catch (error: any) {
       console.error('Error saving document:', error);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert(error.response?.data?.detail || 'Không thể lưu tài liệu');
-      }
+      showToast({
+        message: error.response?.data?.detail || 'Không thể lưu tài liệu',
+        type: 'error'
+      });
       setLoading(false);
     }
   };

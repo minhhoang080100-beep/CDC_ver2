@@ -9,10 +9,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
+import { ImagePlus, X } from 'lucide-react-native';
 
 interface Post {
   id: string;
@@ -21,6 +26,7 @@ interface Post {
   summary: string;
   category: string;
   targetDepartments: string[];
+  image?: string;
 }
 
 interface CreatePostModalProps {
@@ -32,12 +38,20 @@ interface CreatePostModalProps {
 
 export default function CreatePostModal({ visible, onClose, onSuccess, editPost }: CreatePostModalProps) {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('Thông báo');
   const [selectedDepts, setSelectedDepts] = useState<string[]>(['ALL']);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Cloudinary Details
+  const CLOUD_NAME = 'dljjearo2';
+  // Note: This upload preset needs to be created in Cloudinary settings -> Upload -> Add upload preset (Signing Mode: Unsigned)
+  const UPLOAD_PRESET = 'CDCnghetinh'; // Replace with your actual unsigned preset name if different
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -47,6 +61,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       setContent(editPost.content);
       setCategory(editPost.category);
       setSelectedDepts(editPost.targetDepartments || ['ALL']);
+      setImageUri(editPost.image || null);
     } else if (visible) {
       // Reset form fields without closing the modal
       setTitle('');
@@ -54,6 +69,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       setContent('');
       setCategory('Thông báo');
       setSelectedDepts(['ALL']);
+      setImageUri(null);
       setLoading(false);
     }
   }, [editPost, visible]);
@@ -81,11 +97,71 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     }
   };
 
+  const pickImage = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          showToast({ message: 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên', type: 'error' });
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true, // We need base64 for ImgBB upload
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        // We temporarily store the local URI for preview
+        // We will upload the base64 data to Cloudinary when picked
+        setImageUri(result.assets[0].uri);
+
+        // Cloudinary requires a specific content type prefix for base64
+        const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        await uploadToCloudinary(base64Img);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      showToast({ message: 'Không thể chọn ảnh', type: 'error' });
+    }
+  };
+
+  const uploadToCloudinary = async (base64Img: string) => {
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', base64Img);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'cong-doan-app'); // Optional: organize uploads into a folder
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.secure_url) {
+        // Overwrite the local URI with the remote Cloudinary URL
+        setImageUri(data.secure_url);
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      showToast({ message: 'Upload ảnh thất bại. Bạn đã bật Unsigned Upload Preset chưa?', type: 'error' });
+      setImageUri(null); // Reset on failure
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Vui lòng nhập đầy đủ thông tin');
-      }
+      showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
       return;
     }
 
@@ -97,6 +173,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         content,
         category,
         targetDepartments: selectedDepts,
+        image: imageUri,
       };
 
       if (editPost) {
@@ -106,9 +183,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
           postData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã cập nhật bài viết thành công!');
-        }
+        showToast({ message: 'Đã cập nhật bài viết thành công!', type: 'success' });
       } else {
         // Create new post
         await api.post(
@@ -116,18 +191,17 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
           postData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã đăng bài thành công!');
-        }
+        showToast({ message: 'Đã đăng bài thành công!', type: 'success' });
       }
 
       onSuccess();
       handleReset();
     } catch (error: any) {
       console.error('Error saving post:', error);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert(error.response?.data?.detail || 'Không thể lưu bài viết');
-      }
+      showToast({
+        message: error.response?.data?.detail || 'Không thể lưu bài viết',
+        type: 'error'
+      });
       setLoading(false);
     }
   };
@@ -138,6 +212,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     setContent('');
     setCategory('Thông báo');
     setSelectedDepts(['ALL']);
+    setImageUri(null);
     setLoading(false);
     onClose();
   };
@@ -188,6 +263,38 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
               numberOfLines={6}
               textAlignVertical="top"
             />
+
+            <Text style={styles.label}>Ảnh minh họa (Tùy chọn)</Text>
+            {imageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setImageUri(null)}
+                >
+                  <X color="#fff" size={20} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.imageUploadButton}
+                onPress={pickImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <>
+                    <ActivityIndicator color={Colors.primary} style={{ marginBottom: 8 }} />
+                    <Text style={styles.imageUploadText}>Đang tải ảnh lên...</Text>
+                  </>
+                ) : (
+                  <>
+                    <ImagePlus color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
+                    <Text style={styles.imageUploadText}>Nhấn để tải ảnh lên</Text>
+                    <Text style={styles.imageUploadSubText}>Hỗ trợ JPG, PNG (Tối đa 5MB)</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
 
             <Text style={styles.label}>Danh mục</Text>
             <View style={styles.categoryContainer}>
@@ -240,9 +347,9 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
             )}
 
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (loading || uploadingImage) && styles.submitButtonDisabled]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || uploadingImage}
             >
               <Text style={styles.submitButtonText}>
                 {loading ? 'Đang đăng...' : 'Đăng bài'}
@@ -311,6 +418,52 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 12,
+  },
+  imageUploadButton: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  imageUploadText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  imageUploadSubText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
+    position: 'relative',
+    backgroundColor: Colors.divider,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryContainer: {
     flexDirection: 'row',

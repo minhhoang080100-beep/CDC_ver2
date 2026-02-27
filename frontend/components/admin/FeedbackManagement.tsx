@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, Platform, Re
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { MessageSquare, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react-native';
 import WebHoverCard from '../WebHoverCard';
 
@@ -27,6 +28,7 @@ interface Feedback {
 
 export default function FeedbackManagement() {
     const { token, user } = useAuth();
+    const { showToast } = useToast();
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -56,18 +58,10 @@ export default function FeedbackManagement() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setFeedbacks(feedbacks.map(f => f.id === id ? { ...f, status: newStatus } : f));
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert('Đã cập nhật trạng thái');
-            } else {
-                Alert.alert('Thành công', 'Đã cập nhật trạng thái');
-            }
+            showToast({ message: 'Đã cập nhật trạng thái', type: 'success' });
         } catch (error) {
             console.error('Update status error:', error);
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert('Lỗi cập nhật trạng thái');
-            } else {
-                Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
-            }
+            showToast({ message: 'Không thể cập nhật trạng thái', type: 'error' });
         }
     };
 

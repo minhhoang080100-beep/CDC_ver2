@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../utils/api';
@@ -32,6 +33,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 
 export default function SettingsScreen() {
   const { user, token, logout } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();  // Keep this for handleFeedback navigation
   const { isDesktop } = useResponsive();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -76,23 +78,17 @@ export default function SettingsScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Vui lòng nhập đầy đủ thông tin');
-      }
+      showToast({ message: 'Vui lòng nhập đầy đủ thông tin', type: 'error' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Mật khẩu mới không khớp');
-      }
+      showToast({ message: 'Mật khẩu mới không khớp', type: 'error' });
       return;
     }
 
     if (newPassword.length < 6) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Mật khẩu mới phải có ít nhất 6 ký tự');
-      }
+      showToast({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự', type: 'error' });
       return;
     }
 
@@ -106,18 +102,17 @@ export default function SettingsScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Đổi mật khẩu thành công!');
-      }
+      showToast({ message: 'Đổi mật khẩu thành công!', type: 'success' });
       setChangePasswordModalVisible(false);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
       console.error('Error changing password:', error);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert(error.response?.data?.detail || 'Không thể đổi mật khẩu');
-      }
+      showToast({
+        message: error.response?.data?.detail || 'Không thể đổi mật khẩu',
+        type: 'error'
+      });
     }
   };
 
@@ -126,15 +121,17 @@ export default function SettingsScreen() {
   };
 
   const handleAbout = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.alert('Ứng dụng Công đoàn Cảng Nghệ Tĩnh\nPhiên bản: 1.0.0\n\n© 2025 Công đoàn Cảng Nghệ Tĩnh');
-    }
+    showToast({
+      message: 'Ứng dụng Công đoàn Cảng Nghệ Tĩnh\nPhiên bản: 1.0.0\n\n© 2025 Công đoàn Cảng Nghệ Tĩnh',
+      type: 'info'
+    });
   };
 
   const handleHelp = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.alert('Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheting.vn\nĐiện thoại: 0123-456-789\n\nHoặc gửi phản hồi qua mục "Gửi phản hồi" trong ứng dụng.');
-    }
+    showToast({
+      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheting.vn\nHoặc gửi phản hồi qua mục "Gửi phản hồi".',
+      type: 'info'
+    });
   };
 
   const getDepartmentName = (dept: string) => {

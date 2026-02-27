@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../utils/api';
 import { ArrowLeft, Calendar, User, Tag, Heart, MessageCircle, Send } from 'lucide-react-native';
 
@@ -31,6 +32,7 @@ export default function PostDetailScreen() {
     const postId = params.id as string;
 
     const { token, user } = useAuth();
+    const { showToast } = useToast();
     const [likes, setLikes] = useState<string[]>([]);
     const [comments, setComments] = useState<any[]>([]);
     const [commentText, setCommentText] = useState('');
@@ -68,11 +70,7 @@ export default function PostDetailScreen() {
             setCommentText('');
         } catch (error) {
             console.error('Lỗi khi bình luận:', error);
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert('Không thể gửi bình luận');
-            } else {
-                Alert.alert('Lỗi', 'Không thể gửi bình luận');
-            }
+            showToast({ message: 'Không thể gửi bình luận', type: 'error' });
         } finally {
             setIsSubmitting(false);
         }

@@ -21,6 +21,7 @@ import { Send, MessageCircle, ChevronRight } from 'lucide-react-native';
 import { format } from 'date-fns';
 import { api } from '../../utils/api';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useToast } from '../../contexts/ToastContext';
 
 interface Feedback {
   id: string;
@@ -41,6 +42,7 @@ interface Feedback {
 export default function FeedbackScreen() {
   const { user, token } = useAuth();
   const { isDesktop } = useResponsive();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'send' | 'view'>('send');
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
@@ -67,7 +69,7 @@ export default function FeedbackScreen() {
       setFeedbackList(response.data);
     } catch (error: any) {
       console.error('Error fetching feedback:', error);
-      Alert.alert('Lỗi', error.detail || 'Không thể tải phản hồi');
+      showToast({ message: error.detail || 'Không thể tải phản hồi', type: 'error' });
     } finally {
       setListLoading(false);
     }
@@ -75,7 +77,7 @@ export default function FeedbackScreen() {
 
   const handleSubmit = async () => {
     if (!subject.trim() || !content.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin');
+      showToast({ message: 'Vui lòng nhập đầy đủ thông tin', type: 'error' });
       return;
     }
 
@@ -91,13 +93,13 @@ export default function FeedbackScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      Alert.alert('Thành công', 'Cảm ơn bạn đã đóng góp ý kiến!');
+      showToast({ message: 'Cảm ơn bạn đã đóng góp ý kiến!', type: 'success' });
       setSubject('');
       setContent('');
       setIsAnonymous(false);
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      Alert.alert('Lỗi', error.detail || 'Không thể gửi phản hồi');
+      showToast({ message: error.detail || 'Không thể gửi phản hồi', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -105,7 +107,7 @@ export default function FeedbackScreen() {
 
   const handleReply = async () => {
     if (!replyContent.trim()) {
-      Alert.alert('Lỗi', 'Vui lòng nhập nội dung trả lời');
+      showToast({ message: 'Vui lòng nhập nội dung trả lời', type: 'error' });
       return;
     }
 
@@ -116,13 +118,13 @@ export default function FeedbackScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      Alert.alert('Thành công', 'Đã gửi trả lời');
+      showToast({ message: 'Đã gửi trả lời', type: 'success' });
       setReplyContent('');
       setModalVisible(false);
       fetchFeedback();
     } catch (error) {
       console.error('Error replying:', error);
-      Alert.alert('Lỗi', 'Không thể gửi trả lời');
+      showToast({ message: 'Không thể gửi trả lời', type: 'error' });
     }
   };
 

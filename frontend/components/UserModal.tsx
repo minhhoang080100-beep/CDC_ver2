@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/api';
 import { Colors } from '../constants/Colors';
 
@@ -34,6 +35,7 @@ interface UserModalProps {
 
 export default function UserModal({ visible, onClose, onSuccess, editUser }: UserModalProps) {
     const { token, user } = useAuth();
+    const { showToast } = useToast();
 
     // Form fields
     const [username, setUsername] = useState('');
@@ -97,16 +99,12 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
 
     const handleSubmit = async () => {
         if (!editUser && (!username || !password || !fullName || !unionId)) {
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert('Vui lòng nhập đầy đủ thông tin bắt buộc');
-            }
+            showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
             return;
         }
 
         if (editUser && !fullName) {
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert('Họ tên không được để trống');
-            }
+            showToast({ message: 'Họ tên không được để trống', type: 'error' });
             return;
         }
 
@@ -123,9 +121,7 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                 await api.put(`/api/users/${editUser.id}`, updateData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                    window.alert('Cập nhật thành công!');
-                }
+                showToast({ message: 'Cập nhật thành công!', type: 'success' });
             } else {
                 // Create user
                 const createData = {
@@ -139,17 +135,16 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                 await api.post('/api/users', createData, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                    window.alert('Tạo người dùng thành công!');
-                }
+                showToast({ message: 'Tạo người dùng thành công!', type: 'success' });
             }
             onSuccess();
             onClose();
         } catch (error: any) {
             console.error('Lỗi khi lưu người dùng:', error);
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert(error.response?.data?.detail || 'Đã có lỗi xảy ra');
-            }
+            showToast({
+                message: error.response?.data?.detail || 'Đã có lỗi xảy ra',
+                type: 'error'
+            });
         } finally {
             setLoading(false);
         }

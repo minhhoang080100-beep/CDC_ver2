@@ -20,6 +20,7 @@ import UserModal from '../../components/UserModal';
 import FeedbackManagement from '../../components/admin/FeedbackManagement';
 import AnalyticsDashboard from '../../components/admin/AnalyticsDashboard';
 import { api } from '../../utils/api';
+import { useToast } from '../../contexts/ToastContext';
 
 interface User {
     id: string;
@@ -34,6 +35,7 @@ interface User {
 export default function AdminScreen() {
     const { user, token } = useAuth();
     const { isDesktop } = useResponsive();
+    const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -99,10 +101,11 @@ export default function AdminScreen() {
                     await api.delete(`/api/users/${id}`, {
                         headers: { Authorization: `Bearer ${token}` },
                     });
+                    showToast({ message: 'Đã xóa người dùng', type: 'success' });
                     fetchUsers();
                 } catch (error) {
                     console.error('Error deleting user:', error);
-                    window.alert('Không thể xóa người dùng');
+                    showToast({ message: 'Không thể xóa người dùng', type: 'error' });
                 }
             }
         } else {
@@ -116,10 +119,11 @@ export default function AdminScreen() {
                             await api.delete(`/api/users/${id}`, {
                                 headers: { Authorization: `Bearer ${token}` },
                             });
+                            showToast({ message: 'Đã xóa người dùng', type: 'success' });
                             fetchUsers();
                         } catch (error) {
                             console.error('Error deleting user:', error);
-                            Alert.alert('Lỗi', 'Không thể xóa người dùng');
+                            showToast({ message: 'Không thể xóa người dùng', type: 'error' });
                         }
                     }
                 }
@@ -137,10 +141,10 @@ export default function AdminScreen() {
                     await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    window.alert('Cấp lại mật khẩu thành công! Mật khẩu mới là: ' + defaultPassword);
+                    showToast({ message: 'Cấp lại mật khẩu thành công! Mật khẩu mới là: ' + defaultPassword, type: 'success' });
                 } catch (error: any) {
                     console.error('Error resetting password:', error);
-                    window.alert(error.response?.data?.detail || 'Không thể cấp lại mật khẩu');
+                    showToast({ message: error.response?.data?.detail || 'Không thể cấp lại mật khẩu', type: 'error' });
                 }
             }
         } else {
@@ -154,10 +158,10 @@ export default function AdminScreen() {
                             await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
                                 headers: { Authorization: `Bearer ${token}` }
                             });
-                            Alert.alert('Thành công', 'Mật khẩu đã được cấp lại về mặc định: ' + defaultPassword);
+                            showToast({ message: 'Mật khẩu đã được cấp lại về mặc định: ' + defaultPassword, type: 'success' });
                         } catch (error: any) {
                             console.error('Error resetting password:', error);
-                            Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể cấp lại mật khẩu');
+                            showToast({ message: error.response?.data?.detail || 'Không thể cấp lại mật khẩu', type: 'error' });
                         }
                     }
                 }
@@ -172,9 +176,10 @@ export default function AdminScreen() {
                     await api.put(`/api/users/${id}/approve`, {}, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
+                    showToast({ message: 'Đã phê duyệt tài khoản', type: 'success' });
                     fetchUsers();
                 } catch (error: any) {
-                    window.alert(error.response?.data?.detail || 'Không thể phê duyệt tài khoản');
+                    showToast({ message: error.response?.data?.detail || 'Không thể phê duyệt tài khoản', type: 'error' });
                 }
             }
         } else {
@@ -187,9 +192,10 @@ export default function AdminScreen() {
                             await api.put(`/api/users/${id}/approve`, {}, {
                                 headers: { Authorization: `Bearer ${token}` }
                             });
+                            showToast({ message: 'Đã phê duyệt tài khoản', type: 'success' });
                             fetchUsers();
                         } catch (error: any) {
-                            Alert.alert('Lỗi', error.response?.data?.detail || 'Không thể phê duyệt');
+                            showToast({ message: error.response?.data?.detail || 'Không thể phê duyệt', type: 'error' });
                         }
                     }
                 }
@@ -199,7 +205,7 @@ export default function AdminScreen() {
 
     const handleExportCSV = () => {
         if (users.length === 0) {
-            Alert.alert('Thông báo', 'Không có dữ liệu để xuất');
+            showToast({ message: 'Không có dữ liệu để xuất', type: 'info' });
             return;
         }
 
@@ -231,7 +237,7 @@ export default function AdminScreen() {
             link.click();
             document.body.removeChild(link);
         } else {
-            Alert.alert('Thông báo', 'Chức năng xuất File hiện chỉ tối ưu cho máy tính (Web).');
+            showToast({ message: 'Chức năng xuất File hiện chỉ tối ưu cho máy tính (Web).', type: 'info' });
         }
     };
 
@@ -255,17 +261,10 @@ export default function AdminScreen() {
                             const validUsersToImport = []; // Populate payload
 
                             // Placeholder logic... Wait, let's just alert for now since parsing logic would be complex.
-                            window.alert("Chức năng Import đang trong quá trình thử nghiệm. Vui lòng quay lại sau.");
+                            showToast({ message: "Chức năng Import đang trong quá trình thử nghiệm. Vui lòng quay lại sau.", type: 'info' });
 
-                            /*
-                            await api.post('/api/users/bulk', { users: validUsersToImport }, {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-                            fetchUsers();
-                            window.alert('Import thành công!');
-                            */
                         } catch (err: any) {
-                            window.alert('Lỗi import: ' + err.message);
+                            showToast({ message: 'Lỗi import: ' + err.message, type: 'error' });
                         }
                     }
                 };
@@ -273,7 +272,7 @@ export default function AdminScreen() {
             };
             fileInput.click();
         } else {
-            Alert.alert('Thông báo', 'Chức năng Import hiện chỉ hỗ trợ trên máy tính (Web).');
+            showToast({ message: 'Chức năng Import hiện chỉ hỗ trợ trên máy tính (Web).', type: 'info' });
         }
     }
 

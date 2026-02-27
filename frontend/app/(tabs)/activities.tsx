@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useToast } from '../../contexts/ToastContext';
 import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode } from 'lucide-react-native';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
@@ -33,6 +34,7 @@ interface Activity {
 
 export default function ActivitiesScreen() {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const { gridColumns, isDesktop } = useResponsive();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,10 +102,11 @@ export default function ActivitiesScreen() {
           await api.delete(`/api/activities/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          showToast({ message: 'Đã xóa hoạt động', type: 'success' });
           fetchActivities();
         } catch (error) {
           console.error('Error deleting activity:', error);
-          window.alert('Không thể xóa hoạt động');
+          showToast({ message: 'Không thể xóa hoạt động', type: 'error' });
         }
       }
     }

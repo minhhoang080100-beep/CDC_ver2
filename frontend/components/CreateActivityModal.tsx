@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/api';
 
 interface Activity {
@@ -32,6 +33,7 @@ interface CreateActivityModalProps {
 
 export default function CreateActivityModal({ visible, onClose, onSuccess, editActivity }: CreateActivityModalProps) {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [time, setTime] = useState('');
@@ -91,9 +93,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
 
   const handleSubmit = async () => {
     if (!name.trim() || !time.trim() || !location.trim()) {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert('Vui lòng nhập đầy đủ thông tin');
-      }
+      showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
       return;
     }
 
@@ -115,9 +115,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
           activityData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã cập nhật hoạt động thành công!');
-        }
+        showToast({ message: 'Đã cập nhật hoạt động thành công!', type: 'success' });
       } else {
         // Create new activity
         await api.post(
@@ -125,18 +123,17 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
           activityData,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Đã tạo hoạt động thành công!');
-        }
+        showToast({ message: 'Đã tạo hoạt động thành công!', type: 'success' });
       }
 
       onSuccess();
       handleReset();
     } catch (error: any) {
       console.error('Error saving activity:', error);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.alert(error.response?.data?.detail || 'Không thể lưu hoạt động');
-      }
+      showToast({
+        message: error.response?.data?.detail || 'Không thể lưu hoạt động',
+        type: 'error'
+      });
       setLoading(false);
     }
   };

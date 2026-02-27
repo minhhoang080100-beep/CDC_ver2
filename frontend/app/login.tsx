@@ -20,6 +20,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useToast } from '../contexts/ToastContext';
 
 const loginSchema = z.object({
   username: z.string()
@@ -34,6 +35,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const {
@@ -54,7 +56,10 @@ export default function LoginScreen() {
       await login(data.username, data.password);
       router.replace('/(tabs)');
     } catch (error: any) {
-      Alert.alert('Đăng nhập thất bại', error.message || 'Vui lòng kiểm tra lại thông tin');
+      showToast({
+        message: error.message || 'Vui lòng kiểm tra lại thông tin đăng nhập',
+        type: 'error'
+      });
     } finally {
       setIsLoading(false);
     }

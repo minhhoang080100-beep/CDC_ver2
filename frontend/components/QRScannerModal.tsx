@@ -5,6 +5,7 @@ import { X } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface QRScannerModalProps {
     visible: boolean;
@@ -17,6 +18,7 @@ export default function QRScannerModal({ visible, activityId, onClose, onSuccess
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const { token } = useAuth();
+    const { showToast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
 
     useEffect(() => {
@@ -68,11 +70,7 @@ export default function QRScannerModal({ visible, activityId, onClose, onSuccess
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert(response.data.message);
-            } else {
-                Alert.alert('Thành công', response.data.message);
-            }
+            showToast({ message: response.data.message || 'Điểm danh thành công', type: 'success' });
             onSuccess(response.data.message);
             // Delay a bit before allowing next scan
             setTimeout(() => {
@@ -83,11 +81,7 @@ export default function QRScannerModal({ visible, activityId, onClose, onSuccess
         } catch (error: any) {
             console.error('Scan error:', error);
             const msg = error.response?.data?.detail || 'Mã QR không hợp lệ hoặc không có quyền';
-            if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                window.alert(msg);
-            } else {
-                Alert.alert('Lỗi điểm danh', msg);
-            }
+            showToast({ message: msg, type: 'error' });
             setTimeout(() => {
                 setScanned(false);
                 setIsProcessing(false);

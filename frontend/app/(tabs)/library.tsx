@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FileText, Search, Plus, Edit2, Trash2 } from 'lucide-react-native';
@@ -33,6 +34,7 @@ interface Document {
 
 export default function LibraryScreen() {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const { gridColumns, isDesktop } = useResponsive();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [filteredDocs, setFilteredDocs] = useState<Document[]>([]);
@@ -112,10 +114,14 @@ export default function LibraryScreen() {
           await api.delete(`/api/documents/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          showToast({ message: 'Đã xóa tài liệu', type: 'success' });
           fetchDocuments();
         } catch (error: any) {
           console.error('Error deleting document:', error);
-          window.alert(error.response?.data?.detail || 'Không thể xóa tài liệu');
+          showToast({
+            message: error.response?.data?.detail || 'Không thể xóa tài liệu',
+            type: 'error'
+          });
         }
       }
     }

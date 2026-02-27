@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
 import { format } from 'date-fns';
@@ -82,6 +83,7 @@ const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridCo
 
 export default function HomeScreen() {
   const { user, token } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const { gridColumns, isDesktop } = useResponsive();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -148,10 +150,11 @@ export default function HomeScreen() {
           await api.delete(`/api/posts/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
+          showToast({ message: 'Đã xóa bài viết', type: 'success' });
           fetchPosts();
         } catch (error) {
           console.error('Error deleting post:', error);
-          window.alert('Không thể xóa bài viết');
+          showToast({ message: 'Không thể xóa bài viết', type: 'error' });
         }
       }
     }
@@ -200,37 +203,42 @@ export default function HomeScreen() {
           <Text style={[styles.postTitle, isDesktop && styles.postTitleDesktop]} numberOfLines={2}>{item.title}</Text>
           <Text style={[styles.postSummary, isDesktop && { marginBottom: 4 }]} numberOfLines={isDesktop ? 1 : 3}>{item.summary}</Text>
           <View style={[styles.postFooter, isDesktop && styles.postFooterDesktop]}>
-            <Text style={styles.postAuthor} numberOfLines={1}>
+            <Text style={[styles.postAuthor, { flex: 1, paddingRight: 16 }]} numberOfLines={1}>
               {item.authorName} - {getDepartmentName(item.authorDepartment)}
             </Text>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Heart size={16} color={item.likes?.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary} fill={item.likes?.includes(user?.id || '') ? Colors.status.error : 'transparent'} />
-                <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.likes?.length || 0}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Heart size={16} color={item.likes?.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary} fill={item.likes?.includes(user?.id || '') ? Colors.status.error : 'transparent'} />
+                  <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.likes?.length || 0}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MessageCircle size={16} color={Colors.text.secondary} />
+                  <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.comments?.length || 0}</Text>
+                </View>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <MessageCircle size={16} color={Colors.text.secondary} />
-                <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.comments?.length || 0}</Text>
-              </View>
-            </View>
 
-            {isDesktop && canEditDelete(item) && (
-              <View style={styles.actionsRowInline}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEdit(item)}
-                >
-                  <Edit2 color="#3b82f6" size={16} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDelete(item.id)}
-                >
-                  <Trash2 color="#ef4444" size={16} />
-                </TouchableOpacity>
-              </View>
-            )}
+              {isDesktop && canEditDelete(item) && (
+                <>
+                  <View style={{ width: 1, height: 14, backgroundColor: Colors.divider }} />
+                  <View style={styles.actionsRowInline}>
+                    <TouchableOpacity
+                      style={styles.actionIconBtnEdit}
+                      onPress={() => handleEdit(item)}
+                    >
+                      <Edit2 color="#3b82f6" size={14} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.actionIconBtnDelete}
+                      onPress={() => handleDelete(item.id)}
+                    >
+                      <Trash2 color="#ef4444" size={14} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
           </View>
           {(!isDesktop) && canEditDelete(item) && (
             <View style={styles.actionsRow}>
@@ -477,6 +485,22 @@ const styles = StyleSheet.create({
   actionsRowInline: {
     flexDirection: 'row',
     gap: 8,
+  },
+  actionIconBtnEdit: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconBtnDelete: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButton: {
     flexDirection: 'row',
