@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
     Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
@@ -79,152 +80,153 @@ export default function RegisterScreen() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.formWrapper}>
-                    <View style={styles.header}>
-                        <Image
-                            source={require('../assets/images/logo.png')}
-                            style={styles.logo}
-                        />
-                        <Text style={styles.title}>ĐĂNG KÝ</Text>
-                        <Text style={styles.subtitle}>TÀI KHOẢN MỚI</Text>
-                        <View style={styles.divider} />
-                    </View>
-
-                    <View style={styles.form}>
-                        <Text style={styles.label}>Họ và tên</Text>
-                        <Controller
-                            control={control}
-                            name="fullName"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <TextInput
-                                    style={[styles.input, errors.fullName && styles.inputError]}
-                                    value={value}
-                                    onChangeText={onChange}
-                                    onBlur={onBlur}
-                                    placeholder="VD: Nguyễn Văn A"
-                                    placeholderTextColor="#94a3b8"
-                                    editable={!isLoading}
-                                />
-                            )}
-                        />
-                        {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
-
-                        <Text style={styles.label}>Mã Đoàn viên</Text>
-                        <Controller
-                            control={control}
-                            name="unionId"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <TextInput
-                                    style={[styles.input, errors.unionId && styles.inputError]}
-                                    value={value}
-                                    onChangeText={onChange}
-                                    onBlur={onBlur}
-                                    placeholder="Nhập mã ĐV của bạn"
-                                    placeholderTextColor="#94a3b8"
-                                    editable={!isLoading}
-                                />
-                            )}
-                        />
-                        {errors.unionId && <Text style={styles.errorText}>{errors.unionId.message}</Text>}
-
-                        <Text style={styles.label}>Tên đăng nhập (Tài khoản)</Text>
-                        <Controller
-                            control={control}
-                            name="username"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <TextInput
-                                    style={[styles.input, errors.username && styles.inputError]}
-                                    value={value}
-                                    onChangeText={onChange}
-                                    onBlur={onBlur}
-                                    placeholder="Nhập tên đăng nhập"
-                                    placeholderTextColor="#94a3b8"
-                                    autoCapitalize="none"
-                                    editable={!isLoading}
-                                />
-                            )}
-                        />
-                        {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
-
-                        <Text style={styles.label}>Mật khẩu</Text>
-                        <Controller
-                            control={control}
-                            name="password"
-                            render={({ field: { onChange, onBlur, value } }) => (
-                                <TextInput
-                                    style={[styles.input, errors.password && styles.inputError]}
-                                    value={value}
-                                    onChangeText={onChange}
-                                    onBlur={onBlur}
-                                    placeholder="Ít nhất 6 ký tự"
-                                    placeholderTextColor="#94a3b8"
-                                    secureTextEntry
-                                    editable={!isLoading}
-                                />
-                            )}
-                        />
-                        {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
-
-                        <Text style={styles.label}>Phòng ban / Đơn vị</Text>
-                        <View style={styles.departmentContainer}>
-                            {DEPARTMENTS.map(dept => (
-                                <TouchableOpacity
-                                    key={dept.id}
-                                    style={[
-                                        styles.deptChip,
-                                        watchedDepartment === dept.id && styles.deptChipActive
-                                    ]}
-                                    onPress={() => setValue('department', dept.id)}
-                                    disabled={isLoading}
-                                >
-                                    <Text style={[
-                                        styles.deptChipText,
-                                        watchedDepartment === dept.id && styles.deptChipTextActive
-                                    ]}>
-                                        {dept.name}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+        <LinearGradient colors={Colors.gradients.auth} style={styles.container}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            >
+                <ScrollView contentContainerStyle={styles.scrollContent}>
+                    <View style={styles.formWrapper}>
+                        <View style={styles.header}>
+                            <Image
+                                source={require('../assets/images/logo.png')}
+                                style={styles.logo}
+                            />
+                            <Text style={styles.title}>ĐĂNG KÝ</Text>
+                            <Text style={styles.subtitle}>TÀI KHOẢN MỚI</Text>
+                            <View style={styles.divider} />
                         </View>
-                        <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 8, fontStyle: 'italic' }}>
-                            * Quản trị viên có thể phân bổ lại đơn vị của bạn sau khi duyệt.
-                        </Text>
 
-                        <TouchableOpacity
-                            style={[styles.button, isLoading && styles.buttonDisabled]}
-                            onPress={handleSubmit(onSubmit)}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <ActivityIndicator color="#ffffff" />
-                            ) : (
-                                <Text style={styles.buttonText}>ĐĂNG KÝ TÀI KHOẢN</Text>
-                            )}
-                        </TouchableOpacity>
+                        <View style={styles.form}>
+                            <Text style={styles.label}>Họ và tên</Text>
+                            <Controller
+                                control={control}
+                                name="fullName"
+                                render={({ field: { onChange, onBlur, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, errors.fullName && styles.inputError]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        onBlur={onBlur}
+                                        placeholder="VD: Nguyễn Văn A"
+                                        placeholderTextColor="#94a3b8"
+                                        editable={!isLoading}
+                                    />
+                                )}
+                            />
+                            {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
 
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => router.replace('/login')}
-                            disabled={isLoading}
-                        >
-                            <Text style={styles.backButtonText}>Đã có tài khoản? Đăng nhập ngay</Text>
-                        </TouchableOpacity>
+                            <Text style={styles.label}>Mã Đoàn viên</Text>
+                            <Controller
+                                control={control}
+                                name="unionId"
+                                render={({ field: { onChange, onBlur, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, errors.unionId && styles.inputError]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        onBlur={onBlur}
+                                        placeholder="Nhập mã ĐV của bạn"
+                                        placeholderTextColor="#94a3b8"
+                                        editable={!isLoading}
+                                    />
+                                )}
+                            />
+                            {errors.unionId && <Text style={styles.errorText}>{errors.unionId.message}</Text>}
+
+                            <Text style={styles.label}>Tên đăng nhập (Tài khoản)</Text>
+                            <Controller
+                                control={control}
+                                name="username"
+                                render={({ field: { onChange, onBlur, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, errors.username && styles.inputError]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        onBlur={onBlur}
+                                        placeholder="Nhập tên đăng nhập"
+                                        placeholderTextColor="#94a3b8"
+                                        autoCapitalize="none"
+                                        editable={!isLoading}
+                                    />
+                                )}
+                            />
+                            {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
+
+                            <Text style={styles.label}>Mật khẩu</Text>
+                            <Controller
+                                control={control}
+                                name="password"
+                                render={({ field: { onChange, onBlur, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, errors.password && styles.inputError]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        onBlur={onBlur}
+                                        placeholder="Ít nhất 6 ký tự"
+                                        placeholderTextColor="#94a3b8"
+                                        secureTextEntry
+                                        editable={!isLoading}
+                                    />
+                                )}
+                            />
+                            {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+
+                            <Text style={styles.label}>Phòng ban / Đơn vị</Text>
+                            <View style={styles.departmentContainer}>
+                                {DEPARTMENTS.map(dept => (
+                                    <TouchableOpacity
+                                        key={dept.id}
+                                        style={[
+                                            styles.deptChip,
+                                            watchedDepartment === dept.id && styles.deptChipActive
+                                        ]}
+                                        onPress={() => setValue('department', dept.id)}
+                                        disabled={isLoading}
+                                    >
+                                        <Text style={[
+                                            styles.deptChipText,
+                                            watchedDepartment === dept.id && styles.deptChipTextActive
+                                        ]}>
+                                            {dept.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 8, fontStyle: 'italic' }}>
+                                * Quản trị viên có thể phân bổ lại đơn vị của bạn sau khi duyệt.
+                            </Text>
+
+                            <TouchableOpacity
+                                style={[styles.button, isLoading && styles.buttonDisabled]}
+                                onPress={handleSubmit(onSubmit)}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#ffffff" />
+                                ) : (
+                                    <Text style={styles.buttonText}>ĐĂNG KÝ TÀI KHOẢN</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.backButton}
+                                onPress={() => router.replace('/login')}
+                                disabled={isLoading}
+                            >
+                                <Text style={styles.backButtonText}>Đã có tài khoản? Đăng nhập ngay</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.header.background,
     },
     scrollContent: {
         flexGrow: 1,
@@ -269,43 +271,39 @@ const styles = StyleSheet.create({
     },
     form: {
         backgroundColor: Colors.surface,
-        borderRadius: 16,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
+        borderRadius: 24,
+        padding: 32,
+        ...Colors.shadows.lg,
     },
     label: {
         fontSize: 15,
         fontWeight: '600',
         color: Colors.text.primary,
-        marginBottom: 6,
-        marginTop: 12,
+        marginBottom: 8,
+        marginTop: 16,
     },
     input: {
-        height: 46,
-        borderWidth: 2,
+        height: 54,
+        borderWidth: 1.5,
         borderColor: Colors.border,
-        borderRadius: 8,
+        borderRadius: 12,
         paddingHorizontal: 16,
         fontSize: 15,
         color: Colors.text.primary,
-        backgroundColor: Colors.background,
+        backgroundColor: Colors.surfaceLight,
     },
     departmentContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
-        marginTop: 4,
+        gap: 10,
+        marginTop: 8,
     },
     deptChip: {
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 8,
-        backgroundColor: Colors.background,
-        borderWidth: 1,
+        borderRadius: 12,
+        backgroundColor: Colors.surfaceLight,
+        borderWidth: 1.5,
         borderColor: Colors.border,
     },
     deptChipActive: {
@@ -322,17 +320,13 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     button: {
-        height: 50,
+        height: 54,
         backgroundColor: Colors.status.success,
-        borderRadius: 8,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 24,
-        shadowColor: Colors.status.success,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
+        marginTop: 32,
+        ...Colors.shadows.md,
     },
     buttonDisabled: {
         backgroundColor: Colors.text.secondary,

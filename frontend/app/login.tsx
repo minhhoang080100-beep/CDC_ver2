@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
@@ -60,91 +61,92 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.formWrapper}>
-          <View style={styles.header}>
-            <Image
-              source={require('../assets/images/logo.png')}
-              style={styles.logo}
-            />
-            <Text style={styles.title}>CÔNG ĐOÀN</Text>
-            <Text style={styles.subtitle}>CẢNG NGHỆ TĨNH</Text>
-            <View style={styles.divider} />
+    <LinearGradient colors={Colors.gradients.auth} style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.formWrapper}>
+            <View style={styles.header}>
+              <Image
+                source={require('../assets/images/logo.png')}
+                style={styles.logo}
+              />
+              <Text style={styles.title}>CÔNG ĐOÀN</Text>
+              <Text style={styles.subtitle}>CẢNG NGHỆ TĨNH</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <View style={styles.form}>
+              <Text style={styles.label}>Tên đăng nhập</Text>
+              <Controller
+                control={control}
+                name="username"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.username && styles.inputError]}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder="Nhập tên đăng nhập"
+                    placeholderTextColor="#94a3b8"
+                    autoCapitalize="none"
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
+
+              <Text style={styles.label}>Mật khẩu</Text>
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <TextInput
+                    style={[styles.input, errors.password && styles.inputError]}
+                    value={value}
+                    onChangeText={onChange}
+                    onBlur={onBlur}
+                    placeholder="Nhập mật khẩu"
+                    placeholderTextColor="#94a3b8"
+                    secureTextEntry
+                    editable={!isLoading}
+                  />
+                )}
+              />
+              {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+
+              <TouchableOpacity
+                style={[styles.button, isLoading && styles.buttonDisabled]}
+                onPress={handleSubmit(onSubmit)}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.buttonText}>ĐĂNG NHẬP</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => router.push('/register')}
+                disabled={isLoading}
+              >
+                <Text style={styles.registerButtonText}>Chưa có tài khoản? Đăng ký ngay</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-
-          <View style={styles.form}>
-            <Text style={styles.label}>Tên đăng nhập</Text>
-            <Controller
-              control={control}
-              name="username"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.username && styles.inputError]}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="Nhập tên đăng nhập"
-                  placeholderTextColor="#94a3b8"
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-              )}
-            />
-            {errors.username && <Text style={styles.errorText}>{errors.username.message}</Text>}
-
-            <Text style={styles.label}>Mật khẩu</Text>
-            <Controller
-              control={control}
-              name="password"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  style={[styles.input, errors.password && styles.inputError]}
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  placeholder="Nhập mật khẩu"
-                  placeholderTextColor="#94a3b8"
-                  secureTextEntry
-                  editable={!isLoading}
-                />
-              )}
-            />
-            {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
-
-            <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSubmit(onSubmit)}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.buttonText}>ĐĂNG NHẬP</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={() => router.push('/register')}
-              disabled={isLoading}
-            >
-              <Text style={styles.registerButtonText}>Chưa có tài khoản? Đăng ký ngay</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.header.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -188,13 +190,9 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    borderRadius: 24,
+    padding: 32,
+    ...Colors.shadows.lg,
   },
   label: {
     fontSize: 16,
@@ -204,27 +202,23 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   input: {
-    height: 50,
-    borderWidth: 2,
+    height: 54,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
     color: Colors.text.primary,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surfaceLight,
   },
   button: {
     height: 54,
     backgroundColor: Colors.primary,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 32,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Colors.shadows.md,
   },
   buttonDisabled: {
     backgroundColor: Colors.text.secondary,

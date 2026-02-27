@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -36,6 +37,48 @@ interface Post {
   createdAt: string;
   updatedAt: string;
 }
+
+const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
+  const animatedValue = React.useRef(new Animated.Value(0.5)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0.5,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const renderSkeletonItem = (item: number) => (
+    <Animated.View style={[styles.postCard, { opacity: animatedValue }, isDesktop && styles.postCardDesktop, { marginBottom: isDesktop ? 16 : 12 }]} key={item}>
+      <View style={[styles.postImage, isDesktop && styles.postImageDesktop, { backgroundColor: Colors.divider }]} />
+      <View style={[styles.postContent, isDesktop && styles.postContentDesktop]}>
+        <View style={{ width: 80, height: 24, backgroundColor: Colors.divider, borderRadius: 12, marginBottom: 12 }} />
+        <View style={{ width: '80%', height: 20, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 8 }} />
+        <View style={{ width: '100%', height: 16, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 4 }} />
+        <View style={{ width: '90%', height: 16, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 16 }} />
+        <View style={{ width: 120, height: 16, backgroundColor: Colors.divider, borderRadius: 4 }} />
+      </View>
+    </Animated.View>
+  );
+
+  return (
+    <View style={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%' }]}>
+      <View style={{ flexDirection: isDesktop || gridColumns > 1 ? 'row' : 'column', flexWrap: 'wrap', gap: 16 }}>
+        {[1, 2, 3, 4].map(renderSkeletonItem)}
+      </View>
+    </View>
+  );
+};
 
 export default function HomeScreen() {
   const { user, token } = useAuth();
@@ -228,12 +271,10 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
+        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
           <Text style={styles.headerTitle}>BẢNG TIN CÔNG ĐOÀN</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Đang tải...</Text>
-        </View>
+        <SkeletonLoader isDesktop={isDesktop} gridColumns={gridColumns} />
       </SafeAreaView>
     );
   }
@@ -332,13 +373,11 @@ const styles = StyleSheet.create({
   postCard: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 16,
+    marginBottom: 16,
+    ...Colors.shadows.md,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
     overflow: 'hidden',
   },
   postCardDesktop: {

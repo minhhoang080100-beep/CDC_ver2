@@ -11,6 +11,8 @@ import { User, ShieldCheck } from 'lucide-react-native';
 import { Platform, TouchableOpacity } from 'react-native';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useRouter } from 'expo-router';
+import { Colors } from '../../constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // QRCode only works on native (uses Node.js modules incompatible with web)
 let QRCode: any = null;
@@ -66,10 +68,10 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={[styles.content, isDesktop && { alignItems: 'center' as any }]}>
         <View style={isDesktop ? { width: '100%', maxWidth: 500 } as any : undefined}>
           <View style={styles.cardContainer}>
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
+            <LinearGradient colors={['#ffffff', '#f8fafc']} style={styles.card}>
+              <LinearGradient colors={Colors.gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>CÔNG ĐOÀN CẢNG NGHỆ TĨNH</Text>
-              </View>
+              </LinearGradient>
 
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
@@ -119,7 +121,7 @@ export default function ProfileScreen() {
                 <View style={styles.statusDot} />
                 <Text style={styles.statusText}>Đang hoạt động</Text>
               </View>
-            </View>
+            </LinearGradient>
           </View>
 
           <View style={styles.infoBox}>
@@ -175,24 +177,18 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   card: {
-    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: '#0891b2',
+    ...Colors.shadows.lg,
+    borderWidth: 1,
+    borderColor: Colors.border + '60',
   },
   cardHeader: {
-    backgroundColor: '#1e3a8a',
     marginHorizontal: -24,
     marginTop: -24,
     padding: 16,
-    borderTopLeftRadius: 13,
-    borderTopRightRadius: 13,
+    borderTopLeftRadius: 15,
+    borderTopRightRadius: 15,
     marginBottom: 24,
   },
   cardTitle: {
@@ -210,16 +206,12 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
     borderColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    ...Colors.shadows.md,
   },
   infoSection: {
     alignItems: 'center',
