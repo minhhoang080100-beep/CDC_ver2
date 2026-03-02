@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
@@ -190,7 +190,12 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
 
 
 @router.put("/{user_id}")
-async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = Depends(get_current_user)):
+async def update_user(
+    user_id: str, 
+    user_data: UserUpdate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Not authorized to update users")
     
@@ -228,7 +233,7 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
         # Check if old avatar exists to clean up
         old_avatar = existing.get("avatar")
         if old_avatar and old_avatar != user_data.avatar:
-             asyncio.create_task(delete_cloudinary_asset(old_avatar))
+             background_tasks.add_task(delete_cloudinary_asset, old_avatar)
         update_fields["avatar"] = user_data.avatar
     
     if not update_fields:
@@ -268,7 +273,11 @@ async def approve_user(user_id: str, current_user: dict = Depends(get_current_us
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_user(
+    user_id: str, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Not authorized to delete users")
     
@@ -286,7 +295,7 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     # Delete avatar from Cloudinary if it exists
     avatar = existing.get("avatar")
     if avatar:
-        asyncio.create_task(delete_cloudinary_asset(avatar))
+        background_tasks.add_task(delete_cloudinary_asset, avatar)
         
     await db.users.delete_one({"_id": ObjectId(user_id)})
     

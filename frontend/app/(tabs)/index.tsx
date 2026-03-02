@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { useToast } from '../../contexts/ToastContext';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
+import { useConfirm } from '../../contexts/ConfirmContext';
+import { useToast } from '../../contexts/ToastContext';
 import { format } from 'date-fns';
 import { Plus, Edit2, Trash2, Heart, MessageCircle } from 'lucide-react-native';
 import CreatePostModal from '../../components/CreatePostModal';
@@ -83,6 +84,7 @@ const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridCo
 
 export default function HomeScreen() {
   const { user, token } = useAuth();
+  const { showConfirm } = useConfirm();
   const { showToast } = useToast();
   const router = useRouter();
   const { gridColumns, isDesktop } = useResponsive();
@@ -144,20 +146,24 @@ export default function HomeScreen() {
   };
 
   const handleDelete = async (id: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Bạn có chắc muốn xóa bài viết này?')) {
+    showConfirm({
+      title: 'Xóa bài viết',
+      message: 'Bạn có chắc chắn muốn xóa bài viết này không? Bài viết sẽ bị gỡ xuống khỏi bảng tin.',
+      type: 'danger',
+      confirmText: 'Xóa bài viết',
+      onConfirm: async () => {
         try {
           await api.delete(`/api/posts/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          showToast({ message: 'Đã xóa bài viết', type: 'success' });
-          fetchPosts();
+          showToast({ message: 'Đã xóa bài viết thành công', type: 'success' });
+          fetchPosts(); // Refresh list after deletion
         } catch (error) {
           console.error('Error deleting post:', error);
-          showToast({ message: 'Không thể xóa bài viết', type: 'error' });
+          showToast({ message: 'Không thể xóa bài viết. Vui lòng thử lại.', type: 'error' });
         }
       }
-    }
+    });
   };
 
   const renderPost = ({ item }: { item: Post }) => (

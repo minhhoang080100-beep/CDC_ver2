@@ -19,6 +19,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { FileText, Search, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import CreateDocumentModal from '../../components/CreateDocumentModal';
 import WebHoverCard from '../../components/WebHoverCard';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { format } from 'date-fns';
 import { api } from '../../utils/api';
 
@@ -84,6 +85,7 @@ const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridCo
 
 export default function LibraryScreen() {
   const { user, token } = useAuth();
+  const { showConfirm } = useConfirm();
   const { showToast } = useToast();
   const { gridColumns, isDesktop } = useResponsive();
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -158,23 +160,25 @@ export default function LibraryScreen() {
   };
 
   const handleDelete = async (id: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Bạn có chắc muốn xóa tài liệu này?')) {
+    showConfirm({
+      title: 'Xóa tài liệu',
+      message: 'Tài liệu này sẽ bị xóa khỏi hệ thống. Bạn có chắc chắn muốn tiếp tục không?',
+      type: 'danger',
+      confirmText: 'Xóa tài liệu',
+      onConfirm: async () => {
         try {
           await api.delete(`/api/documents/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          showToast({ message: 'Đã xóa tài liệu', type: 'success' });
-          fetchDocuments();
-        } catch (error: any) {
+
+          showToast({ message: 'Tài liệu đã được xóa', type: 'success' });
+          fetchDocuments(); // Refresh list after deletion
+        } catch (error) {
           console.error('Error deleting document:', error);
-          showToast({
-            message: error.response?.data?.detail || 'Không thể xóa tài liệu',
-            type: 'error'
-          });
+          showToast({ message: 'Không thể xóa tài liệu. Thử lại sau.', type: 'error' });
         }
       }
-    }
+    });
   };
 
   const renderDocument = ({ item }: { item: Document }) => (

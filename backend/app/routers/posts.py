@@ -103,7 +103,12 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
         )
 
 @router.put("/{post_id}")
-async def update_post(post_id: str, post: PostCreate, current_user: dict = Depends(get_current_user)):
+async def update_post(
+    post_id: str, 
+    post: PostCreate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -116,7 +121,7 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
     # Check if image changed to clean up old image from Cloudinary 
     old_image = existing_post.get("image")
     if old_image and old_image != post.image:
-        asyncio.create_task(delete_cloudinary_asset(old_image))
+        background_tasks.add_task(delete_cloudinary_asset, old_image)
     
     update_data = {
         "title": post.title,
@@ -136,7 +141,11 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
     return {"status": "success", "message": "Post updated"}
 
 @router.delete("/{post_id}")
-async def delete_post(post_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_post(
+    post_id: str, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -147,7 +156,7 @@ async def delete_post(post_id: str, current_user: dict = Depends(get_current_use
     # Soft delete the post but wipe the image from Cloudinary to save space
     image = existing_post.get("image")
     if image:
-        asyncio.create_task(delete_cloudinary_asset(image))
+        background_tasks.add_task(delete_cloudinary_asset, image)
         
     await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"isDeleted": True, "image": None}})
     

@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode } from 'lucide-react-native';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
@@ -34,6 +35,7 @@ interface Activity {
 
 export default function ActivitiesScreen() {
   const { user, token } = useAuth();
+  const { showConfirm } = useConfirm();
   const { showToast } = useToast();
   const { gridColumns, isDesktop } = useResponsive();
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -96,20 +98,24 @@ export default function ActivitiesScreen() {
   };
 
   const handleDelete = async (id: string) => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Bạn có chắc muốn xóa hoạt động này?')) {
+    showConfirm({
+      title: 'Xóa hoạt động',
+      message: 'Bạn có chắc chắn muốn xóa hoạt động này? Mọi thông tin, bao gồm cả danh sách người đăng ký sẽ bị xóa hoàn toàn.',
+      type: 'danger',
+      confirmText: 'Xóa hoạt động',
+      onConfirm: async () => {
         try {
           await api.delete(`/api/activities/${id}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
-          showToast({ message: 'Đã xóa hoạt động', type: 'success' });
-          fetchActivities();
+          showToast({ message: 'Đã xóa hoạt động thành công', type: 'success' });
+          fetchActivities(); // Refresh list after deletion
         } catch (error) {
           console.error('Error deleting activity:', error);
-          showToast({ message: 'Không thể xóa hoạt động', type: 'error' });
+          showToast({ message: 'Không thể xóa hoạt động. Thử lại sau.', type: 'error' });
         }
       }
-    }
+    });
   };
 
   const isRegistered = (activity: Activity) => {

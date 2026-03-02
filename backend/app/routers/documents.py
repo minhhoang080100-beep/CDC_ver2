@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List
 from datetime import datetime
 from bson import ObjectId
@@ -74,7 +74,12 @@ async def create_document(document: DocumentCreate, current_user: dict = Depends
     }
 
 @router.put("/{document_id}")
-async def update_document(document_id: str, document: DocumentCreate, current_user: dict = Depends(get_current_user)):
+async def update_document(
+    document_id: str, 
+    document: DocumentCreate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing_document = await db.documents.find_one({"_id": ObjectId(document_id)})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -88,7 +93,7 @@ async def update_document(document_id: str, document: DocumentCreate, current_us
     old_file_url = existing_document.get("fileUrl")
     if old_file_url and old_file_url != document.fileUrl:
         # Run deletion asynchronously in background so we don't block the request if it's slow
-        asyncio.create_task(delete_cloudinary_asset(old_file_url))
+        background_tasks.add_task(delete_cloudinary_asset, old_file_url)
     
     update_data = {
         "title": document.title,
@@ -110,7 +115,11 @@ async def update_document(document_id: str, document: DocumentCreate, current_us
     }
 
 @router.delete("/{document_id}")
-async def delete_document(document_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_document(
+    document_id: str, 
+    background_tasks: BackgroundTasks, 
+    current_user: dict = Depends(get_current_user)
+):
     existing_document = await db.documents.find_one({"_id": ObjectId(document_id)})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -121,7 +130,7 @@ async def delete_document(document_id: str, current_user: dict = Depends(get_cur
     # Extract Cloudinary Public ID and attempt to delete the physical file
     file_url = existing_document.get("fileUrl")
     if file_url:
-        asyncio.create_task(delete_cloudinary_asset(file_url))
+        background_tasks.add_task(delete_cloudinary_asset, file_url)
 
     await db.documents.delete_one({"_id": ObjectId(document_id)})
     

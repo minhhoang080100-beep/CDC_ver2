@@ -7,6 +7,7 @@ from app.core.security import get_current_user
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.activity import ActivityCreate, CheckInRequest
 from app.core.push import send_bulk_push_notifications
+from app.core.cloudinary_utils import delete_cloudinary_asset
 import json
 
 router = APIRouter()
@@ -164,7 +165,12 @@ async def notify_new_activity(title: str, body: str, target_departments: list, a
         )
 
 @router.put("/{activity_id}")
-async def update_activity(activity_id: str, activity: ActivityCreate, current_user: dict = Depends(get_current_user)):
+async def update_activity(
+    activity_id: str, 
+    activity: ActivityCreate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
     if not existing_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -173,6 +179,11 @@ async def update_activity(activity_id: str, activity: ActivityCreate, current_us
         raise HTTPException(status_code=403, detail="You don't have permission to edit this activity")
     
     target_departments = resolve_target_departments(current_user, activity.targetDepartments)
+    
+    # Check if image changed to clean up old image from Cloudinary 
+    old_image = existing_activity.get("image")
+    if old_image and old_image != activity.image:
+        background_tasks.add_task(delete_cloudinary_asset, old_image)
     
     update_data = {
         "name": activity.name,
@@ -193,7 +204,11 @@ async def update_activity(activity_id: str, activity: ActivityCreate, current_us
     return {"status": "success", "message": "Activity updated"}
 
 @router.delete("/{activity_id}")
-async def delete_activity(activity_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_activity(
+    activity_id: str, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
     if not existing_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -201,6 +216,11 @@ async def delete_activity(activity_id: str, current_user: dict = Depends(get_cur
     if current_user["role"] != "SUPER_ADMIN" and existing_activity["createdBy"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this activity")
     
+    # Delete image from Cloudinary if it exists
+    image = existing_activity.get("image")
+    if image:
+        background_tasks.add_task(delete_cloudinary_asset, image)
+        
     await db.activities.delete_one({"_id": ObjectId(activity_id)})
     
     return {"status": "success", "message": "Activity deleted"}

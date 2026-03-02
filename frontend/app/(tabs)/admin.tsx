@@ -21,6 +21,7 @@ import FeedbackManagement from '../../components/admin/FeedbackManagement';
 import AnalyticsDashboard from '../../components/admin/AnalyticsDashboard';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 interface User {
     id: string;
@@ -36,6 +37,7 @@ export default function AdminScreen() {
     const { user, token } = useAuth();
     const { isDesktop } = useResponsive();
     const { showToast } = useToast();
+    const { showConfirm } = useConfirm();
     const [users, setUsers] = useState<User[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -95,40 +97,24 @@ export default function AdminScreen() {
     };
 
     const handleDelete = async (id: string) => {
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            if (window.confirm('Bạn có chắc muốn xóa người dùng này?')) {
+        showConfirm({
+            title: 'Xóa người dùng',
+            message: 'Bạn có chắc chắn muốn xóa người dùng này khỏi hệ thống? Dữ liệu của họ sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+            type: 'danger',
+            confirmText: 'Xóa người dùng',
+            onConfirm: async () => {
                 try {
                     await api.delete(`/api/users/${id}`, {
                         headers: { Authorization: `Bearer ${token}` },
                     });
-                    showToast({ message: 'Đã xóa người dùng', type: 'success' });
+                    showToast({ message: 'Đã xóa người dùng thành công', type: 'success' });
                     fetchUsers();
                 } catch (error) {
                     console.error('Error deleting user:', error);
-                    showToast({ message: 'Không thể xóa người dùng', type: 'error' });
+                    showToast({ message: 'Không thể xóa người dùng. Vui lòng thử lại sau.', type: 'error' });
                 }
             }
-        } else {
-            Alert.alert('Xác nhận', 'Bạn có chắc muốn xóa người dùng này?', [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Xóa',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.delete(`/api/users/${id}`, {
-                                headers: { Authorization: `Bearer ${token}` },
-                            });
-                            showToast({ message: 'Đã xóa người dùng', type: 'success' });
-                            fetchUsers();
-                        } catch (error) {
-                            console.error('Error deleting user:', error);
-                            showToast({ message: 'Không thể xóa người dùng', type: 'error' });
-                        }
-                    }
-                }
-            ]);
-        }
+        });
     };
 
     const handleResetPassword = async (id: string, username: string) => {
@@ -170,37 +156,23 @@ export default function AdminScreen() {
     };
 
     const handleApprove = async (id: string, fullName: string) => {
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            if (window.confirm(`Bạn có chắc muốn phê duyệt tài khoản cho "${fullName}"?`)) {
+        showConfirm({
+            title: 'Phê duyệt tài khoản',
+            message: `Bạn đang phê duyệt tài khoản cho "${fullName}". Người này sẽ có thể đăng nhập và truy cập vào các chức năng nội bộ của hệ thống. Bạn có chắc chắn không?`,
+            type: 'success',
+            confirmText: 'Phê duyệt',
+            onConfirm: async () => {
                 try {
                     await api.put(`/api/users/${id}/approve`, {}, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    showToast({ message: 'Đã phê duyệt tài khoản', type: 'success' });
+                    showToast({ message: 'Đã phê duyệt tài khoản thành công', type: 'success' });
                     fetchUsers();
                 } catch (error: any) {
                     showToast({ message: error.response?.data?.detail || 'Không thể phê duyệt tài khoản', type: 'error' });
                 }
             }
-        } else {
-            Alert.alert('Xác nhận', `Phê duyệt tài khoản cho "${fullName}"?`, [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Phê duyệt',
-                    onPress: async () => {
-                        try {
-                            await api.put(`/api/users/${id}/approve`, {}, {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-                            showToast({ message: 'Đã phê duyệt tài khoản', type: 'success' });
-                            fetchUsers();
-                        } catch (error: any) {
-                            showToast({ message: error.response?.data?.detail || 'Không thể phê duyệt', type: 'error' });
-                        }
-                    }
-                }
-            ]);
-        }
+        });
     };
 
     const handleExportCSV = () => {
