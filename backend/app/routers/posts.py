@@ -7,6 +7,8 @@ from app.core.security import get_current_user
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.post import PostCreate, PostCommentCreate
 from app.core.push import send_bulk_push_notifications
+from app.core.cloudinary_utils import delete_cloudinary_asset
+import asyncio
 
 router = APIRouter()
 
@@ -111,6 +113,11 @@ async def update_post(post_id: str, post: PostCreate, current_user: dict = Depen
     
     target_departments = resolve_target_departments(current_user, post.targetDepartments)
     
+    # Check if image changed to clean up old image from Cloudinary 
+    old_image = existing_post.get("image")
+    if old_image and old_image != post.image:
+        asyncio.create_task(delete_cloudinary_asset(old_image))
+    
     update_data = {
         "title": post.title,
         "content": post.content,
@@ -137,7 +144,12 @@ async def delete_post(post_id: str, current_user: dict = Depends(get_current_use
     if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this post")
     
-    await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"isDeleted": True}})
+    # Soft delete the post but wipe the image from Cloudinary to save space
+    image = existing_post.get("image")
+    if image:
+        asyncio.create_task(delete_cloudinary_asset(image))
+        
+    await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"isDeleted": True, "image": None}})
     
     return {"status": "success", "message": "Post deleted"}
 

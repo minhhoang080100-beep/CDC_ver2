@@ -7,6 +7,8 @@ import re
 from app.core.security import get_current_user, hash_password
 from pydantic import BaseModel
 from app.models.user import UpdatePushToken
+from app.core.cloudinary_utils import delete_cloudinary_asset
+import asyncio
 
 router = APIRouter()
 
@@ -221,7 +223,12 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user: dict = 
         
     if user_data.status is not None:
         update_fields["status"] = user_data.status
+        
     if user_data.avatar is not None:
+        # Check if old avatar exists to clean up
+        old_avatar = existing.get("avatar")
+        if old_avatar and old_avatar != user_data.avatar:
+             asyncio.create_task(delete_cloudinary_asset(old_avatar))
         update_fields["avatar"] = user_data.avatar
     
     if not update_fields:
@@ -276,6 +283,11 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
     if not can_manage_user(current_user, existing):
         raise HTTPException(status_code=403, detail="Cannot delete this user")
     
+    # Delete avatar from Cloudinary if it exists
+    avatar = existing.get("avatar")
+    if avatar:
+        asyncio.create_task(delete_cloudinary_asset(avatar))
+        
     await db.users.delete_one({"_id": ObjectId(user_id)})
     
     return {"status": "success", "message": "User deleted"}

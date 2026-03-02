@@ -6,8 +6,8 @@ from app.core.database import db
 from app.core.security import get_current_user
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.document import DocumentCreate
-import cloudinary
-import cloudinary.uploader
+from app.core.cloudinary_utils import delete_cloudinary_asset
+import asyncio
 import os
 import re
 
@@ -84,6 +84,12 @@ async def update_document(document_id: str, document: DocumentCreate, current_us
     
     target_departments = resolve_target_departments(current_user, document.targetDepartments)
     
+    # Check if file changed to clean up old file from Cloudinary 
+    old_file_url = existing_document.get("fileUrl")
+    if old_file_url and old_file_url != document.fileUrl:
+        # Run deletion asynchronously in background so we don't block the request if it's slow
+        asyncio.create_task(delete_cloudinary_asset(old_file_url))
+    
     update_data = {
         "title": document.title,
         "category": document.category,
@@ -114,33 +120,8 @@ async def delete_document(document_id: str, current_user: dict = Depends(get_cur
     
     # Extract Cloudinary Public ID and attempt to delete the physical file
     file_url = existing_document.get("fileUrl")
-    if file_url and "cloudinary.com" in file_url:
-        try:
-            # We need to extract the public ID. 
-            # A typical cloudinary URL: https://res.cloudinary.com/dljjearo2/auto/upload/v12345/cong-doan-docs/filename.pdf
-            # The Public ID here is: cong-doan-docs/filename (without auto/upload/v.. etc, and WITHOUT the extension for images, BUT for raw files often WITH the extension)
-            # Actually, the safest way is to regex everything after `/upload/` (ignoring version `v123.../`).
-            match = re.search(r'/upload/(?:v\d+/)?(.*?)$', file_url)
-            if match:
-                full_path = match.group(1) # e.g. cong-doan-docs/r8xz1a.pdf
-                
-                # If it's a raw file (like PDF), Cloudinary often needs the extension to destroy it, or resource_type="raw"
-                is_document = bool(re.search(r'\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$', full_path, re.IGNORECASE))
-                
-                # Cloudinary's destroy method usually expects public_id WITHOUT extension for images,
-                # BUT if we uploaded it as raw or auto, we should test it. Let's try raw first if it's a doc.
-                public_id = full_path
-                resource_type = "raw" if is_document else "image"
-                
-                # If it's an image, public ID has no extension. 
-                # According to Cloudinary docs, destroy for 'raw' files NEEDS the extension included in the public_id.
-                if resource_type == "image":
-                    public_id = os.path.splitext(full_path)[0]
-
-                cloudinary.uploader.destroy(public_id, resource_type=resource_type)
-        except Exception as e:
-            print(f"Error deleting Cloudinary asset: {e}")
-            # Non-fatal error, continue to delete the DB record
+    if file_url:
+        asyncio.create_task(delete_cloudinary_asset(file_url))
 
     await db.documents.delete_one({"_id": ObjectId(document_id)})
     
