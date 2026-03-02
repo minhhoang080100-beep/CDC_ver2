@@ -14,11 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2 } from 'lucide-react-native';
+import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2, BookOpen } from 'lucide-react-native';
 import WebHoverCard from '../../components/WebHoverCard';
 import UserModal from '../../components/UserModal';
 import FeedbackManagement from '../../components/admin/FeedbackManagement';
 import AnalyticsDashboard from '../../components/admin/AnalyticsDashboard';
+import UnionMembersManagement from '../../components/admin/UnionMembersManagement';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -43,7 +44,7 @@ export default function AdminScreen() {
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'feedbacks' | 'analytics'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'union_members' | 'feedbacks' | 'analytics'>('users');
 
     // Search & Filter Stats
     const [searchText, setSearchText] = useState('');
@@ -344,8 +345,8 @@ export default function AdminScreen() {
                 <View style={styles.headerLeft}>
                     <Users color={Colors.primary} size={28} />
                     <View>
-                        <Text style={styles.headerTitle}>Quản lý người dùng</Text>
-                        <Text style={styles.headerSubtitle}>Danh sách tài khoản hệ thống</Text>
+                        <Text style={styles.headerTitle}>Quản trị hệ thống</Text>
+                        <Text style={styles.headerSubtitle}>Quản lý người dùng và dữ liệu</Text>
                     </View>
                 </View>
                 <View style={styles.headerActions}>
@@ -392,6 +393,13 @@ export default function AdminScreen() {
                 >
                     <Users color={activeTab === 'users' ? Colors.primary : Colors.text.secondary} size={20} />
                     <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>Tài khoản</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tabItem, activeTab === 'union_members' && styles.tabItemActive]}
+                    onPress={() => setActiveTab('union_members')}
+                >
+                    <BookOpen color={activeTab === 'union_members' ? Colors.primary : Colors.text.secondary} size={20} />
+                    <Text style={[styles.tabText, activeTab === 'union_members' && styles.tabTextActive]}>Đoàn viên</Text>
                 </TouchableOpacity>
                 {user?.role === 'SUPER_ADMIN' && (
                     <TouchableOpacity
@@ -568,6 +576,8 @@ export default function AdminScreen() {
                         />
                     )}
                 </View>
+            ) : activeTab === 'union_members' ? (
+                <UnionMembersManagement />
             ) : activeTab === 'feedbacks' ? (
                 <FeedbackManagement />
             ) : (

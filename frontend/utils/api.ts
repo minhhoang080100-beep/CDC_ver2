@@ -80,25 +80,44 @@ export const api = {
     },
 
     post: async (path: string, body?: any, options?: RequestOptions) => {
+        const isFormData = body instanceof FormData;
+        const headers: Record<string, string> = { ...options?.headers };
+
+        // Let fetch automatically set Content-Type with boundary for FormData
+        if (!isFormData && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        } else if (isFormData) {
+            // Remove Content-Type if it was manually set to 'multipart/form-data' 
+            // without boundary, allowing fetch to set it correctly
+            if (headers['Content-Type'] === 'multipart/form-data') {
+                delete headers['Content-Type'];
+            }
+        }
+
         const response = await safeFetch(`${BACKEND_URL}${path}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: body ? JSON.stringify(body) : undefined,
+            headers,
+            body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
         });
         return handleResponse(response);
     },
 
     put: async (path: string, body?: any, options?: RequestOptions) => {
+        const isFormData = body instanceof FormData;
+        const headers: Record<string, string> = { ...options?.headers };
+
+        if (!isFormData && !headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        } else if (isFormData) {
+            if (headers['Content-Type'] === 'multipart/form-data') {
+                delete headers['Content-Type'];
+            }
+        }
+
         const response = await safeFetch(`${BACKEND_URL}${path}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-            body: body ? JSON.stringify(body) : undefined,
+            headers,
+            body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
         });
         return handleResponse(response);
     },
