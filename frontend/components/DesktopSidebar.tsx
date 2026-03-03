@@ -27,7 +27,7 @@ const MENU_ITEMS: MenuItem[] = [
     { name: 'activities', path: '/(tabs)/activities', icon: Calendar, label: 'Hoạt động' },
     { name: 'library', path: '/(tabs)/library', icon: BookOpen, label: 'Thư viện' },
     { name: 'profile', path: '/(tabs)/profile', icon: IdCard, label: 'Thẻ Đoàn viên' },
-    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Phản hồi' },
+    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Lắng nghe & Phản hồi' },
     { name: 'settings', path: '/(tabs)/settings', icon: Settings, label: 'Cài đặt' },
 ];
 

@@ -407,7 +407,7 @@ export default function AdminScreen() {
                         onPress={() => setActiveTab('feedbacks')}
                     >
                         <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
-                        <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Phản hồi</Text>
+                        <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Lắng nghe & Phản hồi</Text>
                     </TouchableOpacity>
                 )}
                 {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (

@@ -115,7 +115,7 @@ export default function AnalyticsDashboard() {
                     <MessageSquare color="#ef4444" size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{summary.totalFeedbacks}</Text>
-                        <Text style={styles.statLabel}>Phản hồi</Text>
+                        <Text style={styles.statLabel}>Lắng nghe & Ý kiến</Text>
                     </View>
                 </View>
             </View>

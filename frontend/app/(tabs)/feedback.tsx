@@ -99,7 +99,7 @@ export default function FeedbackScreen() {
       setIsAnonymous(false);
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      showToast({ message: error.detail || 'Không thể gửi phản hồi', type: 'error' });
+      showToast({ message: error.detail || 'Không thể gửi ý kiến', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -180,7 +180,7 @@ export default function FeedbackScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>PHẢN HỒI</Text>
+        <Text style={styles.headerTitle}>LẮNG NGHE & PHẢN HỒI</Text>
       </View>
 
       <View style={[styles.tabContainer, isDesktop && { maxWidth: 800, alignSelf: 'center' as any, width: '100%' as any }]}>
@@ -189,7 +189,7 @@ export default function FeedbackScreen() {
           onPress={() => setActiveTab('send')}
         >
           <Text style={[styles.tabText, activeTab === 'send' && styles.activeTabText]}>
-            Gửi phản hồi
+            Gửi ý kiến
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -197,7 +197,7 @@ export default function FeedbackScreen() {
           onPress={() => setActiveTab('view')}
         >
           <Text style={[styles.tabText, activeTab === 'view' && styles.activeTabText]}>
-            Xem phản hồi
+            Xem ý kiến đã gửi
           </Text>
         </TouchableOpacity>
       </View>
@@ -213,7 +213,7 @@ export default function FeedbackScreen() {
               style={styles.input}
               value={subject}
               onChangeText={setSubject}
-              placeholder="Nhập tiêu đề phản hồi"
+              placeholder="Nhập tiêu đề ý kiến"
               placeholderTextColor="#94a3b8"
             />
 
@@ -222,7 +222,7 @@ export default function FeedbackScreen() {
               style={[styles.input, styles.textArea]}
               value={content}
               onChangeText={setContent}
-              placeholder="Nhập nội dung phản hồi của bạn"
+              placeholder="Nhập nội dung ý kiến của bạn"
               placeholderTextColor="#94a3b8"
               multiline
               numberOfLines={6}
@@ -246,7 +246,7 @@ export default function FeedbackScreen() {
             >
               <Send color="#ffffff" size={20} />
               <Text style={styles.submitButtonText}>
-                {loading ? 'Đang gửi...' : 'Gửi phản hồi'}
+                {loading ? 'Đang gửi...' : 'Gửi ý kiến'}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -259,7 +259,7 @@ export default function FeedbackScreen() {
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Chưa có phản hồi nào</Text>
+              <Text style={styles.emptyText}>Chưa có ý kiến nào</Text>
             </View>
           }
         />
@@ -275,7 +275,7 @@ export default function FeedbackScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chi tiết phản hồi</Text>
+              <Text style={styles.modalTitle}>Chi tiết ý kiến</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
@@ -310,7 +310,7 @@ export default function FeedbackScreen() {
 
                   {canReply && (
                     <View style={styles.replyForm}>
-                      <Text style={styles.replyLabel}>Trả lời phản hồi:</Text>
+                      <Text style={styles.replyLabel}>Trả lời ý kiến:</Text>
                       <TextInput
                         style={[styles.input, styles.replyInput]}
                         value={replyContent}

@@ -16,7 +16,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Plus, Edit2, Trash2, Search, Download, Upload, Users } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Search, Download, Upload, Users, Filter, CheckSquare, Square } from 'lucide-react-native';
 import WebHoverCard from '../WebHoverCard';
 import * as DocumentPicker from 'expo-document-picker';
 import UnionMemberModal from './UnionMemberModal';
@@ -30,6 +30,8 @@ export interface UnionMember {
     phoneNumber?: string;
     unionJoinDate?: string;
     isPartyMember?: boolean;
+    familyBackground?: string;
+    personalBackground?: string;
 }
 
 export default function UnionMembersManagement() {
@@ -42,6 +44,9 @@ export default function UnionMembersManagement() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [filterFamilyBg, setFilterFamilyBg] = useState(false);
+    const [filterPersonalBg, setFilterPersonalBg] = useState(false);
+
     const [selectedMember, setSelectedMember] = useState<UnionMember | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
     // const [editingMember, setEditingMember] = useState<UnionMember | null>(null);
@@ -148,10 +153,22 @@ export default function UnionMembersManagement() {
         }
     };
 
-    const filteredMembers = members.filter(m =>
-        m.fullName?.toLowerCase().includes(searchText.toLowerCase()) ||
-        m.department?.toLowerCase().includes(searchText.toLowerCase())
-    );
+    const filteredMembers = members.filter(m => {
+        const matchesSearch = m.fullName?.toLowerCase().includes(searchText.toLowerCase()) ||
+            m.department?.toLowerCase().includes(searchText.toLowerCase());
+
+        let matchesFamilyBg = true;
+        if (filterFamilyBg) {
+            matchesFamilyBg = !!m.familyBackground && m.familyBackground.trim() !== '' && m.familyBackground.toLowerCase() !== 'nan';
+        }
+
+        let matchesPersonalBg = true;
+        if (filterPersonalBg) {
+            matchesPersonalBg = !!m.personalBackground && m.personalBackground.trim() !== '' && m.personalBackground.toLowerCase() !== 'nan';
+        }
+
+        return matchesSearch && matchesFamilyBg && matchesPersonalBg;
+    });
 
     const handleRowClick = (item: UnionMember) => {
         setSelectedMember(item);
@@ -224,6 +241,30 @@ export default function UnionMembersManagement() {
                         {isDesktop && <Text style={styles.btnText}>Thêm mới</Text>}
                     </TouchableOpacity>
                 </View>
+            </View>
+
+            {/* Background Filters */}
+            <View style={styles.filterRow}>
+                <Text style={styles.filterLabel}>Lọc nhanh:</Text>
+                <TouchableOpacity
+                    style={[styles.filterChip, filterFamilyBg && styles.filterChipActive]}
+                    onPress={() => setFilterFamilyBg(!filterFamilyBg)}
+                >
+                    {filterFamilyBg ? <CheckSquare size={16} color={Colors.primary} /> : <Square size={16} color={Colors.text.secondary} />}
+                    <Text style={[styles.filterChipText, filterFamilyBg && styles.filterChipTextActive]}>
+                        Hoàn cảnh gia đình
+                    </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.filterChip, filterPersonalBg && styles.filterChipActive]}
+                    onPress={() => setFilterPersonalBg(!filterPersonalBg)}
+                >
+                    {filterPersonalBg ? <CheckSquare size={16} color={Colors.primary} /> : <Square size={16} color={Colors.text.secondary} />}
+                    <Text style={[styles.filterChipText, filterPersonalBg && styles.filterChipTextActive]}>
+                        Hoàn cảnh bản thân
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.listContainer}>
@@ -361,6 +402,41 @@ const styles = StyleSheet.create({
     outlineBtnText: {
         color: Colors.text.primary,
         fontWeight: '600',
+    },
+    filterRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+        gap: 12,
+        flexWrap: 'wrap',
+    },
+    filterLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.text.secondary,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        gap: 8,
+    },
+    filterChipActive: {
+        borderColor: Colors.primary,
+        backgroundColor: `${Colors.primary}10`,
+    },
+    filterChipText: {
+        fontSize: 14,
+        color: Colors.text.secondary,
+    },
+    filterChipTextActive: {
+        color: Colors.primary,
+        fontWeight: '500',
     },
     listContainer: {
         flex: 1,

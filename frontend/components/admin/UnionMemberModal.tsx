@@ -122,7 +122,7 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
                                 {renderField("Đơn vị công tác", member.workUnit, <Briefcase size={18} color={Colors.text.secondary} />)}
                                 {renderField("Bộ phận", member.department, <Briefcase size={18} color={Colors.text.secondary} />)}
                                 {renderField("Ngày vào công ty", formatDate(member.companyJoinDate), <CalendarIcon size={18} color={Colors.text.secondary} />)}
-                                {renderField("Ngày vào tổ chức đoàn", formatDate(member.unionJoinDate), <Users size={18} color={Colors.text.secondary} />)}
+                                {renderField("Ngày vào Công đoàn", formatDate(member.unionJoinDate), <Users size={18} color={Colors.text.secondary} />)}
                                 {renderField("Là Đảng Viên?", member.isPartyMember, <CheckCircle size={18} color={Colors.text.secondary} />)}
                                 {member.isPartyMember && (
                                     <>

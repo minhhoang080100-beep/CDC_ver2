@@ -129,7 +129,7 @@ export default function SettingsScreen() {
 
   const handleHelp = () => {
     showToast({
-      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheting.vn\nHoặc gửi phản hồi qua mục "Gửi phản hồi".',
+      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheti.vn\nHoặc gửi ý kiến qua mục "Lắng nghe & Phản hồi".',
       type: 'info'
     });
   };
@@ -215,7 +215,7 @@ export default function SettingsScreen() {
                 <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
                   <MessageSquare color="#3b82f6" size={20} />
                 </View>
-                <Text style={styles.settingItemText}>Gửi phản hồi</Text>
+                <Text style={styles.settingItemText}>Lắng nghe & Phản hồi</Text>
               </View>
               <ChevronRight color="#94a3b8" size={20} />
             </TouchableOpacity>
