@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
@@ -62,7 +62,7 @@ async def create_document(document: DocumentCreate, current_user: dict = Depends
         "fileUrl": document.fileUrl,
         "uploadedBy": current_user["_id"],
         "targetDepartments": target_departments,
-        "createdAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc)
     }
     
     result = await db.documents.insert_one(document_data)
@@ -101,7 +101,7 @@ async def update_document(
         "fileSize": document.fileSize,
         "fileUrl": document.fileUrl,
         "targetDepartments": target_departments,
-        "updatedAt": datetime.utcnow()
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     await db.documents.update_one(

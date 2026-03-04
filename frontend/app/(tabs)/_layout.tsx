@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { View, Platform } from 'react-native';
-import { Home, Calendar, BookOpen, IdCard, Settings } from 'lucide-react-native';
+import { Home, Calendar, BookOpen, IdCard, MoreHorizontal } from 'lucide-react-native';
 
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -28,15 +28,20 @@ export default function TabsLayout() {
               ? { display: 'none' }
               : {
                 backgroundColor: Colors.surface,
-                borderTopWidth: 1,
-                borderTopColor: Colors.divider,
-                height: Platform.select({ ios: 85, android: 65, default: 75 }),
-                paddingBottom: Platform.select({ ios: 25, android: 8, default: 10 }),
+                borderTopWidth: 0, // Remove solid border, use shadow instead
+                elevation: 10,     // Shadow for Android
+                shadowColor: '#000', // Shadow for iOS
+                shadowOffset: { width: 0, height: -4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                height: Platform.select({ ios: 90, android: 70, default: 80 }), // Increased height slightly
+                paddingBottom: Platform.select({ ios: 28, android: 12, default: 12 }), // Increased paddingBottom
                 paddingTop: 8,
               },
             tabBarLabelStyle: {
               fontSize: 12,
               fontWeight: '600',
+              marginTop: 4, // Added margin to space out icon from text slightly
             },
           }}
         >
@@ -69,10 +74,10 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
-            name="settings"
+            name="more"
             options={{
-              title: 'Cài đặt',
-              tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+              title: 'Thêm',
+              tabBarIcon: ({ color, size }) => <MoreHorizontal color={color} size={size} />,
             }}
           />
           <Tabs.Screen
@@ -84,11 +89,35 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="admin"
             options={{
-              href: null, // Only accessible via sidebar or custom logic
+              href: null,
             }}
           />
           <Tabs.Screen
             name="post-detail"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="surveys"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="honors"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="elearning"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="settings"
             options={{
               href: null,
             }}

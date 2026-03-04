@@ -52,9 +52,9 @@ python3 backend/seed.py
 | Username | Password | Role | Mô tả |
 |----------|----------|------|-------|
 | `superadmin` | `Admin@123` | SUPER_ADMIN | Quản trị viên cao cấp |
-| `bch_vanphong` | `VanPhong@123` | BCH_VP | BCH Văn phòng Cảng |
-| `bch_cualo` | `CuaLo@123` | BCH_CL | BCH Cửa Lò |
-| `bch_benthuy` | `BenThuy@123` | BCH_BT | BCH Bến Thủy |
+| `bch_vanphong` | `VanPhong@123` | BCH_VANPHONG | BCH Văn phòng Cảng |
+| `bch_cualo` | `CuaLo@123` | BCH_CUALO | BCH Cửa Lò |
+| `bch_benthuy` | `BenThuy@123` | BCH_BENTHUY | BCH Bến Thủy |
 | `tv_vanphong` | `Member@123` | MEMBER | Thành viên VP |
 | `tv_cualo` | `Member@123` | MEMBER | Thành viên Cửa Lò |
 | `tv_benthuy` | `Member@123` | MEMBER | Thành viên Bến Thủy |

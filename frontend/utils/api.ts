@@ -2,6 +2,8 @@
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 type RequestOptions = {
     headers?: Record<string, string>;
 };
@@ -28,13 +30,70 @@ export function setTokenExpiredCallback(callback: () => void) {
     onTokenExpired = callback;
 }
 
-async function handleResponse(response: Response) {
+// ---- Token auto-attach ----
+let _authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+    _authToken = token;
+}
+
+async function getAuthHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+    const headers: Record<string, string> = { ...extra };
+    // Auto-attach token if available
+    const token = _authToken || await AsyncStorage.getItem('token');
+    if (token && !headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+// ---- Refresh token logic ----
+let _isRefreshing = false;
+
+async function tryRefreshToken(): Promise<boolean> {
+    if (_isRefreshing) return false;
+    _isRefreshing = true;
+    try {
+        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        if (!refreshToken) return false;
+
+        const response = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        if (data?.token) {
+            _authToken = data.token;
+            await AsyncStorage.setItem('token', data.token);
+            return true;
+        }
+        return false;
+    } catch {
+        return false;
+    } finally {
+        _isRefreshing = false;
+    }
+}
+
+async function handleResponse(response: Response, retryFn?: () => Promise<{ data: any; status: number }>) {
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
-        // Handle token expiry (401 Unauthorized)
-        if (response.status === 401) {
-            console.warn('Token expired or invalid. Logging out...');
+        // Handle token expiry (401 Unauthorized) — try refresh first
+        if (response.status === 401 && retryFn) {
+            const refreshed = await tryRefreshToken();
+            if (refreshed) {
+                return retryFn(); // Retry the original request
+            }
+            console.warn('Token expired and refresh failed. Logging out...');
+            if (onTokenExpired) {
+                onTokenExpired();
+            }
+        } else if (response.status === 401) {
             if (onTokenExpired) {
                 onTokenExpired();
             }
@@ -69,67 +128,80 @@ async function safeFetch(url: string, options: RequestInit): Promise<Response> {
 
 export const api = {
     get: async (path: string, options?: RequestOptions) => {
-        const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-        });
-        return handleResponse(response);
+        const headers = await getAuthHeaders(options?.headers);
+        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+
+        const doFetch = async () => {
+            const freshHeaders = await getAuthHeaders(options?.headers);
+            if (!freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
+            const r = await safeFetch(`${BACKEND_URL}${path}`, { method: 'GET', headers: freshHeaders });
+            return handleResponse(r);
+        };
+
+        const response = await safeFetch(`${BACKEND_URL}${path}`, { method: 'GET', headers });
+        return handleResponse(response, doFetch);
     },
 
     post: async (path: string, body?: any, options?: RequestOptions) => {
         const isFormData = body instanceof FormData;
-        const headers: Record<string, string> = { ...options?.headers };
+        const headers = await getAuthHeaders(options?.headers);
+        if (!isFormData && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        if (isFormData && headers['Content-Type'] === 'multipart/form-data') delete headers['Content-Type'];
 
-        // Let fetch automatically set Content-Type with boundary for FormData
-        if (!isFormData && !headers['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-        } else if (isFormData) {
-            // Remove Content-Type if it was manually set to 'multipart/form-data' 
-            // without boundary, allowing fetch to set it correctly
-            if (headers['Content-Type'] === 'multipart/form-data') {
-                delete headers['Content-Type'];
-            }
-        }
+        const doFetch = async () => {
+            const freshHeaders = await getAuthHeaders(options?.headers);
+            if (!isFormData && !freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
+            if (isFormData && freshHeaders['Content-Type'] === 'multipart/form-data') delete freshHeaders['Content-Type'];
+            const r = await safeFetch(`${BACKEND_URL}${path}`, {
+                method: 'POST', headers: freshHeaders,
+                body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+            });
+            return handleResponse(r);
+        };
 
         const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'POST',
-            headers,
+            method: 'POST', headers,
             body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
         });
-        return handleResponse(response);
+        return handleResponse(response, doFetch);
     },
 
     put: async (path: string, body?: any, options?: RequestOptions) => {
         const isFormData = body instanceof FormData;
-        const headers: Record<string, string> = { ...options?.headers };
+        const headers = await getAuthHeaders(options?.headers);
+        if (!isFormData && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+        if (isFormData && headers['Content-Type'] === 'multipart/form-data') delete headers['Content-Type'];
 
-        if (!isFormData && !headers['Content-Type']) {
-            headers['Content-Type'] = 'application/json';
-        } else if (isFormData) {
-            if (headers['Content-Type'] === 'multipart/form-data') {
-                delete headers['Content-Type'];
-            }
-        }
+        const doFetch = async () => {
+            const freshHeaders = await getAuthHeaders(options?.headers);
+            if (!isFormData && !freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
+            if (isFormData && freshHeaders['Content-Type'] === 'multipart/form-data') delete freshHeaders['Content-Type'];
+            const r = await safeFetch(`${BACKEND_URL}${path}`, {
+                method: 'PUT', headers: freshHeaders,
+                body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+            });
+            return handleResponse(r);
+        };
 
         const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'PUT',
-            headers,
+            method: 'PUT', headers,
             body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
         });
-        return handleResponse(response);
+        return handleResponse(response, doFetch);
     },
 
     delete: async (path: string, options?: RequestOptions) => {
-        const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options?.headers,
-            },
-        });
-        return handleResponse(response);
+        const headers = await getAuthHeaders(options?.headers);
+        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+
+        const doFetch = async () => {
+            const freshHeaders = await getAuthHeaders(options?.headers);
+            if (!freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
+            const r = await safeFetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers: freshHeaders });
+            return handleResponse(r);
+        };
+
+        const response = await safeFetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers });
+        return handleResponse(response, doFetch);
     },
 };

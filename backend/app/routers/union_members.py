@@ -21,7 +21,7 @@ async def create_union_member(
     member: UnionMemberCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     member_dict = member.dict()
@@ -36,7 +36,7 @@ async def import_union_members(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if not file.filename.endswith((".xls", ".xlsx")):
@@ -116,7 +116,7 @@ async def get_union_members(
     department: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     query = {}
@@ -129,12 +129,12 @@ async def get_union_members(
         
     # Role-based filtering constraints
     if current_user["role"] != "SUPER_ADMIN":
-        # Assume BCH can only view their own department
-        if current_user["role"] == "BCH_VP":
+        # BCH can only view their own department
+        if current_user["role"] == "BCH_VANPHONG":
             query["department"] = "Văn phòng Cảng"
-        elif current_user["role"] == "BCH_CL":
+        elif current_user["role"] == "BCH_CUALO":
             query["department"] = "Xí nghiệp xếp dỡ Cửa Lò"
-        elif current_user["role"] == "BCH_BT":
+        elif current_user["role"] == "BCH_BENTHUY":
             query["department"] = "Xí nghiệp xếp dỡ Bến Thủy"
 
     cursor = db.union_members.find(query).skip(skip).limit(limit)
@@ -143,7 +143,7 @@ async def get_union_members(
 
 @router.get("/{member_id}", response_model=UnionMemberResponse)
 async def get_union_member(member_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if not ObjectId.is_valid(member_id):
@@ -161,7 +161,7 @@ async def update_union_member(
     member_update: UnionMemberUpdate,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if not ObjectId.is_valid(member_id):
@@ -182,7 +182,7 @@ async def update_union_member(
 
 @router.delete("/{member_id}")
 async def delete_union_member(member_id: str, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VP", "BCH_CL", "BCH_BT"]:
+    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     if not ObjectId.is_valid(member_id):

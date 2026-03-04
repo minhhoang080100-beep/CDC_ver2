@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
@@ -67,7 +67,7 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
         "status": "PENDING",
         "targetRecipients": target_recipients,
         "replies": [],
-        "createdAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc)
     }
     
     result = await db.feedback.insert_one(feedback_data)
@@ -93,7 +93,7 @@ async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: d
         "userId": current_user["_id"],
         "userName": current_user["fullName"],
         "content": reply.content,
-        "repliedAt": datetime.utcnow()
+        "repliedAt": datetime.now(timezone.utc)
     }
     
     await db.feedback.update_one(

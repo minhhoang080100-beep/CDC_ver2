@@ -377,10 +377,396 @@ async def seed_data():
             await db.documents.insert_one(doc)
             print(f"Document '{doc['title']}' created.")
 
-    # Seed Feedback
+    # Seed Surveys
+    surveys = [
+        {
+            "title": "Khảo sát mức độ hài lòng Q1/2026",
+            "description": "Khảo sát mức độ hài lòng của đoàn viên về các hoạt động công đoàn trong Quý 1 năm 2026. Mọi ý kiến đóng góp đều được ghi nhận.",
+            "questions": [
+                {
+                    "content": "Mức độ hài lòng của bạn về hoạt động Công đoàn trong quý vừa qua?",
+                    "type": "STAR_RATING",
+                    "options": [],
+                    "isRequired": True
+                },
+                {
+                    "content": "Bạn đánh giá thế nào về chất lượng các sự kiện/hoạt động được tổ chức?",
+                    "type": "SINGLE_CHOICE",
+                    "options": ["Rất tốt", "Tốt", "Bình thường", "Chưa tốt", "Kém"],
+                    "isRequired": True
+                },
+                {
+                    "content": "Hoạt động nào bạn muốn Công đoàn tổ chức thêm? (Chọn nhiều đáp án)",
+                    "type": "MULTIPLE_CHOICE",
+                    "options": ["Thể thao", "Văn nghệ", "Du lịch", "Đào tạo kỹ năng", "Khám sức khỏe", "Teambuilding"],
+                    "isRequired": True
+                },
+                {
+                    "content": "Bạn có góp ý gì thêm cho hoạt động Công đoàn?",
+                    "type": "OPEN_TEXT",
+                    "options": [],
+                    "isRequired": False
+                }
+            ],
+            "isAnonymous": False,
+            "deadline": "2026-03-31",
+            "targetDepartments": [],
+            "status": "ACTIVE",
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-03-01T08:00:00Z"
+        },
+        {
+            "title": "Khảo sát An toàn Lao động 2026",
+            "description": "Đánh giá tình hình an toàn lao động tại các đơn vị. Khảo sát này là ẩn danh.",
+            "questions": [
+                {
+                    "content": "Bạn đánh giá mức độ an toàn tại nơi làm việc như thế nào?",
+                    "type": "STAR_RATING",
+                    "options": [],
+                    "isRequired": True
+                },
+                {
+                    "content": "Bạn đã được tập huấn đầy đủ về an toàn lao động chưa?",
+                    "type": "SINGLE_CHOICE",
+                    "options": ["Đã tập huấn đầy đủ", "Đã tập huấn nhưng chưa đủ", "Chưa được tập huấn"],
+                    "isRequired": True
+                },
+                {
+                    "content": "Thiết bị bảo hộ cá nhân được cấp phát đầy đủ không?",
+                    "type": "SINGLE_CHOICE",
+                    "options": ["Đầy đủ", "Thiếu một số", "Thiếu nhiều", "Chưa được cấp"],
+                    "isRequired": True
+                },
+                {
+                    "content": "Bạn mong muốn cải thiện điều gì về an toàn lao động?",
+                    "type": "OPEN_TEXT",
+                    "options": [],
+                    "isRequired": False
+                }
+            ],
+            "isAnonymous": True,
+            "deadline": "2026-04-15",
+            "targetDepartments": ["CUA_LO", "BEN_THUY"],
+            "status": "ACTIVE",
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-03-02T10:00:00Z"
+        },
+        {
+            "title": "Đánh giá suất ăn trưa tháng 2/2026",
+            "description": "Khảo sát nhanh để cải thiện thực đơn suất ăn trưa.",
+            "questions": [
+                {
+                    "content": "Đánh giá chung về suất ăn trưa?",
+                    "type": "STAR_RATING",
+                    "options": [],
+                    "isRequired": True
+                },
+                {
+                    "content": "Bạn quan tâm nhất điều gì? (Chọn nhiều)",
+                    "type": "MULTIPLE_CHOICE",
+                    "options": ["Vệ sinh an toàn", "Khẩu phần", "Đa dạng thực đơn", "Rau xanh", "Giá cả"],
+                    "isRequired": True
+                }
+            ],
+            "isAnonymous": False,
+            "deadline": "2026-02-28",
+            "targetDepartments": ["VAN_PHONG_CANG"],
+            "status": "CLOSED",
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-02-15T09:00:00Z"
+        }
+    ]
+
+    for survey in surveys:
+        if await db.surveys.count_documents({"title": survey["title"]}) == 0:
+            result = await db.surveys.insert_one(survey)
+            print(f"Survey '{survey['title']}' created.")
+
+    # Seed Survey Responses (for the closed meal survey)
+    meal_survey = await db.surveys.find_one({"title": "Đánh giá suất ăn trưa tháng 2/2026"})
     tv_vp = await db.users.find_one({"username": "tv_vanphong"})
     tv_cl = await db.users.find_one({"username": "tv_cualo"})
+    tv_bt = await db.users.find_one({"username": "tv_benthuy"})
     bch_vp = await db.users.find_one({"username": "bch_vanphong"})
+
+    if meal_survey and tv_vp and bch_vp:
+        meal_sid = str(meal_survey["_id"])
+        sample_responses = [
+            {
+                "surveyId": meal_sid,
+                "userId": str(tv_vp["_id"]),
+                "userName": tv_vp["fullName"],
+                "department": tv_vp["department"],
+                "answers": [
+                    {"questionIndex": 0, "answer": 4},
+                    {"questionIndex": 1, "answer": ["Đa dạng thực đơn", "Rau xanh"]}
+                ],
+                "submittedAt": "2026-02-16T12:00:00Z"
+            },
+            {
+                "surveyId": meal_sid,
+                "userId": str(bch_vp["_id"]),
+                "userName": bch_vp["fullName"],
+                "department": bch_vp["department"],
+                "answers": [
+                    {"questionIndex": 0, "answer": 3},
+                    {"questionIndex": 1, "answer": ["Vệ sinh an toàn", "Khẩu phần", "Rau xanh"]}
+                ],
+                "submittedAt": "2026-02-17T11:30:00Z"
+            }
+        ]
+        for resp in sample_responses:
+            if await db.survey_responses.count_documents({"surveyId": meal_sid, "userId": resp["userId"]}) == 0:
+                await db.survey_responses.insert_one(resp)
+                print(f"Survey response by '{resp.get('userName', 'anon')}' created.")
+
+    # Seed Honor Campaigns & Nominations
+    campaigns_data = [
+        {
+            "title": "Thi đua lao động giỏi Quý 1/2026",
+            "description": "Bình chọn cá nhân/tập thể có nhiều đóng góp xuất sắc trong Quý 1 năm 2026.",
+            "type": "INDIVIDUAL",
+            "startDate": "2026-01-01",
+            "endDate": "2026-03-31",
+            "targetDepartments": [],
+            "status": "ACTIVE",
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-01-05T08:00:00Z",
+        },
+        {
+            "title": "Tập thể xuất sắc 2025",
+            "description": "Vinh danh các tổ/đội/phòng ban có thành tích xuất sắc năm 2025.",
+            "type": "TEAM",
+            "startDate": "2025-12-01",
+            "endDate": "2025-12-31",
+            "targetDepartments": [],
+            "status": "CLOSED",
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2025-12-01T08:00:00Z",
+        }
+    ]
+
+    for c in campaigns_data:
+        if await db.campaigns.count_documents({"title": c["title"]}) == 0:
+            await db.campaigns.insert_one(c)
+            print(f"Campaign '{c['title']}' created.")
+
+    # Seed Nominations
+    active_campaign = await db.campaigns.find_one({"title": "Thi đua lao động giỏi Quý 1/2026"})
+    closed_campaign = await db.campaigns.find_one({"title": "Tập thể xuất sắc 2025"})
+
+    if active_campaign and tv_vp and tv_bt and bch_vp:
+        active_cid = str(active_campaign["_id"])
+        nominations_data = [
+            {
+                "campaignId": active_cid,
+                "nomineeName": "Trần Văn Hùng",
+                "nomineeDepartment": "CUA_LO",
+                "reason": "Hoàn thành xuất sắc nhiệm vụ điều phối hàng hóa, giảm thời gian xoay vòng tàu 15%.",
+                "achievements": "Xử lý 200+ lượt tàu không để xảy ra sự cố, được khen thưởng 3 tháng liên tiếp",
+                "status": "APPROVED",
+                "nominatorId": str(tv_vp["_id"]),
+                "nominatorName": tv_vp["fullName"],
+                "nominatorDepartment": tv_vp["department"],
+                "reviewedAt": "2026-02-15T10:00:00Z",
+                "createdAt": "2026-02-10T09:00:00Z",
+            },
+            {
+                "campaignId": active_cid,
+                "nomineeName": "Lê Thị Mai",
+                "nomineeDepartment": "VAN_PHONG_CANG",
+                "reason": "Sáng kiến cải tiến quy trình kế toán, tiết kiệm 30% thời gian xử lý chứng từ.",
+                "achievements": "Xây dựng hệ thống quản lý chứng từ điện tử cho Văn phòng Cảng",
+                "status": "APPROVED",
+                "nominatorId": str(bch_vp["_id"]),
+                "nominatorName": bch_vp["fullName"],
+                "nominatorDepartment": bch_vp["department"],
+                "reviewedAt": "2026-02-20T14:00:00Z",
+                "createdAt": "2026-02-18T11:00:00Z",
+            },
+            {
+                "campaignId": active_cid,
+                "nomineeName": "Nguyễn Đức Toàn",
+                "nomineeDepartment": "BEN_THUY",
+                "reason": "Phát hiện kịp thời nguy cơ tai nạn lao động, tham gia cứu hộ thành công.",
+                "achievements": "Tham gia 5 khóa huấn luyện ATLĐ, đạt chứng chỉ sơ cấp cứu",
+                "status": "PENDING",
+                "nominatorId": str(tv_bt["_id"]),
+                "nominatorName": tv_bt["fullName"],
+                "nominatorDepartment": tv_bt["department"],
+                "createdAt": "2026-03-01T08:00:00Z",
+            },
+        ]
+        for nom in nominations_data:
+            if await db.nominations.count_documents({"campaignId": active_cid, "nomineeName": nom["nomineeName"]}) == 0:
+                await db.nominations.insert_one(nom)
+                print(f"Nomination '{nom['nomineeName']}' created.")
+
+    if closed_campaign and tv_vp:
+        closed_cid = str(closed_campaign["_id"])
+        team_nominations = [
+            {
+                "campaignId": closed_cid,
+                "nomineeName": "Tổ Bốc xếp số 2 - Cảng Cửa Lò",
+                "nomineeDepartment": "CUA_LO",
+                "reason": "Đạt sản lượng bốc xếp cao nhất năm, vượt chỉ tiêu 120%.",
+                "achievements": "Bốc xếp 1.2 triệu tấn hàng, 0 sự cố an toàn lao động",
+                "status": "APPROVED",
+                "nominatorId": str(tv_vp["_id"]),
+                "nominatorName": tv_vp["fullName"],
+                "nominatorDepartment": tv_vp["department"],
+                "reviewedAt": "2025-12-25T10:00:00Z",
+                "createdAt": "2025-12-10T09:00:00Z",
+            },
+            {
+                "campaignId": closed_cid,
+                "nomineeName": "Phòng Kế hoạch - VP Cảng",
+                "nomineeDepartment": "VAN_PHONG_CANG",
+                "reason": "Hoàn thành xuất sắc kế hoạch năm 2025, xây dựng chiến lược phát triển.",
+                "achievements": "Triển khai thành công 3 dự án trọng điểm",
+                "status": "APPROVED",
+                "nominatorId": str(tv_vp["_id"]),
+                "nominatorName": tv_vp["fullName"],
+                "nominatorDepartment": tv_vp["department"],
+                "reviewedAt": "2025-12-26T10:00:00Z",
+                "createdAt": "2025-12-12T09:00:00Z",
+            },
+        ]
+        for nom in team_nominations:
+            if await db.nominations.count_documents({"campaignId": closed_cid, "nomineeName": nom["nomineeName"]}) == 0:
+                await db.nominations.insert_one(nom)
+                print(f"Team nomination '{nom['nomineeName']}' created.")
+
+    # Seed E-learning Courses, Quizzes & Enrollments
+    elearning_courses = [
+        {
+            "title": "An toàn lao động tại Cảng biển",
+            "description": "Khóa học bắt buộc về quy tắc an toàn lao động, nhận diện rủi ro và phòng chống tai nạn tại khu vực cảng.",
+            "category": "An toàn lao động",
+            "courseType": "MANDATORY",
+            "targetDepartments": [],
+            "status": "PUBLISHED",
+            "lessons": [
+                {"title": "Tổng quan về An toàn lao động cảng biển", "type": "TEXT",
+                 "content": "An toàn lao động tại cảng biển là yếu tố quan trọng hàng đầu. Mỗi công nhân cần nắm vững:\n\n1. Quy tắc di chuyển trong khu vực cảng\n2. Trang bị bảo hộ lao động bắt buộc (mũ, giày, áo phản quang)\n3. Nhận diện các khu vực nguy hiểm\n4. Quy trình báo cáo sự cố\n5. Sơ cứu cơ bản khi xảy ra tai nạn",
+                 "duration": 15},
+                {"title": "Video: Quy trình an toàn khi bốc xếp hàng hóa", "type": "VIDEO",
+                 "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "duration": 20},
+                {"title": "Tài liệu: Hướng dẫn sử dụng thiết bị nâng hạ", "type": "PDF",
+                 "url": "https://example.com/huong-dan-thiet-bi.pdf", "duration": 10},
+            ],
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-01-15T08:00:00Z",
+        },
+        {
+            "title": "Nghiệp vụ kế toán cảng biển",
+            "description": "Khóa học về quy trình kế toán, quản lý chứng từ và báo cáo tài chính tại đơn vị cảng.",
+            "category": "Nghiệp vụ",
+            "courseType": "OPTIONAL",
+            "targetDepartments": ["VAN_PHONG_CANG"],
+            "status": "PUBLISHED",
+            "lessons": [
+                {"title": "Quy trình luân chuyển chứng từ", "type": "TEXT",
+                 "content": "Chứng từ kế toán tại cảng gồm:\n- Phiếu thu/chi\n- Hóa đơn dịch vụ cảng\n- Biên bản bốc xếp\n- Hợp đồng vận chuyển\n\nQuy trình: Lập chứng từ → Kiểm tra → Ký duyệt → Lưu trữ → Báo cáo",
+                 "duration": 20},
+                {"title": "Phần mềm quản lý tài chính", "type": "VIDEO",
+                 "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "duration": 30},
+            ],
+            "createdBy": admin_id,
+            "creatorName": admin_name,
+            "createdAt": "2026-02-01T08:00:00Z",
+        }
+    ]
+
+    for course_data in elearning_courses:
+        if await db.courses.count_documents({"title": course_data["title"]}) == 0:
+            await db.courses.insert_one(course_data)
+            print(f"Course '{course_data['title']}' created.")
+
+    # Seed quiz for safety course
+    safety_course = await db.courses.find_one({"title": "An toàn lao động tại Cảng biển"})
+    if safety_course:
+        safety_cid = str(safety_course["_id"])
+        if await db.quizzes.count_documents({"courseId": safety_cid}) == 0:
+            quiz_data = {
+                "courseId": safety_cid,
+                "title": "Kiểm tra An toàn lao động",
+                "description": "Bài kiểm tra kiến thức về an toàn lao động tại cảng biển",
+                "timeLimit": 10,
+                "passingScore": 60,
+                "questions": [
+                    {
+                        "content": "Khi di chuyển trong khu vực cảng, bạn BẮT BUỘC phải mang trang bị nào?",
+                        "type": "MULTIPLE_CHOICE",
+                        "options": ["Mũ bảo hộ, giày bảo hộ, áo phản quang", "Chỉ cần mũ bảo hộ", "Chỉ cần giày bảo hộ", "Không cần trang bị gì"],
+                        "correctAnswer": 0
+                    },
+                    {
+                        "content": "Khi phát hiện sự cố an toàn, bạn cần báo cáo ngay cho ai?",
+                        "type": "MULTIPLE_CHOICE",
+                        "options": ["Đồng nghiệp", "Quản lý trực tiếp hoặc bộ phận an toàn", "Tự xử lý", "Ghi nhận và báo cáo vào cuối ca"],
+                        "correctAnswer": 1
+                    },
+                    {
+                        "content": "Công nhân được phép vào khu vực cẩu hàng mà không có sự cho phép của người điều phối.",
+                        "type": "TRUE_FALSE",
+                        "options": ["Đúng", "Sai"],
+                        "correctAnswer": 1
+                    },
+                    {
+                        "content": "Tốc độ tối đa cho phương tiện di chuyển trong khu vực cảng là bao nhiêu?",
+                        "type": "MULTIPLE_CHOICE",
+                        "options": ["40 km/h", "30 km/h", "20 km/h", "10 km/h"],
+                        "correctAnswer": 2
+                    },
+                    {
+                        "content": "Mọi tai nạn lao động dù nhỏ đều cần được ghi nhận và báo cáo.",
+                        "type": "TRUE_FALSE",
+                        "options": ["Đúng", "Sai"],
+                        "correctAnswer": 0
+                    },
+                ],
+                "createdBy": admin_id,
+                "createdAt": "2026-01-20T08:00:00Z",
+            }
+            await db.quizzes.insert_one(quiz_data)
+            print("Quiz 'Kiểm tra An toàn lao động' created.")
+
+        # Seed enrollments
+        if tv_vp:
+            if await db.enrollments.count_documents({"courseId": safety_cid, "userId": str(tv_vp["_id"])}) == 0:
+                await db.enrollments.insert_one({
+                    "courseId": safety_cid,
+                    "userId": str(tv_vp["_id"]),
+                    "userName": tv_vp["fullName"],
+                    "department": tv_vp["department"],
+                    "completedLessons": [0, 1],
+                    "quizResult": {"quizId": "", "score": 80, "correct": 4, "total": 5, "passed": True, "submittedAt": "2026-02-10T10:00:00Z"},
+                    "enrolledAt": "2026-02-01T08:00:00Z",
+                })
+                print(f"Enrollment for '{tv_vp['fullName']}' created.")
+
+        if tv_bt:
+            if await db.enrollments.count_documents({"courseId": safety_cid, "userId": str(tv_bt["_id"])}) == 0:
+                await db.enrollments.insert_one({
+                    "courseId": safety_cid,
+                    "userId": str(tv_bt["_id"]),
+                    "userName": tv_bt["fullName"],
+                    "department": tv_bt["department"],
+                    "completedLessons": [0],
+                    "quizResult": None,
+                    "enrolledAt": "2026-02-05T08:00:00Z",
+                })
+                print(f"Enrollment for '{tv_bt['fullName']}' created.")
+
+    # Seed Feedback
+    tv_cl = await db.users.find_one({"username": "tv_cualo"})
     bch_cl = await db.users.find_one({"username": "bch_cualo"})
 
     if tv_vp and tv_cl and bch_vp and bch_cl:

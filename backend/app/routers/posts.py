@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
@@ -8,7 +8,6 @@ from app.core.permissions import build_content_filter, resolve_target_department
 from app.models.post import PostCreate, PostCommentCreate
 from app.core.push import send_bulk_push_notifications
 from app.core.cloudinary_utils import delete_cloudinary_asset
-import asyncio
 
 router = APIRouter()
 
@@ -64,8 +63,8 @@ async def create_post(post: PostCreate, background_tasks: BackgroundTasks, curre
         "likes": [],
         "comments": [],
         "isDeleted": False,
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     result = await db.posts.insert_one(post_data)
@@ -86,7 +85,7 @@ async def create_post(post: PostCreate, background_tasks: BackgroundTasks, curre
     }
 
 async def notify_new_post(title: str, body: str, target_departments: list, post_id: str):
-    query = {"status": "active", "pushToken": {"$exists": True, "$ne": None}}
+    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
         
@@ -130,7 +129,7 @@ async def update_post(
         "category": post.category,
         "image": post.image,
         "targetDepartments": target_departments,
-        "updatedAt": datetime.utcnow()
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     await db.posts.update_one(
@@ -197,7 +196,7 @@ async def add_comment(post_id: str, comment: PostCommentCreate, current_user: di
         "userName": current_user["fullName"],
         "userDepartment": current_user["department"],
         "content": comment.content,
-        "createdAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc)
     }
     
     await db.posts.update_one(

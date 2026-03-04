@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
@@ -52,7 +52,7 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
         registrations.append({
             "userId": current_user["_id"],
             "userName": current_user["fullName"],
-            "registeredAt": datetime.utcnow()
+            "registeredAt": datetime.now(timezone.utc)
         })
         action = "registered"
     
@@ -101,7 +101,7 @@ async def checkin_activity(activity_id: str, request: CheckInRequest, current_us
         "userId": user_id,
         "userName": attendee["fullName"],
         "unionId": union_id,
-        "checkedInAt": datetime.utcnow(),
+        "checkedInAt": datetime.now(timezone.utc),
         "checkedInBy": current_user["_id"] # Admin who scanned it
     })
     
@@ -129,7 +129,7 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
         "createdBy": current_user["_id"],
         "targetDepartments": target_departments,
         "registrations": [],
-        "createdAt": datetime.utcnow()
+        "createdAt": datetime.now(timezone.utc)
     }
     
     result = await db.activities.insert_one(activity_data)
@@ -149,7 +149,7 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
     }
 
 async def notify_new_activity(title: str, body: str, target_departments: list, activity_id: str):
-    query = {"status": "active", "pushToken": {"$exists": True, "$ne": None}}
+    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
         
@@ -193,7 +193,7 @@ async def update_activity(
         "type": activity.type,
         "image": activity.image,
         "targetDepartments": target_departments,
-        "updatedAt": datetime.utcnow()
+        "updatedAt": datetime.now(timezone.utc)
     }
     
     await db.activities.update_one(

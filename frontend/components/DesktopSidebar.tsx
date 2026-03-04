@@ -13,6 +13,9 @@ import {
     LogOut,
     Shield,
     Users,
+    ClipboardList,
+    Trophy,
+    GraduationCap,
 } from 'lucide-react-native';
 
 interface MenuItem {
@@ -28,6 +31,9 @@ const MENU_ITEMS: MenuItem[] = [
     { name: 'library', path: '/(tabs)/library', icon: BookOpen, label: 'Thư viện' },
     { name: 'profile', path: '/(tabs)/profile', icon: IdCard, label: 'Thẻ Đoàn viên' },
     { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Lắng nghe & Phản hồi' },
+    { name: 'surveys', path: '/(tabs)/surveys', icon: ClipboardList, label: 'Khảo sát' },
+    { name: 'honors', path: '/(tabs)/honors', icon: Trophy, label: 'Vinh danh' },
+    { name: 'elearning', path: '/(tabs)/elearning', icon: GraduationCap, label: 'Đào tạo' },
     { name: 'settings', path: '/(tabs)/settings', icon: Settings, label: 'Cài đặt' },
 ];
 

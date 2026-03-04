@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api, setTokenExpiredCallback } from '../utils/api';
+import { api, setTokenExpiredCallback, setAuthToken } from '../utils/api';
 
 interface User {
   id: string;
@@ -39,13 +39,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (storedToken && storedUser) {
         setToken(storedToken);
+        setAuthToken(storedToken);
         setUser(JSON.parse(storedUser));
+
+        // Validate token with server to detect disabled accounts
+        try {
+          const response = await api.get('/api/auth/me');
+          if (response.data) {
+            setUser(response.data);
+            await AsyncStorage.setItem('user', JSON.stringify(response.data));
+          }
+        } catch (error: any) {
+          // Token invalid or account disabled — auto logout
+          console.warn('Stored token invalid, clearing session');
+          await clearAuthData();
+        }
       }
     } catch (error) {
       console.error('Error loading auth:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const clearAuthData = async () => {
+    setUser(null);
+    setToken(null);
+    setAuthToken(null);
+    await AsyncStorage.multiRemove(['token', 'refreshToken', 'user']);
   };
 
   const login = async (username: string, password: string) => {
@@ -55,32 +76,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password
       });
 
-      const { token: newToken, user: newUser } = response.data;
+      const { token: newToken, refreshToken, user: newUser } = response.data;
 
       await AsyncStorage.setItem('token', newToken);
+      if (refreshToken) {
+        await AsyncStorage.setItem('refreshToken', refreshToken);
+      }
       await AsyncStorage.setItem('user', JSON.stringify(newUser));
 
       setToken(newToken);
+      setAuthToken(newToken);
       setUser(newUser);
     } catch (error: any) {
       if (error.response?.data?.detail) {
         throw new Error(error.response.data.detail);
       }
-      throw new Error('Đăng nhập thất bại');
+      throw new Error(error.detail || error.message || 'Đăng nhập thất bại');
     }
   };
 
   const logout = async () => {
     console.log('🔴 LOGOUT: Starting logout process...');
     try {
-      setUser(null);
-      setToken(null);
-      await AsyncStorage.clear();
+      await clearAuthData();
       console.log('🔴 LOGOUT: Logout completed successfully');
     } catch (error) {
       console.error('🔴 LOGOUT ERROR:', error);
       setUser(null);
       setToken(null);
+      setAuthToken(null);
     }
   };
 

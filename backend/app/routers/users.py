@@ -1,42 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 import re
-from app.core.security import get_current_user, hash_password
-from pydantic import BaseModel
-from app.models.user import UpdatePushToken
+from app.core.security import get_current_user, hash_password, validate_object_id, validate_password
+from app.models.user import UserCreate, UserUpdate, ResetPasswordRequest, BulkUserCreate, UpdatePushToken
 from app.core.cloudinary_utils import delete_cloudinary_asset
-import asyncio
 
 router = APIRouter()
 
-
-class UserCreate(BaseModel):
-    username: str
-    password: str
-    fullName: str
-    unionId: str
-    role: str
-    department: str
-    avatar: Optional[str] = None
-
-
-class UserUpdate(BaseModel):
-    fullName: Optional[str] = None
-    role: Optional[str] = None
-    department: Optional[str] = None
-    status: Optional[str] = None
-    avatar: Optional[str] = None
-
-
-class ResetPasswordRequest(BaseModel):
-    newPassword: str
-
-
-class BulkUserCreate(BaseModel):
-    users: List[UserCreate]
 
 
 VALID_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY", "MEMBER"]
@@ -123,26 +96,9 @@ async def get_users(
         "role": user["role"],
         "department": user["department"],
         "avatar": user.get("avatar"),
-        "status": user.get("status", "active"),
+        "status": user.get("status", "ACTIVE"),
         "createdAt": user.get("createdAt")
     } for user in users]
-
-    result_users = [{
-        "id": str(user["_id"]),
-        "username": user["username"],
-        "fullName": user["fullName"],
-        "unionId": user["unionId"],
-        "role": user["role"],
-        "department": user["department"],
-        "avatar": user.get("avatar"),
-        "status": user.get("status", "active"),
-        "createdAt": user.get("createdAt")
-    } for user in users]
-
-    return {
-        "total": total,
-        "items": result_users 
-    }
 
 
 @router.post("")
@@ -162,8 +118,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=400, detail="Username already exists")
     
     # Validate password
-    if len(user_data.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    validate_password(user_data.password)
     
     new_user = {
         "username": user_data.username,
@@ -173,8 +128,8 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         "role": user_data.role,
         "department": user_data.department,
         "avatar": user_data.avatar,
-        "status": "active",
-        "createdAt": datetime.utcnow()
+        "status": "ACTIVE",
+        "createdAt": datetime.now(timezone.utc)
     }
     
     result = await db.users.insert_one(new_user)
@@ -185,7 +140,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         "fullName": new_user["fullName"],
         "role": new_user["role"],
         "department": new_user["department"],
-        "status": "active"
+        "status": "ACTIVE"
     }
 
 
@@ -199,7 +154,7 @@ async def update_user(
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Not authorized to update users")
     
-    existing = await db.users.find_one({"_id": ObjectId(user_id)})
+    existing = await db.users.find_one({"_id": validate_object_id(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -239,10 +194,10 @@ async def update_user(
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
     
-    update_fields["updatedAt"] = datetime.utcnow()
+    update_fields["updatedAt"] = datetime.now(timezone.utc)
     
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": validate_object_id(user_id)},
         {"$set": update_fields}
     )
     
@@ -254,7 +209,7 @@ async def approve_user(user_id: str, current_user: dict = Depends(get_current_us
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Not authorized to approve users")
     
-    existing = await db.users.find_one({"_id": ObjectId(user_id)})
+    existing = await db.users.find_one({"_id": validate_object_id(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -265,8 +220,8 @@ async def approve_user(user_id: str, current_user: dict = Depends(get_current_us
         raise HTTPException(status_code=400, detail="Tài khoản này không ở trạng thái Chờ phê duyệt")
     
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"status": "ACTIVE", "updatedAt": datetime.utcnow()}}
+        {"_id": validate_object_id(user_id)},
+        {"$set": {"status": "ACTIVE", "updatedAt": datetime.now(timezone.utc)}}
     )
     
     return {"status": "success", "message": f"Đã phê duyệt tài khoản {existing['fullName']}"}
@@ -285,7 +240,7 @@ async def delete_user(
     if user_id == current_user["_id"]:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     
-    existing = await db.users.find_one({"_id": ObjectId(user_id)})
+    existing = await db.users.find_one({"_id": validate_object_id(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
         
@@ -297,7 +252,7 @@ async def delete_user(
     if avatar:
         background_tasks.add_task(delete_cloudinary_asset, avatar)
         
-    await db.users.delete_one({"_id": ObjectId(user_id)})
+    await db.users.delete_one({"_id": validate_object_id(user_id)})
     
     return {"status": "success", "message": "User deleted"}
 
@@ -307,20 +262,19 @@ async def reset_password(user_id: str, request: ResetPasswordRequest, current_us
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Not authorized to reset passwords")
     
-    existing = await db.users.find_one({"_id": ObjectId(user_id)})
+    existing = await db.users.find_one({"_id": validate_object_id(user_id)})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
         
     if not can_manage_user(current_user, existing):
         raise HTTPException(status_code=403, detail="Cannot reset password for this user")
         
-    if len(request.newPassword) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    validate_password(request.newPassword)
         
     hashed_pw = hash_password(request.newPassword)
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"password": hashed_pw, "updatedAt": datetime.utcnow()}}
+        {"_id": validate_object_id(user_id)},
+        {"$set": {"password": hashed_pw, "updatedAt": datetime.now(timezone.utc)}}
     )
     
     return {"status": "success", "message": "Password reset successfully"}
@@ -370,8 +324,8 @@ async def bulk_import_users(data: BulkUserCreate, current_user: dict = Depends(g
             "role": final_role,
             "department": final_department,
             "avatar": user_data.avatar,
-            "status": "active",
-            "createdAt": datetime.utcnow()
+            "status": "ACTIVE",
+            "createdAt": datetime.now(timezone.utc)
         })
         
     if new_users:
@@ -387,7 +341,7 @@ async def bulk_import_users(data: BulkUserCreate, current_user: dict = Depends(g
 async def update_push_token(data: UpdatePushToken, current_user: dict = Depends(get_current_user)):
     user_id = current_user["_id"]
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"pushToken": data.token, "updatedAt": datetime.utcnow()}}
+        {"_id": validate_object_id(user_id)},
+        {"$set": {"pushToken": data.token, "updatedAt": datetime.now(timezone.utc)}}
     )
     return {"status": "success", "message": "Push token updated"}

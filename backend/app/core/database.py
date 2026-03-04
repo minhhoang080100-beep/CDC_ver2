@@ -15,3 +15,22 @@ async def init_db_indexes():
     # Posts indexes
     await db.posts.create_index("createdAt")
     await db.posts.create_index("targetDepartments")
+    # Activities indexes
+    await db.activities.create_index("createdAt")
+    await db.activities.create_index("targetDepartments")
+    # Enrollments indexes (compound unique)
+    await db.enrollments.create_index(
+        [("courseId", 1), ("userId", 1)], unique=True
+    )
+    # Survey responses indexes (compound unique)
+    await db.survey_responses.create_index(
+        [("surveyId", 1), ("userId", 1)], unique=True
+    )
+    await db.surveys.create_index("createdAt")
+    # Nominations indexes
+    await db.nominations.create_index("campaignId")
+    await db.campaigns.create_index("createdAt")
+    # Feedback indexes
+    await db.feedback.create_index("senderId")
+    await db.feedback.create_index("targetRecipients")
+    await db.feedback.create_index("createdAt")

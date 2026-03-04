@@ -25,7 +25,7 @@ async def get_analytics(current_user: dict = Depends(get_current_user)):
     
     # 1. User stats
     total_users = await db.users.count_documents(user_query)
-    active_users = await db.users.count_documents({**user_query, "status": "active"})
+    active_users = await db.users.count_documents({**user_query, "status": "ACTIVE"})
     
     # 2. Activity stats
     total_activities = await db.activities.count_documents(activity_query)

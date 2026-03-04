@@ -16,7 +16,8 @@ class Settings:
     DB_NAME: str = os.environ.get('DB_NAME', "cong_doan_db")
     JWT_SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", _DEFAULT_JWT_SECRET)
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours (giảm từ 7 ngày)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh token 7 ngày
 
 settings = Settings()
 

@@ -269,7 +269,11 @@ export default function ActivitiesScreen() {
         key={gridColumns}
         numColumns={gridColumns}
         columnWrapperStyle={gridColumns > 1 ? { gap: 16 } : undefined}
-        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
+        contentContainerStyle={[
+          styles.listContent,
+          isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any },
+          !isDesktop && { paddingBottom: 110 } // Tăng padding bottom cho mobile để tránh bị tab bar đè lên
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -347,13 +351,13 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
   },
   listContent: {
-    padding: 16,
+    padding: Platform.select({ ios: 12, android: 12, default: 16 }), // Small padding on mobile
   },
   activityCard: {
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    padding: 16,
+    padding: Platform.select({ ios: 14, android: 14, default: 16 }), // Small padding on mobile
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -435,7 +439,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 6,
+    paddingVertical: 10, // Tăng touch target
     paddingHorizontal: 12,
     borderRadius: 6,
   },

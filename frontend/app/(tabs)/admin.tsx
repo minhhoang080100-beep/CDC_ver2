@@ -8,18 +8,22 @@ import {
     RefreshControl,
     Platform,
     Alert,
-    TextInput
+    TextInput,
+    ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2, BookOpen } from 'lucide-react-native';
+import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2, BookOpen, ClipboardList, Trophy, GraduationCap } from 'lucide-react-native';
 import WebHoverCard from '../../components/WebHoverCard';
 import UserModal from '../../components/UserModal';
 import FeedbackManagement from '../../components/admin/FeedbackManagement';
 import AnalyticsDashboard from '../../components/admin/AnalyticsDashboard';
 import UnionMembersManagement from '../../components/admin/UnionMembersManagement';
+import SurveyManagement from '../../components/admin/SurveyManagement';
+import HonorManagement from '../../components/admin/HonorManagement';
+import ElearningManagement from '../../components/admin/ElearningManagement';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -44,7 +48,7 @@ export default function AdminScreen() {
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'union_members' | 'feedbacks' | 'analytics'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'union_members' | 'feedbacks' | 'analytics' | 'surveys' | 'honors' | 'elearning'>('users');
 
     // Search & Filter Stats
     const [searchText, setSearchText] = useState('');
@@ -386,40 +390,69 @@ export default function AdminScreen() {
             </View>
 
             {/* Tabs */}
-            <View style={[styles.tabContainer, isDesktop && styles.tabContainerDesktop]}>
-                <TouchableOpacity
-                    style={[styles.tabItem, activeTab === 'users' && styles.tabItemActive]}
-                    onPress={() => setActiveTab('users')}
-                >
-                    <Users color={activeTab === 'users' ? Colors.primary : Colors.text.secondary} size={20} />
-                    <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>Tài khoản</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.tabItem, activeTab === 'union_members' && styles.tabItemActive]}
-                    onPress={() => setActiveTab('union_members')}
-                >
-                    <BookOpen color={activeTab === 'union_members' ? Colors.primary : Colors.text.secondary} size={20} />
-                    <Text style={[styles.tabText, activeTab === 'union_members' && styles.tabTextActive]}>Đoàn viên</Text>
-                </TouchableOpacity>
-                {user?.role === 'SUPER_ADMIN' && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabScrollWrapper, isDesktop && styles.tabContainerDesktop]}>
+                <View style={styles.tabContainer}>
                     <TouchableOpacity
-                        style={[styles.tabItem, activeTab === 'feedbacks' && styles.tabItemActive]}
-                        onPress={() => setActiveTab('feedbacks')}
+                        style={[styles.tabItem, activeTab === 'users' && styles.tabItemActive]}
+                        onPress={() => setActiveTab('users')}
                     >
-                        <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
-                        <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Lắng nghe & Phản hồi</Text>
+                        <Users color={activeTab === 'users' ? Colors.primary : Colors.text.secondary} size={20} />
+                        <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>Tài khoản</Text>
                     </TouchableOpacity>
-                )}
-                {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
                     <TouchableOpacity
-                        style={[styles.tabItem, activeTab === 'analytics' && styles.tabItemActive]}
-                        onPress={() => setActiveTab('analytics')}
+                        style={[styles.tabItem, activeTab === 'union_members' && styles.tabItemActive]}
+                        onPress={() => setActiveTab('union_members')}
                     >
-                        <BarChart2 color={activeTab === 'analytics' ? Colors.primary : Colors.text.secondary} size={20} />
-                        <Text style={[styles.tabText, activeTab === 'analytics' && styles.tabTextActive]}>Thống kê</Text>
+                        <BookOpen color={activeTab === 'union_members' ? Colors.primary : Colors.text.secondary} size={20} />
+                        <Text style={[styles.tabText, activeTab === 'union_members' && styles.tabTextActive]}>Đoàn viên</Text>
                     </TouchableOpacity>
-                )}
-            </View>
+                    {user?.role === 'SUPER_ADMIN' && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'feedbacks' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('feedbacks')}
+                        >
+                            <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Lắng nghe & Phản hồi</Text>
+                        </TouchableOpacity>
+                    )}
+                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'analytics' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('analytics')}
+                        >
+                            <BarChart2 color={activeTab === 'analytics' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'analytics' && styles.tabTextActive]}>Thống kê</Text>
+                        </TouchableOpacity>
+                    )}
+                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'surveys' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('surveys')}
+                        >
+                            <ClipboardList color={activeTab === 'surveys' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'surveys' && styles.tabTextActive]}>Khảo sát</Text>
+                        </TouchableOpacity>
+                    )}
+                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'honors' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('honors')}
+                        >
+                            <Trophy color={activeTab === 'honors' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'honors' && styles.tabTextActive]}>Vinh danh</Text>
+                        </TouchableOpacity>
+                    )}
+                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'elearning' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('elearning')}
+                        >
+                            <GraduationCap color={activeTab === 'elearning' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'elearning' && styles.tabTextActive]}>Đào tạo</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </ScrollView>
 
             {activeTab === 'users' ? (
                 <View style={[styles.content, isDesktop && styles.contentDesktop]}>
@@ -580,6 +613,12 @@ export default function AdminScreen() {
                 <UnionMembersManagement />
             ) : activeTab === 'feedbacks' ? (
                 <FeedbackManagement />
+            ) : activeTab === 'surveys' ? (
+                <SurveyManagement />
+            ) : activeTab === 'honors' ? (
+                <HonorManagement />
+            ) : activeTab === 'elearning' ? (
+                <ElearningManagement />
             ) : (
                 <AnalyticsDashboard />
             )}
@@ -667,11 +706,14 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
     },
-    tabContainer: {
-        flexDirection: 'row',
+    tabScrollWrapper: {
         backgroundColor: Colors.surface,
         borderBottomWidth: 1,
         borderBottomColor: Colors.divider,
+        flexGrow: 0,
+    },
+    tabContainer: {
+        flexDirection: 'row',
         paddingHorizontal: 20,
     },
     tabContainerDesktop: {
