@@ -66,7 +66,7 @@ export default function FeedbackScreen() {
       const response = await api.get('/api/feedback', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setFeedbackList(response.data);
+      setFeedbackList(response.data?.items || response.data || []);
     } catch (error: any) {
       console.error('Error fetching feedback:', error);
       showToast({ message: error.detail || 'Không thể tải phản hồi', type: 'error' });

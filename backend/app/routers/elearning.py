@@ -17,34 +17,77 @@ router = APIRouter()
 # ═══════════════════════════════════════════════════════════
 
 @router.get("")
-async def list_courses(status: str = None, category: str = None, limit: int = 50, current_user=Depends(get_current_user)):
+async def list_courses(
+    skip: int = 0,
+    limit: int = 50,
+    status: str = None,
+    category: str = None,
+    current_user=Depends(get_current_user)
+):
     query = {}
     if status:
         query["status"] = status
     if category:
         query["category"] = category
-    cursor = db.courses.find(query).sort("createdAt", -1).limit(limit)
+
+    total = await db.courses.count_documents(query)
+
+    # Aggregation pipeline to avoid N+1 queries
+    pipeline = [
+        {"$match": query},
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {"$addFields": {
+            "courseIdStr": {"$toString": "$_id"},
+            "lessonCount": {"$size": {"$ifNull": ["$lessons", []]}}
+        }},
+        # Lookup quiz count
+        {"$lookup": {
+            "from": "quizzes",
+            "let": {"cid": "$courseIdStr"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$courseId", "$$cid"]}}},
+                {"$count": "count"}
+            ],
+            "as": "quizStats"
+        }},
+        # Lookup enrollment count
+        {"$lookup": {
+            "from": "enrollments",
+            "let": {"cid": "$courseIdStr"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$courseId", "$$cid"]}}},
+                {"$count": "count"}
+            ],
+            "as": "enrollStats"
+        }},
+        {"$addFields": {
+            "quizCount": {"$ifNull": [{"$arrayElemAt": ["$quizStats.count", 0]}, 0]},
+            "enrollmentCount": {"$ifNull": [{"$arrayElemAt": ["$enrollStats.count", 0]}, 0]},
+        }},
+        {"$project": {"quizStats": 0, "enrollStats": 0, "courseIdStr": 0, "lessons": 0}}
+    ]
+
+    courses = await db.courses.aggregate(pipeline).to_list(limit)
+
     items = []
-    async for c in cursor:
-        cid = str(c["_id"])
-        lesson_count = len(c.get("lessons", []))
-        quiz_count = await db.quizzes.count_documents({"courseId": cid})
-        enrollment_count = await db.enrollments.count_documents({"courseId": cid})
+    for c in courses:
         items.append({
-            "id": cid,
+            "id": str(c["_id"]),
             "title": c.get("title", ""),
             "description": c.get("description"),
             "category": c.get("category"),
             "courseType": c.get("courseType", "OPTIONAL"),
             "status": c.get("status", "DRAFT"),
             "targetDepartments": c.get("targetDepartments", []),
-            "lessonCount": lesson_count,
-            "quizCount": quiz_count,
-            "enrollmentCount": enrollment_count,
+            "lessonCount": c.get("lessonCount", 0),
+            "quizCount": c.get("quizCount", 0),
+            "enrollmentCount": c.get("enrollmentCount", 0),
             "creatorName": c.get("creatorName"),
             "createdAt": c.get("createdAt", ""),
         })
-    return items
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 
 @router.get("/my-courses")

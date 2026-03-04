@@ -118,15 +118,51 @@ async def delete_nomination(nomination_id: str, current_user=Depends(get_current
 # ─── Campaigns ───────────────────────────────────────────
 
 @router.get("")
-async def list_campaigns(status: str = None, limit: int = 50, current_user=Depends(get_current_user)):
+async def list_campaigns(
+    skip: int = 0,
+    limit: int = 50,
+    status: str = None,
+    current_user=Depends(get_current_user)
+):
     query = {}
     if status:
         query["status"] = status
-    cursor = db.campaigns.find(query).sort("createdAt", -1).limit(limit)
+
+    total = await db.campaigns.count_documents(query)
+
+    # Aggregation pipeline to avoid N+1 queries
+    pipeline = [
+        {"$match": query},
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {"$addFields": {"campaignIdStr": {"$toString": "$_id"}}},
+        {"$lookup": {
+            "from": "nominations",
+            "let": {"cid": "$campaignIdStr"},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$campaignId", "$$cid"]}}},
+                {"$group": {
+                    "_id": None,
+                    "total": {"$sum": 1},
+                    "approved": {
+                        "$sum": {"$cond": [{"$eq": ["$status", "APPROVED"]}, 1, 0]}
+                    }
+                }}
+            ],
+            "as": "nomStats"
+        }},
+        {"$addFields": {
+            "nominationCount": {"$ifNull": [{"$arrayElemAt": ["$nomStats.total", 0]}, 0]},
+            "approvedCount": {"$ifNull": [{"$arrayElemAt": ["$nomStats.approved", 0]}, 0]},
+        }},
+        {"$project": {"nomStats": 0, "campaignIdStr": 0}}
+    ]
+
+    campaigns = await db.campaigns.aggregate(pipeline).to_list(limit)
+
     items = []
-    async for c in cursor:
-        nomination_count = await db.nominations.count_documents({"campaignId": str(c["_id"])})
-        approved_count = await db.nominations.count_documents({"campaignId": str(c["_id"]), "status": "APPROVED"})
+    for c in campaigns:
         items.append({
             "id": str(c["_id"]),
             "title": c.get("title", ""),
@@ -138,10 +174,10 @@ async def list_campaigns(status: str = None, limit: int = 50, current_user=Depen
             "targetDepartments": c.get("targetDepartments", []),
             "creatorName": c.get("creatorName"),
             "createdAt": c.get("createdAt", ""),
-            "nominationCount": nomination_count,
-            "approvedCount": approved_count,
+            "nominationCount": c.get("nominationCount", 0),
+            "approvedCount": c.get("approvedCount", 0),
         })
-    return items
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 
 @router.get("/{campaign_id}")

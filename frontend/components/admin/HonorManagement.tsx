@@ -95,7 +95,7 @@ export default function HonorManagement() {
             const res = await api.get(`/api/honors${statusParam}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-            setCampaigns(res.data || []);
+            setCampaigns(res.data?.items || res.data || []);
         } catch (error) {
             console.error(error);
         } finally {

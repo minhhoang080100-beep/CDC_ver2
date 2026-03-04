@@ -55,7 +55,7 @@ export default function ActivitiesScreen() {
       const response = await api.get('/api/activities', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setActivities(response.data);
+      setActivities(response.data?.items || response.data || []);
     } catch (error) {
       console.error('Error fetching activities:', error);
     } finally {

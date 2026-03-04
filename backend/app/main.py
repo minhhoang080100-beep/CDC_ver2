@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from starlette.middleware.cors import CORSMiddleware
 import logging
 from app.core.database import client, init_db_indexes
-from app.routers import auth, posts, activities, feedback, documents, users, analytics, union_members, surveys, honors, elearning
+from app.routers import auth, posts, activities, feedback, documents, users, analytics, union_members, surveys, honors, elearning, comments, notifications, search, export
 import cloudinary
 import os
 
@@ -37,6 +37,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+# ─── Request Logging Middleware ─────────────────────────────
+import time
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start = time.time()
+    response = await call_next(request)
+    duration = round((time.time() - start) * 1000, 1)
+    logger.info(f"{request.method} {request.url.path} → {response.status_code} ({duration}ms)")
+    return response
+
 # Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -64,6 +77,10 @@ app.include_router(union_members.router, prefix="/api/union-members", tags=["uni
 app.include_router(surveys.router, prefix="/api/surveys", tags=["surveys"])
 app.include_router(honors.router, prefix="/api/honors", tags=["honors"])
 app.include_router(elearning.router, prefix="/api/elearning", tags=["elearning"])
+app.include_router(comments.router, prefix="/api/comments", tags=["comments"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
+app.include_router(search.router, prefix="/api/search", tags=["search"])
+app.include_router(export.router, prefix="/api/export", tags=["export"])
 
 
 @app.get("/health")

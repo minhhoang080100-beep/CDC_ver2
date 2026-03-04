@@ -108,8 +108,9 @@ export default function LibraryScreen() {
       const response = await api.get('/api/documents', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setDocuments(response.data);
-      setFilteredDocs(response.data);
+      const docs = response.data?.items || response.data || [];
+      setDocuments(docs);
+      setFilteredDocs(docs);
     } catch (error) {
       console.error('Error fetching documents:', error);
     } finally {

@@ -103,7 +103,7 @@ export default function HomeScreen() {
       const response = await api.get('/api/posts', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setPosts(response.data);
+      setPosts(response.data?.items || response.data || []);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {

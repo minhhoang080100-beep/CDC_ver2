@@ -8,24 +8,23 @@ from app.models.feedback import FeedbackCreate, FeedbackReply, FeedbackStatusUpd
 
 router = APIRouter()
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def get_feedback(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     current_user: dict = Depends(get_current_user)
 ):
     if current_user["role"] == "SUPER_ADMIN":
-        feedback_list = await db.feedback.find().sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+        query = {}
     elif current_user["role"].startswith("BCH_"):
-        feedback_list = await db.feedback.find({
-            "targetRecipients": current_user["_id"]
-        }).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+        query = {"targetRecipients": current_user["_id"]}
     else:
-        feedback_list = await db.feedback.find({
-            "senderId": current_user["_id"]
-        }).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
-    
-    return [{
+        query = {"senderId": current_user["_id"]}
+
+    total = await db.feedback.count_documents(query)
+    feedback_list = await db.feedback.find(query).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+
+    items = [{
         "id": str(fb["_id"]),
         "subject": fb["subject"],
         "content": fb["content"],
@@ -38,6 +37,8 @@ async def get_feedback(
         "replies": fb.get("replies", []),
         "createdAt": fb["createdAt"]
     } for fb in feedback_list]
+
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 @router.post("")
 async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends(get_current_user)):

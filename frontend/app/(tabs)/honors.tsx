@@ -91,7 +91,7 @@ export default function HonorsScreen() {
                 api.get('/api/honors?status=ACTIVE', { headers: { Authorization: `Bearer ${token}` } }),
             ]);
             setHonorBoard(boardRes.data || []);
-            setActiveCampaigns(campaignsRes.data || []);
+            setActiveCampaigns(campaignsRes.data?.items || campaignsRes.data || []);
         } catch (error) {
             console.error('Error fetching honors:', error);
         } finally {

@@ -34,3 +34,15 @@ async def init_db_indexes():
     await db.feedback.create_index("senderId")
     await db.feedback.create_index("targetRecipients")
     await db.feedback.create_index("createdAt")
+    # Text search indexes
+    await db.posts.create_index([
+        ("title", "text"), ("content", "text"), ("summary", "text")
+    ], default_language="none")
+    await db.documents.create_index([
+        ("title", "text"), ("category", "text")
+    ], default_language="none")
+    # Notifications indexes
+    await db.notifications.create_index([("userId", 1), ("createdAt", -1)])
+    await db.notifications.create_index("read")
+    # Comments indexes (separate collection)
+    await db.comments.create_index([("postId", 1), ("createdAt", -1)])

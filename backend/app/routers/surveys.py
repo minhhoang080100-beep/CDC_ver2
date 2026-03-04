@@ -21,35 +21,61 @@ async def get_surveys(
     current_user: dict = Depends(get_current_user)
 ):
     """Get surveys visible to current user"""
-    query = {}
+    match_stage: dict = {}
 
     # Admin sees all; members see only ACTIVE surveys for their department
     if current_user["role"] not in ADMIN_ROLES:
-        query["status"] = "ACTIVE"
-        query["$or"] = [
+        match_stage["status"] = "ACTIVE"
+        match_stage["$or"] = [
             {"targetDepartments": {"$in": [current_user["department"], "ALL"]}},
             {"targetDepartments": {"$size": 0}},
             {"targetDepartments": {"$exists": False}},
         ]
     else:
         if status:
-            query["status"] = status
+            match_stage["status"] = status
 
-    total = await db.surveys.count_documents(query)
-    surveys = await db.surveys.find(query).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.surveys.count_documents(match_stage)
 
-    # For each survey, check if current user has responded
+    # Aggregation pipeline to avoid N+1 queries
+    pipeline = [
+        {"$match": match_stage},
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        # Lookup response counts
+        {"$lookup": {
+            "from": "survey_responses",
+            "let": {"sid": {"$toString": "$_id"}},
+            "pipeline": [
+                {"$match": {"$expr": {"$eq": ["$surveyId", "$$sid"]}}},
+                {"$group": {
+                    "_id": None,
+                    "count": {"$sum": 1},
+                    "userResponded": {
+                        "$sum": {"$cond": [{"$eq": ["$userId", current_user["_id"]]}, 1, 0]}
+                    }
+                }}
+            ],
+            "as": "responseStats"
+        }},
+        {"$addFields": {
+            "responseCount": {
+                "$ifNull": [{"$arrayElemAt": ["$responseStats.count", 0]}, 0]
+            },
+            "hasResponded": {
+                "$gt": [{"$ifNull": [{"$arrayElemAt": ["$responseStats.userResponded", 0]}, 0]}, 0]
+            }
+        }},
+        {"$project": {"responseStats": 0}}
+    ]
+
+    surveys = await db.surveys.aggregate(pipeline).to_list(limit)
+
     result = []
     for s in surveys:
-        survey_id = str(s["_id"])
-        has_responded = await db.survey_responses.find_one({
-            "surveyId": survey_id,
-            "userId": current_user["_id"]
-        })
-        response_count = await db.survey_responses.count_documents({"surveyId": survey_id})
-
         result.append({
-            "id": survey_id,
+            "id": str(s["_id"]),
             "title": s["title"],
             "description": s.get("description"),
             "questionCount": len(s.get("questions", [])),
@@ -60,11 +86,11 @@ async def get_surveys(
             "createdBy": s.get("createdBy"),
             "creatorName": s.get("creatorName"),
             "createdAt": s.get("createdAt"),
-            "responseCount": response_count,
-            "hasResponded": has_responded is not None,
+            "responseCount": s.get("responseCount", 0),
+            "hasResponded": s.get("hasResponded", False),
         })
 
-    return {"items": result, "total": total}
+    return {"items": result, "total": total, "hasMore": skip + limit < total}
 
 
 @router.post("")

@@ -11,7 +11,7 @@ from app.core.cloudinary_utils import delete_cloudinary_asset
 
 router = APIRouter()
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def get_posts(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -23,10 +23,11 @@ async def get_posts(
     
     if cursor:
         content_filter["createdAt"] = {"$lt": cursor}
-        
+
+    total = await db.posts.count_documents(content_filter)
     posts = await db.posts.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
-    return [{
+    items = [{
         "id": str(post["_id"]),
         "title": post["title"],
         "content": post["content"],
@@ -42,6 +43,8 @@ async def get_posts(
         "createdAt": post["createdAt"],
         "updatedAt": post["updatedAt"]
     } for post in posts]
+
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 @router.post("")
 async def create_post(post: PostCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):

@@ -13,7 +13,7 @@ import re
 
 router = APIRouter()
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def get_documents(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -34,10 +34,11 @@ async def get_documents(
             content_filter = {"$and": [content_filter, search_filter]}
         else:
             content_filter = search_filter
-    
+
+    total = await db.documents.count_documents(content_filter)
     documents = await db.documents.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
-    return [{
+    items = [{
         "id": str(doc["_id"]),
         "title": doc["title"],
         "category": doc["category"],
@@ -47,6 +48,8 @@ async def get_documents(
         "targetDepartments": doc.get("targetDepartments", ["ALL"]),
         "createdAt": doc["createdAt"]
     } for doc in documents]
+
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 @router.post("")
 async def create_document(document: DocumentCreate, current_user: dict = Depends(get_current_user)):

@@ -71,7 +71,7 @@ export default function ElearningManagement() {
     const fetchCourses = async () => {
         try {
             const res = await api.get('/api/elearning', { headers: { Authorization: `Bearer ${token}` } });
-            setCourses(res.data || []);
+            setCourses(res.data?.items || res.data || []);
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
     };

@@ -12,16 +12,17 @@ import json
 
 router = APIRouter()
 
-@router.get("", response_model=List[dict])
+@router.get("")
 async def get_activities(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     current_user: dict = Depends(get_current_user)
 ):
     content_filter = build_content_filter(current_user)
+    total = await db.activities.count_documents(content_filter)
     activities = await db.activities.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
     
-    return [{
+    items = [{
         "id": str(activity["_id"]),
         "name": activity["name"],
         "description": activity["description"],
@@ -35,6 +36,8 @@ async def get_activities(
         "attendances": activity.get("attendances", []),
         "createdAt": activity["createdAt"]
     } for activity in activities]
+
+    return {"items": items, "total": total, "hasMore": skip + limit < total}
 
 @router.post("/{activity_id}/register")
 async def register_activity(activity_id: str, current_user: dict = Depends(get_current_user)):
