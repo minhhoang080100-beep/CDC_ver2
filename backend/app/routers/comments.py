@@ -19,8 +19,8 @@ async def get_comments(
     limit: int = Query(50, ge=1, le=100),
     current_user: dict = Depends(get_current_user)
 ):
-    validate_object_id(post_id)
-    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    post_oid = validate_object_id(post_id)
+    post = await db.posts.find_one({"_id": post_oid, "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
 
@@ -48,8 +48,8 @@ async def create_comment(
     comment: CommentCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    validate_object_id(post_id)
-    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    post_oid = validate_object_id(post_id)
+    post = await db.posts.find_one({"_id": post_oid, "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Bài viết không tồn tại")
 
@@ -74,7 +74,7 @@ async def create_comment(
         "createdAt": comment_data["createdAt"]
     }
     await db.posts.update_one(
-        {"_id": ObjectId(post_id)},
+        {"_id": post_oid},
         {"$push": {"comments": embedded_comment}}
     )
 
@@ -90,21 +90,21 @@ async def delete_comment(
     comment_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    validate_object_id(post_id)
-    validate_object_id(comment_id)
+    post_oid = validate_object_id(post_id)
+    comment_oid = validate_object_id(comment_id)
 
-    comment = await db.comments.find_one({"_id": ObjectId(comment_id), "postId": post_id})
+    comment = await db.comments.find_one({"_id": comment_oid, "postId": post_id})
     if not comment:
         raise HTTPException(status_code=404, detail="Bình luận không tồn tại")
 
     if comment["userId"] != str(current_user["_id"]) and current_user["role"] != "SUPER_ADMIN":
         raise HTTPException(status_code=403, detail="Bạn không có quyền xóa bình luận này")
 
-    await db.comments.delete_one({"_id": ObjectId(comment_id)})
+    await db.comments.delete_one({"_id": comment_oid})
 
     # Also remove from embedded comments
     await db.posts.update_one(
-        {"_id": ObjectId(post_id)},
+        {"_id": post_oid},
         {"$pull": {"comments": {"id": comment_id}}}
     )
 

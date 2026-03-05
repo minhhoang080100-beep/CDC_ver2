@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from typing import List
+
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, validate_object_id
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.activity import ActivityCreate, CheckInRequest
-from app.core.push import send_bulk_push_notifications
+from app.core.push import send_bulk_push_notifications_async
 from app.core.cloudinary_utils import delete_cloudinary_asset
 import json
 
@@ -41,7 +41,8 @@ async def get_activities(
 
 @router.post("/{activity_id}/register")
 async def register_activity(activity_id: str, current_user: dict = Depends(get_current_user)):
-    activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    oid = validate_object_id(activity_id, "Activity ID")
+    activity = await db.activities.find_one({"_id": oid})
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     
@@ -60,7 +61,7 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
         action = "registered"
     
     await db.activities.update_one(
-        {"_id": ObjectId(activity_id)},
+        {"_id": oid},
         {"$set": {"registrations": registrations}}
     )
     
@@ -70,8 +71,9 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
 async def checkin_activity(activity_id: str, request: CheckInRequest, current_user: dict = Depends(get_current_user)):
     if not can_manage_content(current_user):
          raise HTTPException(status_code=403, detail="Chỉ có BCH mới được phép điểm danh bằng QR")
-         
-    activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    
+    oid = validate_object_id(activity_id, "Activity ID")
+    activity = await db.activities.find_one({"_id": oid})
     if not activity:
         raise HTTPException(status_code=404, detail="Không tìm thấy hoạt động")
         
@@ -109,7 +111,7 @@ async def checkin_activity(activity_id: str, request: CheckInRequest, current_us
     })
     
     await db.activities.update_one(
-        {"_id": ObjectId(activity_id)},
+        {"_id": oid},
         {"$set": {"attendances": attendances}}
     )
     
@@ -160,7 +162,7 @@ async def notify_new_activity(title: str, body: str, target_departments: list, a
     tokens = [u["pushToken"] for u in users if u.get("pushToken")]
     
     if tokens:
-        send_bulk_push_notifications(
+        await send_bulk_push_notifications_async(
             tokens=tokens, 
             title=title, 
             body=body,
@@ -174,7 +176,8 @@ async def update_activity(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    oid = validate_object_id(activity_id, "Activity ID")
+    existing_activity = await db.activities.find_one({"_id": oid})
     if not existing_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     
@@ -200,7 +203,7 @@ async def update_activity(
     }
     
     await db.activities.update_one(
-        {"_id": ObjectId(activity_id)},
+        {"_id": oid},
         {"$set": update_data}
     )
     
@@ -212,7 +215,8 @@ async def delete_activity(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    existing_activity = await db.activities.find_one({"_id": ObjectId(activity_id)})
+    oid = validate_object_id(activity_id, "Activity ID")
+    existing_activity = await db.activities.find_one({"_id": oid})
     if not existing_activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     
@@ -224,6 +228,6 @@ async def delete_activity(
     if image:
         background_tasks.add_task(delete_cloudinary_asset, image)
         
-    await db.activities.delete_one({"_id": ObjectId(activity_id)})
+    await db.activities.delete_one({"_id": oid})
     
     return {"status": "success", "message": "Activity deleted"}

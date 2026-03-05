@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from typing import List
+
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, validate_object_id
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.document import DocumentCreate
 from app.core.cloudinary_utils import delete_cloudinary_asset
@@ -83,7 +83,8 @@ async def update_document(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    existing_document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    oid = validate_object_id(document_id, "Document ID")
+    existing_document = await db.documents.find_one({"_id": oid})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
     
@@ -108,12 +109,12 @@ async def update_document(
     }
     
     await db.documents.update_one(
-        {"_id": ObjectId(document_id)},
+        {"_id": oid},
         {"$set": update_data}
     )
     
     return {
-        "id": document_id,
+        "id": str(oid),
         **update_data
     }
 
@@ -123,7 +124,8 @@ async def delete_document(
     background_tasks: BackgroundTasks, 
     current_user: dict = Depends(get_current_user)
 ):
-    existing_document = await db.documents.find_one({"_id": ObjectId(document_id)})
+    oid = validate_object_id(document_id, "Document ID")
+    existing_document = await db.documents.find_one({"_id": oid})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
     
@@ -135,6 +137,6 @@ async def delete_document(
     if file_url:
         background_tasks.add_task(delete_cloudinary_asset, file_url)
 
-    await db.documents.delete_one({"_id": ObjectId(document_id)})
+    await db.documents.delete_one({"_id": oid})
     
     return {"status": "success", "message": "Document deleted"}

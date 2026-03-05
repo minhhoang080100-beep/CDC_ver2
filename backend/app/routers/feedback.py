@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List
+
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, validate_object_id
 from app.models.feedback import FeedbackCreate, FeedbackReply, FeedbackStatusUpdate
 
 router = APIRouter()
@@ -83,7 +83,8 @@ async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: d
     if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
         raise HTTPException(status_code=403, detail="You don't have permission to reply")
     
-    feedback_doc = await db.feedback.find_one({"_id": ObjectId(feedback_id)})
+    oid = validate_object_id(feedback_id, "Feedback ID")
+    feedback_doc = await db.feedback.find_one({"_id": oid})
     if not feedback_doc:
         raise HTTPException(status_code=404, detail="Feedback not found")
     
@@ -98,7 +99,7 @@ async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: d
     }
     
     await db.feedback.update_one(
-        {"_id": ObjectId(feedback_id)},
+        {"_id": oid},
         {
             "$push": {"replies": reply_data},
             "$set": {"status": "REPLIED"}
@@ -112,7 +113,8 @@ async def update_feedback_status(feedback_id: str, status_update: FeedbackStatus
     if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
         raise HTTPException(status_code=403, detail="You don't have permission to update status")
     
-    feedback_doc = await db.feedback.find_one({"_id": ObjectId(feedback_id)})
+    oid = validate_object_id(feedback_id, "Feedback ID")
+    feedback_doc = await db.feedback.find_one({"_id": oid})
     if not feedback_doc:
         raise HTTPException(status_code=404, detail="Feedback not found")
         
@@ -124,7 +126,7 @@ async def update_feedback_status(feedback_id: str, status_update: FeedbackStatus
         raise HTTPException(status_code=400, detail="Invalid status")
         
     await db.feedback.update_one(
-        {"_id": ObjectId(feedback_id)},
+        {"_id": oid},
         {"$set": {"status": status_update.status}}
     )
     

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, validate_object_id
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.post import PostCreate, PostCommentCreate
-from app.core.push import send_bulk_push_notifications
+from app.core.push import send_bulk_push_notifications_async
 from app.core.cloudinary_utils import delete_cloudinary_asset
 
 router = APIRouter()
@@ -96,8 +96,7 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
     tokens = [u["pushToken"] for u in users if u.get("pushToken")]
     
     if tokens:
-        # Note: calls a sync method in a background task thread
-        send_bulk_push_notifications(
+        await send_bulk_push_notifications_async(
             tokens=tokens, 
             title=title, 
             body=body,
@@ -111,7 +110,8 @@ async def update_post(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    oid = validate_object_id(post_id, "Post ID")
+    existing_post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
     
@@ -136,7 +136,7 @@ async def update_post(
     }
     
     await db.posts.update_one(
-        {"_id": ObjectId(post_id)},
+        {"_id": oid},
         {"$set": update_data}
     )
     
@@ -148,7 +148,8 @@ async def delete_post(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    existing_post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    oid = validate_object_id(post_id, "Post ID")
+    existing_post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
     
@@ -160,36 +161,37 @@ async def delete_post(
     if image:
         background_tasks.add_task(delete_cloudinary_asset, image)
         
-    await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"isDeleted": True, "image": None}})
+    await db.posts.update_one({"_id": oid}, {"$set": {"isDeleted": True, "image": None}})
     
     return {"status": "success", "message": "Post deleted"}
 
 @router.post("/{post_id}/like")
 async def toggle_like(post_id: str, current_user: dict = Depends(get_current_user)):
-    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    oid = validate_object_id(post_id, "Post ID")
+    post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
     user_id_str = str(current_user["_id"])
     likes = post.get("likes", [])
     
+    # Use atomic MongoDB operations to prevent race conditions
     if user_id_str in likes:
-        likes.remove(user_id_str)
+        await db.posts.update_one({"_id": oid}, {"$pull": {"likes": user_id_str}})
         action = "unliked"
     else:
-        likes.append(user_id_str)
+        await db.posts.update_one({"_id": oid}, {"$addToSet": {"likes": user_id_str}})
         action = "liked"
-        
-    await db.posts.update_one(
-        {"_id": ObjectId(post_id)},
-        {"$set": {"likes": likes}}
-    )
     
-    return {"status": "success", "action": action, "likes": likes}
+    # Fetch updated likes
+    updated = await db.posts.find_one({"_id": oid}, {"likes": 1})
+    
+    return {"status": "success", "action": action, "likes": updated.get("likes", [])}
 
 @router.post("/{post_id}/comments")
 async def add_comment(post_id: str, comment: PostCommentCreate, current_user: dict = Depends(get_current_user)):
-    post = await db.posts.find_one({"_id": ObjectId(post_id), "isDeleted": {"$ne": True}})
+    oid = validate_object_id(post_id, "Post ID")
+    post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
         
@@ -203,7 +205,7 @@ async def add_comment(post_id: str, comment: PostCommentCreate, current_user: di
     }
     
     await db.posts.update_one(
-        {"_id": ObjectId(post_id)},
+        {"_id": oid},
         {"$push": {"comments": comment_data}}
     )
     

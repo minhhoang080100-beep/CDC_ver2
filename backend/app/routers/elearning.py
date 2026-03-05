@@ -4,7 +4,7 @@ from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
 from app.core.permissions import resolve_target_departments
-from app.core.push import send_bulk_push_notifications
+from app.core.push import send_bulk_push_notifications_async
 from app.models.elearning import (
     CourseCreate, CourseUpdate, QuizCreate, QuizUpdate, QuizSubmission
 )

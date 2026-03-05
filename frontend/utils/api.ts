@@ -1,4 +1,4 @@
-// API utility using native fetch - replaces axios for web compatibility
+// API utility using native fetch — refactored to eliminate duplication
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -112,6 +112,8 @@ function getErrorMessage(status: number): string {
         case 401: return 'Phiên đăng nhập hết hạn, vui lòng đăng nhập lại';
         case 403: return 'Bạn không có quyền thực hiện thao tác này';
         case 404: return 'Không tìm thấy dữ liệu';
+        case 422: return 'Dữ liệu gửi lên không đúng định dạng';
+        case 429: return 'Quá nhiều yêu cầu, vui lòng thử lại sau';
         case 500: return 'Lỗi máy chủ, vui lòng thử lại sau';
         default: return `Lỗi kết nối (HTTP ${status})`;
     }
@@ -126,82 +128,61 @@ async function safeFetch(url: string, options: RequestInit): Promise<Response> {
     }
 }
 
+// ─── Core request function — all HTTP methods delegate to this ───
+async function _request(
+    method: string,
+    path: string,
+    body?: any,
+    options?: RequestOptions
+): Promise<{ data: any; status: number }> {
+    const isFormData = body instanceof FormData;
+    const hasBody = method !== 'GET' && method !== 'DELETE';
+
+    const buildHeaders = async () => {
+        const headers = await getAuthHeaders(options?.headers);
+        if (isFormData) {
+            // Let browser set Content-Type with boundary for FormData
+            delete headers['Content-Type'];
+        } else if (!headers['Content-Type']) {
+            headers['Content-Type'] = 'application/json';
+        }
+        return headers;
+    };
+
+    const buildBody = () => {
+        if (!hasBody || body === undefined) return undefined;
+        return isFormData ? body : JSON.stringify(body);
+    };
+
+    const doFetch = async () => {
+        const freshHeaders = await buildHeaders();
+        const r = await safeFetch(`${BACKEND_URL}${path}`, {
+            method,
+            headers: freshHeaders,
+            body: buildBody(),
+        });
+        return handleResponse(r);
+    };
+
+    const headers = await buildHeaders();
+    const response = await safeFetch(`${BACKEND_URL}${path}`, {
+        method,
+        headers,
+        body: buildBody(),
+    });
+    return handleResponse(response, doFetch);
+}
+
 export const api = {
-    get: async (path: string, options?: RequestOptions) => {
-        const headers = await getAuthHeaders(options?.headers);
-        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
+    get: (path: string, options?: RequestOptions) =>
+        _request('GET', path, undefined, options),
 
-        const doFetch = async () => {
-            const freshHeaders = await getAuthHeaders(options?.headers);
-            if (!freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
-            const r = await safeFetch(`${BACKEND_URL}${path}`, { method: 'GET', headers: freshHeaders });
-            return handleResponse(r);
-        };
+    post: (path: string, body?: any, options?: RequestOptions) =>
+        _request('POST', path, body, options),
 
-        const response = await safeFetch(`${BACKEND_URL}${path}`, { method: 'GET', headers });
-        return handleResponse(response, doFetch);
-    },
+    put: (path: string, body?: any, options?: RequestOptions) =>
+        _request('PUT', path, body, options),
 
-    post: async (path: string, body?: any, options?: RequestOptions) => {
-        const isFormData = body instanceof FormData;
-        const headers = await getAuthHeaders(options?.headers);
-        if (!isFormData && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-        if (isFormData && headers['Content-Type'] === 'multipart/form-data') delete headers['Content-Type'];
-
-        const doFetch = async () => {
-            const freshHeaders = await getAuthHeaders(options?.headers);
-            if (!isFormData && !freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
-            if (isFormData && freshHeaders['Content-Type'] === 'multipart/form-data') delete freshHeaders['Content-Type'];
-            const r = await safeFetch(`${BACKEND_URL}${path}`, {
-                method: 'POST', headers: freshHeaders,
-                body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
-            });
-            return handleResponse(r);
-        };
-
-        const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'POST', headers,
-            body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
-        });
-        return handleResponse(response, doFetch);
-    },
-
-    put: async (path: string, body?: any, options?: RequestOptions) => {
-        const isFormData = body instanceof FormData;
-        const headers = await getAuthHeaders(options?.headers);
-        if (!isFormData && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-        if (isFormData && headers['Content-Type'] === 'multipart/form-data') delete headers['Content-Type'];
-
-        const doFetch = async () => {
-            const freshHeaders = await getAuthHeaders(options?.headers);
-            if (!isFormData && !freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
-            if (isFormData && freshHeaders['Content-Type'] === 'multipart/form-data') delete freshHeaders['Content-Type'];
-            const r = await safeFetch(`${BACKEND_URL}${path}`, {
-                method: 'PUT', headers: freshHeaders,
-                body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
-            });
-            return handleResponse(r);
-        };
-
-        const response = await safeFetch(`${BACKEND_URL}${path}`, {
-            method: 'PUT', headers,
-            body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
-        });
-        return handleResponse(response, doFetch);
-    },
-
-    delete: async (path: string, options?: RequestOptions) => {
-        const headers = await getAuthHeaders(options?.headers);
-        if (!headers['Content-Type']) headers['Content-Type'] = 'application/json';
-
-        const doFetch = async () => {
-            const freshHeaders = await getAuthHeaders(options?.headers);
-            if (!freshHeaders['Content-Type']) freshHeaders['Content-Type'] = 'application/json';
-            const r = await safeFetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers: freshHeaders });
-            return handleResponse(r);
-        };
-
-        const response = await safeFetch(`${BACKEND_URL}${path}`, { method: 'DELETE', headers });
-        return handleResponse(response, doFetch);
-    },
+    delete: (path: string, options?: RequestOptions) =>
+        _request('DELETE', path, undefined, options),
 };

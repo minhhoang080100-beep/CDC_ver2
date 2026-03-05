@@ -58,11 +58,10 @@ def delete_cloudinary_asset_sync(file_url: str):
 
 async def delete_cloudinary_asset(file_url: str):
     """
-    Asynchronously wrappers for deleting a Cloudinary asset to avoid blocking the event loop.
+    Asynchronously delete a Cloudinary asset without blocking the event loop.
+    Uses asyncio.to_thread (Python 3.9+) instead of deprecated run_in_executor.
     """
     if not file_url:
         return
-        
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, delete_cloudinary_asset_sync, file_url)
 
+    await asyncio.to_thread(delete_cloudinary_asset_sync, file_url)

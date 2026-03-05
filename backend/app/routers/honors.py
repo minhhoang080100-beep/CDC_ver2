@@ -4,7 +4,7 @@ from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
 from app.core.permissions import resolve_target_departments
-from app.core.push import send_bulk_push_notifications
+from app.core.push import send_bulk_push_notifications_async
 from app.models.honor import CampaignCreate, CampaignUpdate, NominationCreate
 
 router = APIRouter()
@@ -319,7 +319,7 @@ async def notify_campaign(campaign_id: str, current_user=Depends(get_current_use
     tokens = [u["pushToken"] for u in users if u.get("pushToken")]
 
     if tokens:
-        send_bulk_push_notifications(
+        await send_bulk_push_notifications_async(
             tokens,
             "🏆 Chiến dịch vinh danh mới",
             title,
