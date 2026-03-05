@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
-from app.core.permissions import resolve_target_departments
+from app.core.permissions import resolve_target_departments, is_admin, require_admin
 from app.core.push import send_bulk_push_notifications_async
 from app.models.elearning import (
     CourseCreate, CourseUpdate, QuizCreate, QuizUpdate, QuizSubmission
@@ -185,8 +185,7 @@ async def get_course(course_id: str, current_user=Depends(get_current_user)):
 
 @router.post("")
 async def create_course(data: CourseCreate, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền tạo khóa học")
+    require_admin(current_user, "Không có quyền tạo khóa học")
 
     course = {
         "title": data.title,
@@ -206,8 +205,7 @@ async def create_course(data: CourseCreate, current_user=Depends(get_current_use
 
 @router.put("/{course_id}")
 async def update_course(course_id: str, data: CourseUpdate, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền chỉnh sửa")
+    require_admin(current_user, "Không có quyền chỉnh sửa")
 
     update_data = {}
     for k, v in data.dict(exclude_unset=True).items():
@@ -227,8 +225,7 @@ async def update_course(course_id: str, data: CourseUpdate, current_user=Depends
 
 @router.delete("/{course_id}")
 async def delete_course(course_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xóa")
+    require_admin(current_user, "Không có quyền xóa")
 
     await db.courses.delete_one({"_id": ObjectId(course_id)})
     await db.quizzes.delete_many({"courseId": course_id})
@@ -295,8 +292,7 @@ async def complete_lesson(course_id: str, lessonIndex: int, current_user=Depends
 
 @router.post("/quizzes")
 async def create_quiz(data: QuizCreate, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền tạo đề thi")
+    require_admin(current_user, "Không có quyền tạo đề thi")
 
     quiz = {
         "courseId": data.courseId,
@@ -319,7 +315,7 @@ async def get_quiz(quiz_id: str, current_user=Depends(get_current_user)):
         raise HTTPException(404, "Đề thi không tồn tại")
 
     # For users: hide correct answers
-    is_admin = current_user["role"] in ["SUPER_ADMIN"] or current_user["role"].startswith("BCH_")
+    user_is_admin = is_admin(current_user)
     questions = []
     for q in quiz.get("questions", []):
         question = {
@@ -327,7 +323,7 @@ async def get_quiz(quiz_id: str, current_user=Depends(get_current_user)):
             "type": q.get("type"),
             "options": q.get("options", []),
         }
-        if is_admin:
+        if user_is_admin:
             question["correctAnswer"] = q.get("correctAnswer", 0)
         questions.append(question)
 
@@ -348,7 +344,7 @@ async def get_quiz_by_course(course_id: str, current_user=Depends(get_current_us
     if not quiz:
         raise HTTPException(404, "Chưa có đề thi cho khóa học này")
 
-    is_admin = current_user["role"] in ["SUPER_ADMIN"] or current_user["role"].startswith("BCH_")
+    user_is_admin = is_admin(current_user)
     questions = []
     for q in quiz.get("questions", []):
         question = {
@@ -356,7 +352,7 @@ async def get_quiz_by_course(course_id: str, current_user=Depends(get_current_us
             "type": q.get("type"),
             "options": q.get("options", []),
         }
-        if is_admin:
+        if user_is_admin:
             question["correctAnswer"] = q.get("correctAnswer", 0)
         questions.append(question)
 
@@ -433,8 +429,7 @@ async def submit_quiz(quiz_id: str, data: QuizSubmission, current_user=Depends(g
 
 @router.delete("/quizzes/{quiz_id}")
 async def delete_quiz(quiz_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xóa")
+    require_admin(current_user, "Không có quyền xóa")
     await db.quizzes.delete_one({"_id": ObjectId(quiz_id)})
     return {"message": "Đã xóa đề thi"}
 
@@ -445,8 +440,7 @@ async def delete_quiz(quiz_id: str, current_user=Depends(get_current_user)):
 
 @router.get("/{course_id}/stats")
 async def get_course_stats(course_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xem thống kê")
+    require_admin(current_user, "Không có quyền xem thống kê")
 
     course = await db.courses.find_one({"_id": ObjectId(course_id)})
     if not course:

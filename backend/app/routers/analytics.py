@@ -2,16 +2,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
 from app.core.database import db
 from app.core.security import get_current_user
+from app.core.permissions import MANAGER_ROLE_TO_DEPT, is_admin
 
 router = APIRouter()
 
 @router.get("")
 async def get_analytics(current_user: dict = Depends(get_current_user)):
-    MANAGER_ROLE_TO_DEPT = {
-        "BCH_VANPHONG": "VAN_PHONG_CANG",
-        "BCH_CUALO": "CUA_LO",
-        "BCH_BENTHUY": "BEN_THUY"
-    }
+
 
     if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
         raise HTTPException(status_code=403, detail="Chỉ Super Admin và Manager mới xem được thống kê")

@@ -7,20 +7,12 @@ import re
 from app.core.security import get_current_user, hash_password, validate_object_id, validate_password
 from app.models.user import UserCreate, UserUpdate, ResetPasswordRequest, BulkUserCreate, UpdatePushToken
 from app.core.cloudinary_utils import delete_cloudinary_asset
+from app.core.permissions import VALID_ROLES, VALID_DEPARTMENTS, MANAGER_ROLE_TO_DEPT
 
 router = APIRouter()
 
 
 
-VALID_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY", "MEMBER"]
-VALID_DEPARTMENTS = ["VAN_PHONG_CANG", "CUA_LO", "BEN_THUY"]
-
-# Mapping BCH roles to their respective manageable departments
-MANAGER_ROLE_TO_DEPT = {
-    "BCH_VANPHONG": "VAN_PHONG_CANG",
-    "BCH_CUALO": "CUA_LO",
-    "BCH_BENTHUY": "BEN_THUY"
-}
 
 def can_manage_department(current_user: dict, target_dept: str) -> bool:
     if current_user["role"] == "SUPER_ADMIN":

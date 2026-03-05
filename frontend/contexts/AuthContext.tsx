@@ -98,6 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     console.log('🔴 LOGOUT: Starting logout process...');
     try {
+      // Revoke refresh tokens on server (best-effort)
+      await api.post('/api/auth/logout').catch(() => { });
       await clearAuthData();
       console.log('🔴 LOGOUT: Logout completed successfully');
     } catch (error) {

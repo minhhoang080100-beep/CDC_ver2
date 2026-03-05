@@ -8,6 +8,7 @@ import io
 from app.core.database import db
 from app.models.union_member import UnionMemberCreate, UnionMemberUpdate, UnionMemberResponse
 from app.core.security import get_current_user
+from app.core.permissions import require_admin
 
 router = APIRouter()
 
@@ -21,8 +22,7 @@ async def create_union_member(
     member: UnionMemberCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_admin(current_user, "Not authorized")
 
     member_dict = member.dict()
     # Add timestamps if needed, here just basic insert
@@ -36,8 +36,7 @@ async def import_union_members(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_admin(current_user, "Not authorized")
 
     if not file.filename.endswith((".xls", ".xlsx")):
         raise HTTPException(status_code=400, detail="Only Excel files are supported")
@@ -116,8 +115,7 @@ async def get_union_members(
     department: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    require_admin(current_user, "Not authorized")
 
     query = {}
     

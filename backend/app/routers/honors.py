@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
-from app.core.permissions import resolve_target_departments
+from app.core.permissions import resolve_target_departments, require_admin
 from app.core.push import send_bulk_push_notifications_async
 from app.models.honor import CampaignCreate, CampaignUpdate, NominationCreate
 
@@ -83,8 +83,7 @@ async def review_nomination(
     note: str = "",
     current_user=Depends(get_current_user)
 ):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền duyệt")
+    require_admin(current_user, "Không có quyền duyệt")
 
     if action not in ["APPROVED", "REJECTED"]:
         raise HTTPException(400, "action phải là APPROVED hoặc REJECTED")
@@ -108,8 +107,7 @@ async def review_nomination(
 
 @router.delete("/nominations/{nomination_id}")
 async def delete_nomination(nomination_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xóa")
+    require_admin(current_user, "Không có quyền xóa")
 
     await db.nominations.delete_one({"_id": ObjectId(nomination_id)})
     return {"message": "Đã xóa đề cử"}
@@ -220,8 +218,7 @@ async def get_campaign(campaign_id: str, current_user=Depends(get_current_user))
 
 @router.post("")
 async def create_campaign(data: CampaignCreate, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền tạo chiến dịch")
+    require_admin(current_user, "Không có quyền tạo chiến dịch")
 
     campaign = {
         "title": data.title,
@@ -241,8 +238,7 @@ async def create_campaign(data: CampaignCreate, current_user=Depends(get_current
 
 @router.put("/{campaign_id}")
 async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền chỉnh sửa")
+    require_admin(current_user, "Không có quyền chỉnh sửa")
 
     update_data = {k: v for k, v in data.dict(exclude_unset=True).items() if v is not None}
     if "status" in update_data and hasattr(update_data["status"], "value"):
@@ -258,8 +254,7 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user=D
 
 @router.delete("/{campaign_id}")
 async def delete_campaign(campaign_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xóa")
+    require_admin(current_user, "Không có quyền xóa")
 
     await db.campaigns.delete_one({"_id": ObjectId(campaign_id)})
     await db.nominations.delete_many({"campaignId": campaign_id})
@@ -270,8 +265,7 @@ async def delete_campaign(campaign_id: str, current_user=Depends(get_current_use
 
 @router.get("/{campaign_id}/stats")
 async def get_campaign_stats(campaign_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền xem thống kê")
+    require_admin(current_user, "Không có quyền xem thống kê")
 
     campaign = await db.campaigns.find_one({"_id": ObjectId(campaign_id)})
     if not campaign:
@@ -302,8 +296,7 @@ async def get_campaign_stats(campaign_id: str, current_user=Depends(get_current_
 
 @router.post("/{campaign_id}/notify")
 async def notify_campaign(campaign_id: str, current_user=Depends(get_current_user)):
-    if current_user["role"] not in ["SUPER_ADMIN"] and not current_user["role"].startswith("BCH_"):
-        raise HTTPException(403, "Không có quyền gửi thông báo")
+    require_admin(current_user, "Không có quyền gửi thông báo")
 
     campaign = await db.campaigns.find_one({"_id": ObjectId(campaign_id)})
     if not campaign:

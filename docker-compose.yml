@@ -8,7 +8,7 @@ services:
     environment:
       - MONGO_URL=mongodb://mongo:27017
       - DB_NAME=cdc_app
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-here}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - CLOUDINARY_URL=${CLOUDINARY_URL:-}
     depends_on:
       - mongo

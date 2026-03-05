@@ -1,14 +1,17 @@
 """
 WebSocket endpoint for real-time notifications.
 Usage:
-    ws://host:port/api/v1/ws/{user_id}
+    ws://host:port/api/v1/ws/{user_id}?token=<JWT_ACCESS_TOKEN>
 
-Users connect with their user_id to receive live push events (new posts,
-activities, feedback replies, etc.) without polling.
+Users connect with their user_id and a valid JWT token to receive live push
+events (new posts, activities, feedback replies, etc.) without polling.
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
+from starlette.websockets import WebSocketState
 import logging
+
+from app.core.security import decode_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -57,7 +60,30 @@ manager = ConnectionManager()
 
 
 @router.websocket("/ws/{user_id}")
-async def websocket_endpoint(ws: WebSocket, user_id: str):
+async def websocket_endpoint(ws: WebSocket, user_id: str, token: str = Query(None)):
+    # ─── JWT Authentication ───────────────────────────────────
+    if not token:
+        await ws.close(code=4001, reason="Token required")
+        return
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        await ws.close(code=4001, reason="Invalid or expired token")
+        return
+
+    # Only accept access tokens
+    if payload.get("type") != "access":
+        await ws.close(code=4001, reason="Invalid token type")
+        return
+
+    # Verify user_id matches the token
+    token_user_id = payload.get("user_id")
+    if token_user_id != user_id:
+        await ws.close(code=4003, reason="User ID mismatch")
+        return
+
+    # ─── Authenticated — accept connection ────────────────────
     await manager.connect(user_id, ws)
     try:
         while True:
@@ -65,3 +91,4 @@ async def websocket_endpoint(ws: WebSocket, user_id: str):
             await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(user_id, ws)
+

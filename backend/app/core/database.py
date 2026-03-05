@@ -46,3 +46,11 @@ async def init_db_indexes():
     await db.notifications.create_index("read")
     # Comments indexes (separate collection)
     await db.comments.create_index([("postId", 1), ("createdAt", -1)])
+    # Rate limiting (TTL auto-cleanup)
+    await db.rate_limits.create_index("expiresAt", expireAfterSeconds=0)
+    await db.rate_limits.create_index([("key", 1), ("timestamp", 1)])
+    # Refresh tokens (TTL auto-cleanup + lookup by userId)
+    await db.refresh_tokens.create_index("expiresAt", expireAfterSeconds=0)
+    await db.refresh_tokens.create_index("userId")
+    await db.refresh_tokens.create_index("token")
+

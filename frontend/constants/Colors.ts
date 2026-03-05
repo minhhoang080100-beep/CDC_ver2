@@ -1,33 +1,50 @@
+/**
+ * Colors.ts — Backward-compatible static color tokens.
+ *
+ * PREFERRED: use `useTheme().colors` from ThemeContext for theme-aware colors.
+ * This file re-exports the light theme as a static fallback for non-component
+ * code (e.g. navigation config, constants) that cannot use React hooks.
+ */
+import { lightColors } from '../contexts/ThemeContext';
+
 export const Colors = {
-    primary: '#0891b2', // cyan-600
-    primaryDark: '#0e7490', // cyan-700
-    secondary: '#06b6d4', // cyan-500
-    background: '#f8fafc',
-    surface: '#ffffff',
-    surfaceLight: '#f1f5f9',
+    // ─── Core (mapped from ThemeContext lightColors) ──────────
+    primary: lightColors.primary,
+    primaryDark: '#1d4ed8',  // deeper shade for pressed states
+    secondary: '#06b6d4',
+
+    background: lightColors.background,
+    surface: lightColors.surface,
+    surfaceLight: lightColors.surfaceSecondary,
+
     text: {
-        primary: '#1e293b', // slate-800
-        secondary: '#64748b', // slate-500
+        primary: lightColors.text,
+        secondary: lightColors.textSecondary,
         light: '#ffffff',
-        placeholder: '#94a3b8', // slate-400
+        placeholder: lightColors.textTertiary,
     },
-    border: '#cbd5e1',
+
+    border: lightColors.border,
     divider: '#e2e8f0',
+
     status: {
-        success: '#10b981',
-        error: '#ef4444',
-        warning: '#f59e0b',
+        success: lightColors.success,
+        error: lightColors.danger,
+        warning: lightColors.warning,
         info: '#3b82f6',
     },
+
     header: {
-        background: '#1e3a8a', // blue-900
+        background: '#1e3a8a',
         text: '#ffffff',
     },
+
     gradients: {
         primary: ['#0891b2', '#0e7490'] as const,
         header: ['#1e3a8a', '#172554'] as const,
         auth: ['#1e3a8a', '#0f172a'] as const,
     },
+
     shadows: {
         sm: {
             shadowColor: '#0f172a',
@@ -52,3 +69,4 @@ export const Colors = {
         }
     }
 };
+

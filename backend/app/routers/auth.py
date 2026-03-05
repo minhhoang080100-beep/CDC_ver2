@@ -2,8 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from bson import ObjectId
-from datetime import datetime, timezone
-from collections import defaultdict
+from datetime import datetime, timezone, timedelta
 import time
 from app.core.database import db
 from app.core.security import (
@@ -14,23 +13,34 @@ from app.models.user import UserLogin, ChangePassword, UserCreate
 
 router = APIRouter()
 
-# ─── Rate Limiting (in-memory) ─────────────────────────────
-_login_attempts: dict[str, list[float]] = defaultdict(list)
+# ─── Rate Limiting Config ──────────────────────────────────
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 5  # max attempts per window
 
 
-def _check_rate_limit(key: str):
-    now = time.time()
-    attempts = _login_attempts[key]
-    # Xoá các attempt cũ hơn window
-    _login_attempts[key] = [t for t in attempts if now - t < RATE_LIMIT_WINDOW]
-    if len(_login_attempts[key]) >= RATE_LIMIT_MAX:
+async def _check_rate_limit(key: str):
+    """MongoDB-backed rate limiting — persists across restarts, works multi-instance."""
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW)
+
+    # Count recent attempts within the window
+    count = await db.rate_limits.count_documents({
+        "key": key,
+        "timestamp": {"$gte": window_start}
+    })
+
+    if count >= RATE_LIMIT_MAX:
         raise HTTPException(
             status_code=429,
             detail="Quá nhiều lần thử. Vui lòng đợi 1 phút rồi thử lại."
         )
-    _login_attempts[key].append(now)
+
+    # Record this attempt (TTL index auto-cleans old records)
+    await db.rate_limits.insert_one({
+        "key": key,
+        "timestamp": now,
+        "expiresAt": now + timedelta(seconds=RATE_LIMIT_WINDOW)
+    })
 
 
 class RefreshTokenRequest(BaseModel):
@@ -39,9 +49,9 @@ class RefreshTokenRequest(BaseModel):
 
 @router.post("/login")
 async def login(user_login: UserLogin, request: Request):
-    # Rate limiting theo IP
+    # Rate limiting theo IP (MongoDB-backed)
     client_ip = request.client.host if request.client else "unknown"
-    _check_rate_limit(f"login:{client_ip}")
+    await _check_rate_limit(f"login:{client_ip}")
 
     user = await db.users.find_one({"username": user_login.username})
     if not user or not verify_password(user_login.password, user["password"]):
@@ -55,6 +65,14 @@ async def login(user_login: UserLogin, request: Request):
     user_id = str(user["_id"])
     token = create_access_token({"user_id": user_id})
     refresh = create_refresh_token({"user_id": user_id})
+
+    # ─── Store refresh token in DB for revocation ────────────
+    await db.refresh_tokens.insert_one({
+        "userId": user_id,
+        "token": refresh,
+        "createdAt": datetime.now(timezone.utc),
+        "expiresAt": datetime.now(timezone.utc) + timedelta(days=30),
+    })
 
     return {
         "token": token,
@@ -83,6 +101,14 @@ async def refresh_token(data: RefreshTokenRequest):
     if not user_id:
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
 
+    # ─── Check refresh token exists in DB (not revoked) ──────
+    stored = await db.refresh_tokens.find_one({
+        "userId": user_id,
+        "token": data.refreshToken
+    })
+    if not stored:
+        raise HTTPException(status_code=401, detail="Token đã bị thu hồi hoặc không hợp lệ")
+
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user or user.get("status") != "ACTIVE":
         raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc đã bị vô hiệu hóa")
@@ -91,11 +117,19 @@ async def refresh_token(data: RefreshTokenRequest):
     return {"token": new_token}
 
 
+@router.post("/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout — revoke all refresh tokens for this user."""
+    user_id = str(current_user["_id"])
+    result = await db.refresh_tokens.delete_many({"userId": user_id})
+    return {"status": "success", "message": "Đã đăng xuất", "revokedTokens": result.deleted_count}
+
+
 @router.post("/register")
 async def register_user(user_data: UserCreate, request: Request):
-    # Rate limiting theo IP
+    # Rate limiting theo IP (MongoDB-backed)
     client_ip = request.client.host if request.client else "unknown"
-    _check_rate_limit(f"register:{client_ip}")
+    await _check_rate_limit(f"register:{client_ip}")
 
     # Check duplicate username
     existing_username = await db.users.find_one({"username": user_data.username})
@@ -164,3 +198,4 @@ async def change_password(data: ChangePassword, current_user: dict = Depends(get
     )
 
     return {"status": "success", "message": "Đổi mật khẩu thành công"}
+

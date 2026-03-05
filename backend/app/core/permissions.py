@@ -2,6 +2,42 @@
 Centralized permission helpers to avoid code duplication across routers.
 """
 
+from fastapi import HTTPException
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ROLE & DEPARTMENT CONSTANTS
+# ═══════════════════════════════════════════════════════════════
+
+ADMIN_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]
+VALID_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY", "MEMBER"]
+VALID_DEPARTMENTS = ["VAN_PHONG_CANG", "CUA_LO", "BEN_THUY"]
+
+MANAGER_ROLE_TO_DEPT = {
+    "BCH_VANPHONG": "VAN_PHONG_CANG",
+    "BCH_CUALO": "CUA_LO",
+    "BCH_BENTHUY": "BEN_THUY",
+}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ROLE CHECK HELPERS
+# ═══════════════════════════════════════════════════════════════
+
+def is_admin(user: dict) -> bool:
+    """Check if user has an admin/BCH role."""
+    return user["role"] in ADMIN_ROLES
+
+
+def require_admin(user: dict, detail: str = "Không có quyền thực hiện") -> None:
+    """Raise 403 if user is not an admin/BCH."""
+    if not is_admin(user):
+        raise HTTPException(status_code=403, detail=detail)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  CONTENT PERMISSION HELPERS
+# ═══════════════════════════════════════════════════════════════
 
 def build_content_filter(user: dict) -> dict:
     """

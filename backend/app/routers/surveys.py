@@ -4,13 +4,12 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
-from app.core.permissions import resolve_target_departments
+from app.core.permissions import resolve_target_departments, ADMIN_ROLES, require_admin
 from app.core.push import send_bulk_push_notifications_async
 from app.models.survey import SurveyCreate, SurveyUpdate, SurveySubmission
 
 router = APIRouter()
 
-ADMIN_ROLES = ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]
 
 
 @router.get("")
@@ -307,12 +306,21 @@ async def get_survey_stats(survey_id: str, current_user: dict = Depends(get_curr
     if not survey:
         raise HTTPException(status_code=404, detail="Không tìm thấy khảo sát")
 
-    responses = await db.survey_responses.find({"surveyId": survey_id}).to_list(10000)
     questions = survey.get("questions", [])
 
-    total_responses = len(responses)
+    # ─── Aggregation: total responses + department breakdown ──
+    summary_pipeline = [
+        {"$match": {"surveyId": survey_id}},
+        {"$group": {
+            "_id": "$department",
+            "count": {"$sum": 1}
+        }}
+    ]
+    dept_results = await db.survey_responses.aggregate(summary_pipeline).to_list(100)
+    dept_counts = {d["_id"] or "Unknown": d["count"] for d in dept_results}
+    total_responses = sum(dept_counts.values())
 
-    # Build stats per question
+    # ─── Build stats per question using aggregation ───────────
     question_stats = []
     for i, q in enumerate(questions):
         q_stat = {
@@ -323,58 +331,92 @@ async def get_survey_stats(survey_id: str, current_user: dict = Depends(get_curr
         }
 
         if q["type"] in ["SINGLE_CHOICE", "MULTIPLE_CHOICE"]:
-            option_counts = {}
-            for opt in q.get("options", []):
-                option_counts[opt] = 0
+            # Aggregation: unwind answers, match questionIndex, count options
+            choice_pipeline = [
+                {"$match": {"surveyId": survey_id}},
+                {"$unwind": "$answers"},
+                {"$match": {"answers.questionIndex": i}},
+                {"$group": {"_id": None, "count": {"$sum": 1}}},
+            ]
+            count_result = await db.survey_responses.aggregate(choice_pipeline).to_list(1)
+            q_stat["totalAnswers"] = count_result[0]["count"] if count_result else 0
 
-            for resp in responses:
-                for ans in resp.get("answers", []):
-                    if ans.get("questionIndex") == i:
-                        q_stat["totalAnswers"] += 1
-                        answer_val = ans.get("answer")
-                        if isinstance(answer_val, list):
-                            for v in answer_val:
-                                if v in option_counts:
-                                    option_counts[v] += 1
-                        elif answer_val in option_counts:
-                            option_counts[answer_val] += 1
-
+            # Count per option
+            option_counts = {opt: 0 for opt in q.get("options", [])}
+            # For SINGLE_CHOICE: answer is a string; for MULTIPLE_CHOICE: answer is a list
+            if q["type"] == "MULTIPLE_CHOICE":
+                opt_pipeline = [
+                    {"$match": {"surveyId": survey_id}},
+                    {"$unwind": "$answers"},
+                    {"$match": {"answers.questionIndex": i}},
+                    {"$unwind": "$answers.answer"},
+                    {"$group": {"_id": "$answers.answer", "count": {"$sum": 1}}},
+                ]
+            else:
+                opt_pipeline = [
+                    {"$match": {"surveyId": survey_id}},
+                    {"$unwind": "$answers"},
+                    {"$match": {"answers.questionIndex": i}},
+                    {"$group": {"_id": "$answers.answer", "count": {"$sum": 1}}},
+                ]
+            opt_results = await db.survey_responses.aggregate(opt_pipeline).to_list(100)
+            for r in opt_results:
+                if r["_id"] in option_counts:
+                    option_counts[r["_id"]] = r["count"]
             q_stat["optionCounts"] = option_counts
 
         elif q["type"] == "STAR_RATING":
-            ratings = []
-            for resp in responses:
-                for ans in resp.get("answers", []):
-                    if ans.get("questionIndex") == i:
-                        q_stat["totalAnswers"] += 1
-                        try:
-                            ratings.append(int(ans.get("answer", 0)))
-                        except (ValueError, TypeError):
-                            pass
-            q_stat["averageRating"] = round(sum(ratings) / len(ratings), 1) if ratings else 0
-            q_stat["ratingDistribution"] = {str(r): ratings.count(r) for r in range(1, 6)}
+            rating_pipeline = [
+                {"$match": {"surveyId": survey_id}},
+                {"$unwind": "$answers"},
+                {"$match": {"answers.questionIndex": i}},
+                {"$group": {
+                    "_id": None,
+                    "count": {"$sum": 1},
+                    "avg": {"$avg": {"$toInt": "$answers.answer"}},
+                }},
+            ]
+            rating_result = await db.survey_responses.aggregate(rating_pipeline).to_list(1)
+            if rating_result:
+                q_stat["totalAnswers"] = rating_result[0]["count"]
+                q_stat["averageRating"] = round(rating_result[0]["avg"] or 0, 1)
+            else:
+                q_stat["averageRating"] = 0
+
+            # Rating distribution
+            dist_pipeline = [
+                {"$match": {"surveyId": survey_id}},
+                {"$unwind": "$answers"},
+                {"$match": {"answers.questionIndex": i}},
+                {"$group": {"_id": {"$toInt": "$answers.answer"}, "count": {"$sum": 1}}},
+            ]
+            dist_results = await db.survey_responses.aggregate(dist_pipeline).to_list(10)
+            distribution = {str(r): 0 for r in range(1, 6)}
+            for d in dist_results:
+                distribution[str(d["_id"])] = d["count"]
+            q_stat["ratingDistribution"] = distribution
 
         elif q["type"] == "OPEN_TEXT":
-            texts = []
-            for resp in responses:
-                for ans in resp.get("answers", []):
-                    if ans.get("questionIndex") == i:
-                        q_stat["totalAnswers"] += 1
-                        if ans.get("answer"):
-                            texts.append({
-                                "text": ans["answer"],
-                                "userName": resp.get("userName"),
-                                "department": resp.get("department"),
-                            })
-            q_stat["textResponses"] = texts
+            text_pipeline = [
+                {"$match": {"surveyId": survey_id}},
+                {"$unwind": "$answers"},
+                {"$match": {"answers.questionIndex": i, "answers.answer": {"$ne": None, "$ne": ""}}},
+                {"$project": {
+                    "text": "$answers.answer",
+                    "userName": 1,
+                    "department": 1,
+                }},
+                {"$limit": 500},
+            ]
+            text_results = await db.survey_responses.aggregate(text_pipeline).to_list(500)
+            q_stat["totalAnswers"] = len(text_results)
+            q_stat["textResponses"] = [{
+                "text": t.get("text"),
+                "userName": t.get("userName"),
+                "department": t.get("department"),
+            } for t in text_results]
 
         question_stats.append(q_stat)
-
-    # Department breakdown
-    dept_counts = {}
-    for resp in responses:
-        dept = resp.get("department", "Unknown")
-        dept_counts[dept] = dept_counts.get(dept, 0) + 1
 
     return {
         "surveyId": survey_id,

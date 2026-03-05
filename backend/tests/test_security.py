@@ -1,6 +1,6 @@
 import pytest
 from app.core.security import (
-    get_password_hash,
+    hash_password,
     verify_password,
     create_access_token,
     create_refresh_token,
@@ -14,11 +14,11 @@ from fastapi import HTTPException
 class TestPasswordHashing:
     def test_hash_and_verify(self):
         password = "TestPassword123"
-        hashed = get_password_hash(password)
+        hashed = hash_password(password)
         assert verify_password(password, hashed) is True
 
     def test_wrong_password(self):
-        hashed = get_password_hash("TestPassword123")
+        hashed = hash_password("TestPassword123")
         assert verify_password("WrongPassword123", hashed) is False
 
 
