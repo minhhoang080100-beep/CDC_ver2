@@ -442,7 +442,7 @@ export default function AdminScreen() {
                             <Text style={[styles.tabText, activeTab === 'honors' && styles.tabTextActive]}>Vinh danh</Text>
                         </TouchableOpacity>
                     )}
-                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+                    {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH')) && (
                         <TouchableOpacity
                             style={[styles.tabItem, activeTab === 'elearning' && styles.tabItemActive]}
                             onPress={() => setActiveTab('elearning')}
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
     tabContainerDesktop: {
         marginHorizontal: 'auto',
         width: '100%',
-        maxWidth: 800,
+        maxWidth: 1100,
         backgroundColor: 'transparent',
         paddingHorizontal: 0,
     },

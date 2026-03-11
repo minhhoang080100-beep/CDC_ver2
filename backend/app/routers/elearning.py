@@ -92,25 +92,38 @@ async def list_courses(
 
 @router.get("/my-courses")
 async def get_my_courses(current_user=Depends(get_current_user)):
-    """Get courses assigned to or enrolled by user"""
+    """Get courses assigned to or enrolled by user — optimized (no N+1 queries)."""
     user_id = str(current_user["_id"])
     user_dept = current_user.get("department", "")
 
-    # Find all published courses the user can access
-    courses_query = {"status": "PUBLISHED"}
-    cursor = db.courses.find(courses_query).sort("createdAt", -1)
+    # 1. Fetch all published courses
+    courses = await db.courses.find({"status": "PUBLISHED"}).sort("createdAt", -1).to_list(500)
+    if not courses:
+        return []
 
+    course_ids = [str(c["_id"]) for c in courses]
+
+    # 2. Bulk fetch: all enrollments for this user (single query)
+    enrollment_cursor = db.enrollments.find({"userId": user_id, "courseId": {"$in": course_ids}})
+    enrollments_list = await enrollment_cursor.to_list(500)
+    enrollment_map = {e["courseId"]: e for e in enrollments_list}
+
+    # 3. Bulk fetch: all quizzes for these courses (single query)
+    quiz_cursor = db.quizzes.find({"courseId": {"$in": course_ids}}, {"courseId": 1})
+    quizzes_list = await quiz_cursor.to_list(500)
+    quiz_set = {q["courseId"] for q in quizzes_list}
+
+    # 4. Assemble results in memory — no more per-course DB calls
     my_courses = []
-    async for c in cursor:
+    for c in courses:
         cid = str(c["_id"])
         target_depts = c.get("targetDepartments", [])
 
-        # Check if course is for user's department or open to all
+        # Filter: only courses for user's department or open to all
         if target_depts and "ALL" not in target_depts and user_dept not in target_depts:
             continue
 
-        # Get enrollment status
-        enrollment = await db.enrollments.find_one({"courseId": cid, "userId": user_id})
+        enrollment = enrollment_map.get(cid)
         lessons = c.get("lessons", [])
         completed_lessons = enrollment.get("completedLessons", []) if enrollment else []
         quiz_result = enrollment.get("quizResult") if enrollment else None
@@ -118,8 +131,6 @@ async def get_my_courses(current_user=Depends(get_current_user)):
         progress = 0
         if lessons:
             progress = int(len(completed_lessons) / len(lessons) * 100)
-
-        quiz = await db.quizzes.find_one({"courseId": cid})
 
         my_courses.append({
             "id": cid,
@@ -136,7 +147,7 @@ async def get_my_courses(current_user=Depends(get_current_user)):
             } for l in lessons],
             "progress": progress,
             "completedLessons": completed_lessons,
-            "hasQuiz": quiz is not None,
+            "hasQuiz": cid in quiz_set,
             "quizResult": quiz_result,
             "enrolled": enrollment is not None,
         })

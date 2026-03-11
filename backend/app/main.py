@@ -8,6 +8,7 @@ import time
 import uuid
 import cloudinary
 import os
+import sentry_sdk
 from bson.errors import InvalidId
 
 from app.core.database import client, db, init_db_indexes
@@ -31,6 +32,19 @@ if cloudinary_url:
     cloudinary.config(secure=True)
 else:
     logger.warning("CLOUDINARY_URL not found. Image/Document deletion will not work.")
+
+# ─── Sentry Error Monitoring (optional) ──────────────────────
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.2,
+        profiles_sample_rate=0.1,
+        environment=os.getenv("ENVIRONMENT", "production"),
+    )
+    logger.info("✅ Sentry error monitoring initialized")
+else:
+    logger.info("ℹ️  SENTRY_DSN not set — error monitoring disabled")
 
 
 # ─── Lifespan ────────────────────────────────────────────────
@@ -122,8 +136,8 @@ app.add_middleware(
         "http://localhost:19006",
         "http://localhost:3000",
     ],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Request-ID"],
 )
 
 

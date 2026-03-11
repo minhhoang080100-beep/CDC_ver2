@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   Platform,
   Animated,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +19,8 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useToast } from '../../contexts/ToastContext';
 import { format } from 'date-fns';
-import { Plus, Edit2, Trash2, Heart, MessageCircle } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Heart, MessageCircle, Search } from 'lucide-react-native';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreatePostModal from '../../components/CreatePostModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { Colors } from '../../constants/Colors';
@@ -87,34 +90,40 @@ export default function HomeScreen() {
   const { showConfirm } = useConfirm();
   const { showToast } = useToast();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { gridColumns, isDesktop } = useResponsive();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchPosts();
-  }, []);
-
-  const fetchPosts = async () => {
-    try {
-      const response = await api.get('/api/posts', {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+    isRefetching
+  } = useInfiniteQuery({
+    queryKey: ['posts'],
+    queryFn: async ({ pageParam }) => {
+      const response = await api.get(`/api/posts?skip=${(pageParam as number) * 20}&limit=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setPosts(response.data?.items || response.data || []);
-    } catch (error) {
-      console.error('Error fetching posts:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      return response.data;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: any, allPages) => {
+      return lastPage.hasMore ? allPages.length : undefined;
+    },
+    enabled: !!token,
+  });
+
+  const posts = data?.pages.flatMap((page: any) => page.items) || [];
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchPosts();
+    refetch();
   };
 
   const getCategoryColor = (category: string) => {
@@ -137,7 +146,7 @@ export default function HomeScreen() {
   };
 
   const handleCreateSuccess = () => {
-    fetchPosts();
+    queryClient.invalidateQueries({ queryKey: ['posts'] });
   };
 
   const handleEdit = (post: Post) => {
@@ -157,7 +166,7 @@ export default function HomeScreen() {
             headers: { Authorization: `Bearer ${token}` },
           });
           showToast({ message: 'Đã xóa bài viết thành công', type: 'success' });
-          fetchPosts(); // Refresh list after deletion
+          queryClient.invalidateQueries({ queryKey: ['posts'] }); // Refresh list after deletion
         } catch (error) {
           console.error('Error deleting post:', error);
           showToast({ message: 'Không thể xóa bài viết. Vui lòng thử lại.', type: 'error' });
@@ -282,7 +291,12 @@ export default function HomeScreen() {
     }
   };
 
-  if (loading) {
+  const filteredPosts = posts.filter(post =>
+    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    post.summary.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={[styles.header, isDesktop && styles.headerDesktop]}>
@@ -306,20 +320,45 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%', marginTop: 8 }]}>
+        <View style={styles.searchInputWrapper}>
+          <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm kiếm bài viết..."
+            placeholderTextColor={Colors.text.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
       <FlatList
-        data={posts}
+        data={filteredPosts}
         renderItem={renderPost}
         keyExtractor={(item) => item.id}
-        key={gridColumns}
-        numColumns={gridColumns}
-        columnWrapperStyle={gridColumns > 1 ? { gap: 16 } : undefined}
         contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isRefetching}
             onRefresh={onRefresh}
             colors={['#0891b2']}
           />
+        }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={{ padding: 16, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -363,6 +402,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.header.text,
     letterSpacing: 1,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
+    ...Colors.shadows.sm,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.text.primary,
+    height: '100%',
   },
   addButton: {
     width: 40,

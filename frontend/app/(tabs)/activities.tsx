@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,7 +16,8 @@ import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode } from 'lucide-react-native';
+import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search } from 'lucide-react-native';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
 import WebHoverCard from '../../components/WebHoverCard';
@@ -38,39 +41,44 @@ export default function ActivitiesScreen() {
   const { showConfirm } = useConfirm();
   const { showToast } = useToast();
   const { gridColumns, isDesktop } = useResponsive();
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [scannerActivityId, setScannerActivityId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
-  const fetchActivities = async () => {
-    try {
-      const response = await api.get('/api/activities', {
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    refetch,
+    isRefetching
+  } = useInfiniteQuery({
+    queryKey: ['activities'],
+    queryFn: async ({ pageParam }) => {
+      const response = await api.get(`/api/activities?skip=${(pageParam as number) * 20}&limit=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setActivities(response.data?.items || response.data || []);
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+      return response.data;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage: any, allPages) => {
+      return lastPage.hasMore ? allPages.length : undefined;
+    },
+    enabled: !!token,
+  });
+
+  const activities = data?.pages.flatMap((page: any) => page.items) || [];
 
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchActivities();
+    refetch();
   };
 
   const handleCreateSuccess = () => {
-    fetchActivities();
+    queryClient.invalidateQueries({ queryKey: ['activities'] });
   };
 
   const handleRegister = async (activityId: string) => {
@@ -80,7 +88,7 @@ export default function ActivitiesScreen() {
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      fetchActivities();
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Error registering:', error);
     }
@@ -109,7 +117,7 @@ export default function ActivitiesScreen() {
             headers: { Authorization: `Bearer ${token}` },
           });
           showToast({ message: 'Đã xóa hoạt động thành công', type: 'success' });
-          fetchActivities(); // Refresh list after deletion
+          queryClient.invalidateQueries({ queryKey: ['activities'] }); // Refresh list after deletion
         } catch (error) {
           console.error('Error deleting activity:', error);
           showToast({ message: 'Không thể xóa hoạt động. Thử lại sau.', type: 'error' });
@@ -236,7 +244,12 @@ export default function ActivitiesScreen() {
     );
   };
 
-  if (loading) {
+  const filteredActivities = activities.filter(activity =>
+    activity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    activity.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -262,13 +275,25 @@ export default function ActivitiesScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Search Bar */}
+      <View style={[styles.searchContainer, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%', marginTop: 8 }]}>
+        <View style={styles.searchInputWrapper}>
+          <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm kiếm hoạt động..."
+            placeholderTextColor={Colors.text.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
       <FlatList
-        data={activities}
+        data={filteredActivities}
         renderItem={renderActivity}
         keyExtractor={(item) => item.id}
-        key={gridColumns}
-        numColumns={gridColumns}
-        columnWrapperStyle={gridColumns > 1 ? { gap: 16 } : undefined}
         contentContainerStyle={[
           styles.listContent,
           isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any },
@@ -276,10 +301,23 @@ export default function ActivitiesScreen() {
         ]}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isRefetching}
             onRefresh={onRefresh}
             colors={['#0891b2']}
           />
+        }
+        onEndReached={() => {
+          if (hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          isFetchingNextPage ? (
+            <View style={{ padding: 16, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : null
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -303,7 +341,7 @@ export default function ActivitiesScreen() {
         activityId={scannerActivityId}
         onClose={() => setScannerVisible(false)}
         onSuccess={(msg) => {
-          fetchActivities();
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
         }}
       />
     </SafeAreaView>
@@ -340,6 +378,31 @@ const styles = StyleSheet.create({
   headerDesktop: {
     paddingVertical: 10,
     paddingHorizontal: 24,
+  },
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
+    ...Colors.shadows.sm,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.text.primary,
+    height: '100%',
   },
   loadingContainer: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,21 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/api';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Colors } from '../constants/Colors';
+
+const activitySchema = z.object({
+  name: z.string().min(3, 'Tên hoạt động phải có ít nhất 3 ký tự'),
+  description: z.string().optional(),
+  time: z.string().min(5, 'Vui lòng nhập thời gian hợp lệ'),
+  location: z.string().min(2, 'Vui lòng nhập địa điểm'),
+  type: z.enum(['TRAINING', 'SPORTS', 'VACATION']),
+  targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
+});
+
+type ActivityFormValues = z.infer<typeof activitySchema>;
 
 interface Activity {
   id: string;
@@ -34,34 +49,52 @@ interface CreateActivityModalProps {
 export default function CreateActivityModal({ visible, onClose, onSuccess, editActivity }: CreateActivityModalProps) {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [time, setTime] = useState('');
-  const [location, setLocation] = useState('');
-  const [type, setType] = useState('TRAINING');
-  const [selectedDepts, setSelectedDepts] = useState<string[]>(['ALL']);
-  const [loading, setLoading] = useState(false);
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<ActivityFormValues>({
+    resolver: zodResolver(activitySchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      time: '',
+      location: '',
+      type: 'TRAINING',
+      targetDepartments: ['ALL'],
+    },
+  });
+
+  const watchedType = watch('type');
+  const watchedDepts = watch('targetDepartments');
 
   // Pre-fill form when editing
   useEffect(() => {
     if (editActivity) {
-      setName(editActivity.name);
-      setDescription(editActivity.description);
-      setTime(editActivity.time);
-      setLocation(editActivity.location);
-      setType(editActivity.type);
-      setSelectedDepts(editActivity.targetDepartments || ['ALL']);
+      reset({
+        name: editActivity.name,
+        description: editActivity.description || '',
+        time: editActivity.time,
+        location: editActivity.location,
+        type: editActivity.type as 'TRAINING' | 'SPORTS' | 'VACATION',
+        targetDepartments: editActivity.targetDepartments || ['ALL'],
+      });
     } else if (visible) {
-      // Reset form fields without closing the modal
-      setName('');
-      setDescription('');
-      setTime('');
-      setLocation('');
-      setType('TRAINING');
-      setSelectedDepts(['ALL']);
-      setLoading(false);
+      // Reset form fields when opening modal for creating new
+      reset({
+        name: '',
+        description: '',
+        time: '',
+        location: '',
+        type: 'TRAINING',
+        targetDepartments: ['ALL'],
+      });
     }
-  }, [editActivity, visible]);
+  }, [editActivity, visible, reset]);
 
   const types = [
     { value: 'TRAINING', label: 'Tập huấn' },
@@ -80,73 +113,42 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
 
   const toggleDept = (dept: string) => {
     if (dept === 'ALL') {
-      setSelectedDepts(['ALL']);
+      setValue('targetDepartments', ['ALL']);
     } else {
-      const newDepts = selectedDepts.filter(d => d !== 'ALL');
+      const newDepts = watchedDepts.filter((d) => d !== 'ALL');
       if (newDepts.includes(dept)) {
-        setSelectedDepts(newDepts.filter(d => d !== dept));
+        setValue('targetDepartments', newDepts.filter((d) => d !== dept), { shouldValidate: true });
       } else {
-        setSelectedDepts([...newDepts, dept]);
+        setValue('targetDepartments', [...newDepts, dept], { shouldValidate: true });
       }
     }
   };
 
-  const handleSubmit = async () => {
-    if (!name.trim() || !time.trim() || !location.trim()) {
-      showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
-      return;
-    }
-
-    setLoading(true);
+  const onSubmit = async (data: ActivityFormValues) => {
     try {
-      const activityData = {
-        name,
-        description,
-        time,
-        location,
-        type,
-        targetDepartments: selectedDepts,
-      };
-
       if (editActivity) {
         // Update existing activity
-        await api.put(
-          `/api/activities/${editActivity.id}`,
-          activityData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.put(`/api/activities/${editActivity.id}`, data, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         showToast({ message: 'Đã cập nhật hoạt động thành công!', type: 'success' });
       } else {
         // Create new activity
-        await api.post(
-          '/api/activities',
-          activityData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.post('/api/activities', data, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         showToast({ message: 'Đã tạo hoạt động thành công!', type: 'success' });
       }
 
       onSuccess();
-      handleReset();
+      onClose();
     } catch (error: any) {
       console.error('Error saving activity:', error);
       showToast({
         message: error.response?.data?.detail || 'Không thể lưu hoạt động',
-        type: 'error'
+        type: 'error',
       });
-      setLoading(false);
     }
-  };
-
-  const handleReset = () => {
-    setName('');
-    setDescription('');
-    setTime('');
-    setLocation('');
-    setType('TRAINING');
-    setSelectedDepts(['ALL']);
-    setLoading(false);
-    onClose();
   };
 
   return (
@@ -167,43 +169,79 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
 
           <ScrollView style={styles.modalBody}>
             <Text style={styles.label}>Tên hoạt động *</Text>
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="Nhập tên hoạt động"
-              placeholderTextColor="#94a3b8"
+            <Controller
+              control={control}
+              name="name"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.name && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập tên hoạt động"
+                  placeholderTextColor="#94a3b8"
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.name && <Text style={styles.errorText}>{errors.name.message}</Text>}
 
             <Text style={styles.label}>Mô tả</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Nhập mô tả hoạt động"
-              placeholderTextColor="#94a3b8"
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
+            <Controller
+              control={control}
+              name="description"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, styles.textArea, errors.description && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập mô tả hoạt động"
+                  placeholderTextColor="#94a3b8"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.description && <Text style={styles.errorText}>{errors.description.message}</Text>}
 
             <Text style={styles.label}>Thời gian *</Text>
-            <TextInput
-              style={styles.input}
-              value={time}
-              onChangeText={setTime}
-              placeholder="VD: 15/08/2025 08:00"
-              placeholderTextColor="#94a3b8"
+            <Controller
+              control={control}
+              name="time"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.time && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="VD: 15/08/2025 08:00"
+                  placeholderTextColor="#94a3b8"
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.time && <Text style={styles.errorText}>{errors.time.message}</Text>}
 
             <Text style={styles.label}>Địa điểm *</Text>
-            <TextInput
-              style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Nhập địa điểm"
-              placeholderTextColor="#94a3b8"
+            <Controller
+              control={control}
+              name="location"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.location && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập địa điểm"
+                  placeholderTextColor="#94a3b8"
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
 
             <Text style={styles.label}>Loại hoạt động</Text>
             <View style={styles.typeContainer}>
@@ -212,14 +250,15 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
                   key={t.value}
                   style={[
                     styles.typeButton,
-                    type === t.value && styles.typeButtonActive,
+                    watchedType === t.value && styles.typeButtonActive,
                   ]}
-                  onPress={() => setType(t.value)}
+                  onPress={() => setValue('type', t.value as any, { shouldValidate: true })}
+                  disabled={isSubmitting}
                 >
                   <Text
                     style={[
                       styles.typeButtonText,
-                      type === t.value && styles.typeButtonTextActive,
+                      watchedType === t.value && styles.typeButtonTextActive,
                     ]}
                   >
                     {t.label}
@@ -227,6 +266,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
                 </TouchableOpacity>
               ))}
             </View>
+            {errors.type && <Text style={styles.errorText}>{errors.type.message}</Text>}
 
             {canSelectDepts && (
               <>
@@ -237,14 +277,15 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
                       key={dept.value}
                       style={[
                         styles.deptButton,
-                        selectedDepts.includes(dept.value) && styles.deptButtonActive,
+                        watchedDepts.includes(dept.value) && styles.deptButtonActive,
                       ]}
                       onPress={() => toggleDept(dept.value)}
+                      disabled={isSubmitting}
                     >
                       <Text
                         style={[
                           styles.deptButtonText,
-                          selectedDepts.includes(dept.value) && styles.deptButtonTextActive,
+                          watchedDepts.includes(dept.value) && styles.deptButtonTextActive,
                         ]}
                       >
                         {dept.label}
@@ -252,16 +293,17 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
                     </TouchableOpacity>
                   ))}
                 </View>
+                {errors.targetDepartments && <Text style={styles.errorText}>{errors.targetDepartments.message}</Text>}
               </>
             )}
 
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
+              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isSubmitting}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? 'Đang tạo...' : 'Tạo hoạt động'}
+                {isSubmitting ? 'Đang lưu...' : (editActivity ? 'Lưu thay đổi' : 'Tạo hoạt động')}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -323,6 +365,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#0f172a',
+  },
+  inputError: {
+    borderColor: Colors.status.error || '#ef4444',
+  },
+  errorText: {
+    color: Colors.status.error || '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
   },
   textArea: {
     height: 100,

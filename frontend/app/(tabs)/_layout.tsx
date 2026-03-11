@@ -1,16 +1,50 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Platform } from 'react-native';
 import { Home, Calendar, BookOpen, IdCard, MoreHorizontal } from 'lucide-react-native';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import DesktopSidebar from '../../components/DesktopSidebar';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function TabsLayout() {
   const { isDesktop, sidebarWidth } = useResponsive();
   usePushNotifications(); // Registers token in the background
+
+  // ─── Real-time WebSocket notifications ─────────────────
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  const handleWebSocketMessage = useCallback((msg: any) => {
+    // Show toast for new events
+    if (msg.title) {
+      showToast({ message: msg.title, type: 'success' });
+    }
+
+    // Auto-refresh relevant data based on message type
+    const typeToQuery: Record<string, string[]> = {
+      new_post: ['posts'],
+      new_activity: ['activities'],
+      new_survey: ['surveys'],
+      new_notification: ['notifications'],
+      new_feedback: ['feedback'],
+      new_honor: ['honors', 'campaigns'],
+      new_course: ['courses'],
+    };
+
+    const queries = typeToQuery[msg.type];
+    if (queries) {
+      queries.forEach(q => queryClient.invalidateQueries({ queryKey: [q] }));
+    }
+    // Always refresh notification count
+    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  }, [queryClient, showToast]);
+
+  useWebSocket({ onMessage: handleWebSocketMessage });
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>

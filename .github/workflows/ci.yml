@@ -21,12 +21,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
       - name: Install dependencies
         working-directory: ./backend
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio httpx ruff
+
+      - name: Lint backend (ruff)
+        working-directory: ./backend
+        run: ruff check . --select E,W,F --ignore E501
 
       - name: Run tests
         working-directory: ./backend

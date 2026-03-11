@@ -8,14 +8,29 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,  // 5 minutes — reduce unnecessary refetches
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours — keep cache for offline use
+    },
+  },
+});
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'CDC_QUERY_CACHE',
+});
 
 export default function RootLayout() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
           <ToastProvider>
             <AuthProvider>
               <ConfirmProvider>
@@ -30,7 +45,7 @@ export default function RootLayout() {
               </ConfirmProvider>
             </AuthProvider>
           </ToastProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,20 @@ import { useToast } from '../contexts/ToastContext';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
 import { ImagePlus, X } from 'lucide-react-native';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+
+const postSchema = z.object({
+  title: z.string().min(5, 'Tiêu đề bài viết phải có ít nhất 5 ký tự'),
+  summary: z.string().optional(),
+  content: z.string().min(10, 'Nội dung bài viết quá ngắn (tối thiểu 10 ký tự)'),
+  category: z.string(),
+  targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
+  image: z.string().nullable().optional(),
+});
+
+type PostFormValues = z.infer<typeof postSchema>;
 
 interface Post {
   id: string;
@@ -39,40 +53,58 @@ interface CreatePostModalProps {
 export default function CreatePostModal({ visible, onClose, onSuccess, editPost }: CreatePostModalProps) {
   const { user, token } = useAuth();
   const { showToast } = useToast();
-  const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState('Thông báo');
-  const [selectedDepts, setSelectedDepts] = useState<string[]>(['ALL']);
-  const [imageUri, setImageUri] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // Cloudinary Details
   const CLOUD_NAME = 'dljjearo2';
-  // Note: This upload preset needs to be created in Cloudinary settings -> Upload -> Add upload preset (Signing Mode: Unsigned)
-  const UPLOAD_PRESET = 'CDCnghetinh'; // Replace with your actual unsigned preset name if different
+  const UPLOAD_PRESET = 'CDCnghetinh';
+
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<PostFormValues>({
+    resolver: zodResolver(postSchema),
+    defaultValues: {
+      title: '',
+      summary: '',
+      content: '',
+      category: 'Thông báo',
+      targetDepartments: ['ALL'],
+      image: null,
+    },
+  });
+
+  const watchedCategory = watch('category');
+  const watchedDepts = watch('targetDepartments');
+  const watchedImage = watch('image');
 
   // Pre-fill form when editing
   useEffect(() => {
     if (editPost) {
-      setTitle(editPost.title);
-      setSummary(editPost.summary);
-      setContent(editPost.content);
-      setCategory(editPost.category);
-      setSelectedDepts(editPost.targetDepartments || ['ALL']);
-      setImageUri(editPost.image || null);
+      reset({
+        title: editPost.title,
+        summary: editPost.summary || '',
+        content: editPost.content,
+        category: editPost.category || 'Thông báo',
+        targetDepartments: editPost.targetDepartments || ['ALL'],
+        image: editPost.image || null,
+      });
     } else if (visible) {
       // Reset form fields without closing the modal
-      setTitle('');
-      setSummary('');
-      setContent('');
-      setCategory('Thông báo');
-      setSelectedDepts(['ALL']);
-      setImageUri(null);
-      setLoading(false);
+      reset({
+        title: '',
+        summary: '',
+        content: '',
+        category: 'Thông báo',
+        targetDepartments: ['ALL'],
+        image: null,
+      });
     }
-  }, [editPost, visible]);
+  }, [editPost, visible, reset]);
 
   const categories = ['Chính sách', 'Hoạt động', 'Thông báo'];
   const departments = [
@@ -86,13 +118,13 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
 
   const toggleDept = (dept: string) => {
     if (dept === 'ALL') {
-      setSelectedDepts(['ALL']);
+      setValue('targetDepartments', ['ALL']);
     } else {
-      const newDepts = selectedDepts.filter(d => d !== 'ALL');
+      const newDepts = watchedDepts.filter((d) => d !== 'ALL');
       if (newDepts.includes(dept)) {
-        setSelectedDepts(newDepts.filter(d => d !== dept));
+        setValue('targetDepartments', newDepts.filter((d) => d !== dept), { shouldValidate: true });
       } else {
-        setSelectedDepts([...newDepts, dept]);
+        setValue('targetDepartments', [...newDepts, dept], { shouldValidate: true });
       }
     }
   };
@@ -111,15 +143,13 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 0.8,
-        base64: true, // We need base64 for ImgBB upload
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // We temporarily store the local URI for preview
-        // We will upload the base64 data to Cloudinary when picked
-        setImageUri(result.assets[0].uri);
+        // Temporarily show local image while uploading
+        setValue('image', result.assets[0].uri);
 
-        // Cloudinary requires a specific content type prefix for base64
         const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
         await uploadToCloudinary(base64Img);
       }
@@ -135,7 +165,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       const formData = new FormData();
       formData.append('file', base64Img);
       formData.append('upload_preset', UPLOAD_PRESET);
-      formData.append('folder', 'cong-doan-app'); // Optional: organize uploads into a folder
+      formData.append('folder', 'cong-doan-app');
 
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
         method: 'POST',
@@ -145,76 +175,47 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       const data = await response.json();
 
       if (response.ok && data.secure_url) {
-        // Overwrite the local URI with the remote Cloudinary URL
-        setImageUri(data.secure_url);
+        setValue('image', data.secure_url);
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
     } catch (error) {
       console.error('Error uploading to Cloudinary:', error);
       showToast({ message: 'Upload ảnh thất bại. Bạn đã bật Unsigned Upload Preset chưa?', type: 'error' });
-      setImageUri(null); // Reset on failure
+      setValue('image', null); // Reset on failure
     } finally {
       setUploadingImage(false);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
-      showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
-      return;
-    }
-
-    setLoading(true);
+  const onSubmit = async (data: PostFormValues) => {
     try {
       const postData = {
-        title,
-        summary: summary || title,
-        content,
-        category,
-        targetDepartments: selectedDepts,
-        image: imageUri,
+        ...data,
+        summary: data.summary || data.title, // Fallback if summary is empty
       };
 
       if (editPost) {
-        // Update existing post
-        await api.put(
-          `/api/posts/${editPost.id}`,
-          postData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.put(`/api/posts/${editPost.id}`, postData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         showToast({ message: 'Đã cập nhật bài viết thành công!', type: 'success' });
       } else {
-        // Create new post
-        await api.post(
-          '/api/posts',
-          postData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.post('/api/posts', postData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         showToast({ message: 'Đã đăng bài thành công!', type: 'success' });
       }
 
       onSuccess();
-      handleReset();
+      onClose();
     } catch (error: any) {
       console.error('Error saving post:', error);
       showToast({
         message: error.response?.data?.detail || 'Không thể lưu bài viết',
-        type: 'error'
+        type: 'error',
       });
-      setLoading(false);
     }
-  };
-
-  const handleReset = () => {
-    setTitle('');
-    setSummary('');
-    setContent('');
-    setCategory('Thông báo');
-    setSelectedDepts(['ALL']);
-    setImageUri(null);
-    setLoading(false);
-    onClose();
   };
 
   return (
@@ -235,42 +236,70 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
 
           <ScrollView style={styles.modalBody}>
             <Text style={styles.label}>Tiêu đề *</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Nhập tiêu đề bài viết"
-              placeholderTextColor={Colors.text.placeholder}
+            <Controller
+              control={control}
+              name="title"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.title && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập tiêu đề bài viết"
+                  placeholderTextColor={Colors.text.placeholder}
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.title && <Text style={styles.errorText}>{errors.title.message}</Text>}
 
             <Text style={styles.label}>Tóm tắt</Text>
-            <TextInput
-              style={styles.input}
-              value={summary}
-              onChangeText={setSummary}
-              placeholder="Nhập tóm tắt"
-              placeholderTextColor={Colors.text.placeholder}
+            <Controller
+              control={control}
+              name="summary"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.summary && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập tóm tắt"
+                  placeholderTextColor={Colors.text.placeholder}
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.summary && <Text style={styles.errorText}>{errors.summary.message}</Text>}
 
             <Text style={styles.label}>Nội dung *</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={content}
-              onChangeText={setContent}
-              placeholder="Nhập nội dung chi tiết"
-              placeholderTextColor={Colors.text.placeholder}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
+            <Controller
+              control={control}
+              name="content"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, styles.textArea, errors.content && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="Nhập nội dung chi tiết"
+                  placeholderTextColor={Colors.text.placeholder}
+                  multiline
+                  numberOfLines={6}
+                  textAlignVertical="top"
+                  editable={!isSubmitting}
+                />
+              )}
             />
+            {errors.content && <Text style={styles.errorText}>{errors.content.message}</Text>}
 
             <Text style={styles.label}>Ảnh minh họa (Tùy chọn)</Text>
-            {imageUri ? (
+            {watchedImage ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <Image source={{ uri: watchedImage }} style={styles.imagePreview} />
                 <TouchableOpacity
                   style={styles.removeImageButton}
-                  onPress={() => setImageUri(null)}
+                  onPress={() => setValue('image', null)}
+                  disabled={isSubmitting || uploadingImage}
                 >
                   <X color="#fff" size={20} />
                 </TouchableOpacity>
@@ -279,7 +308,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
               <TouchableOpacity
                 style={styles.imageUploadButton}
                 onPress={pickImage}
-                disabled={uploadingImage}
+                disabled={isSubmitting || uploadingImage}
               >
                 {uploadingImage ? (
                   <>
@@ -295,6 +324,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                 )}
               </TouchableOpacity>
             )}
+            {errors.image && <Text style={styles.errorText}>{errors.image.message}</Text>}
 
             <Text style={styles.label}>Danh mục</Text>
             <View style={styles.categoryContainer}>
@@ -303,14 +333,15 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                   key={cat}
                   style={[
                     styles.categoryButton,
-                    category === cat && styles.categoryButtonActive,
+                    watchedCategory === cat && styles.categoryButtonActive,
                   ]}
-                  onPress={() => setCategory(cat)}
+                  onPress={() => setValue('category', cat, { shouldValidate: true })}
+                  disabled={isSubmitting}
                 >
                   <Text
                     style={[
                       styles.categoryButtonText,
-                      category === cat && styles.categoryButtonTextActive,
+                      watchedCategory === cat && styles.categoryButtonTextActive,
                     ]}
                   >
                     {cat}
@@ -318,6 +349,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                 </TouchableOpacity>
               ))}
             </View>
+            {errors.category && <Text style={styles.errorText}>{errors.category.message}</Text>}
 
             {canSelectDepts && (
               <>
@@ -328,14 +360,15 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                       key={dept.value}
                       style={[
                         styles.deptButton,
-                        selectedDepts.includes(dept.value) && styles.deptButtonActive,
+                        watchedDepts.includes(dept.value) && styles.deptButtonActive,
                       ]}
                       onPress={() => toggleDept(dept.value)}
+                      disabled={isSubmitting}
                     >
                       <Text
                         style={[
                           styles.deptButtonText,
-                          selectedDepts.includes(dept.value) && styles.deptButtonTextActive,
+                          watchedDepts.includes(dept.value) && styles.deptButtonTextActive,
                         ]}
                       >
                         {dept.label}
@@ -343,16 +376,17 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                     </TouchableOpacity>
                   ))}
                 </View>
+                {errors.targetDepartments && <Text style={styles.errorText}>{errors.targetDepartments.message}</Text>}
               </>
             )}
 
             <TouchableOpacity
-              style={[styles.submitButton, (loading || uploadingImage) && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={loading || uploadingImage}
+              style={[styles.submitButton, (isSubmitting || uploadingImage) && styles.submitButtonDisabled]}
+              onPress={handleSubmit(onSubmit)}
+              disabled={isSubmitting || uploadingImage}
             >
               <Text style={styles.submitButtonText}>
-                {loading ? 'Đang đăng...' : 'Đăng bài'}
+                {isSubmitting ? 'Đang lưu...' : (editPost ? 'Lưu thay đổi' : 'Đăng bài')}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -414,6 +448,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: Colors.text.primary,
+  },
+  inputError: {
+    borderColor: Colors.status.error || '#ef4444',
+  },
+  errorText: {
+    color: Colors.status.error || '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
   },
   textArea: {
     height: 120,
