@@ -83,3 +83,6 @@ android-sdk/
 .env
 .env.*
 !.env.example
+
+# Development data initialization script
+backend/seed.py
