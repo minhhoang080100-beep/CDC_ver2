@@ -349,12 +349,21 @@ export default function ElearningScreen() {
                                             {/* Inline Video/PDF Embed */}
                                             {viewingLessonIdx === idx && lesson.url && (lesson.type === 'VIDEO' || lesson.type === 'PDF') && Platform.OS === 'web' && (
                                                 <View style={styles.embedContainer}>
-                                                    <iframe
-                                                        src={getEmbedUrl(lesson.url, lesson.type) || ''}
-                                                        style={{ width: '100%', height: lesson.type === 'VIDEO' ? 340 : 500, border: 'none', borderRadius: 8 } as any}
-                                                        allowFullScreen
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                    />
+                                                    {lesson.type === 'VIDEO' && !lesson.url.includes('youtube') && !lesson.url.includes('youtu.be') && !lesson.url.includes('drive.google.com') ? (
+                                                        <video
+                                                            src={lesson.url}
+                                                            controls
+                                                            playsInline
+                                                            style={{ width: '100%', height: 340, borderRadius: 8, backgroundColor: '#000' } as any}
+                                                        />
+                                                    ) : (
+                                                        <iframe
+                                                            src={getEmbedUrl(lesson.url, lesson.type) || ''}
+                                                            style={{ width: '100%', height: lesson.type === 'VIDEO' ? 340 : 500, border: 'none', borderRadius: 8 } as any}
+                                                            allowFullScreen
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        />
+                                                    )}
                                                 </View>
                                             )}
                                             {viewingLessonIdx === idx && lesson.url && (lesson.type === 'VIDEO' || lesson.type === 'PDF') && Platform.OS !== 'web' && (

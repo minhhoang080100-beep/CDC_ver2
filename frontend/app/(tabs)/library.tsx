@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { FileText, Search, Plus, Edit2, Trash2 } from 'lucide-react-native';
+import { FileText, Search, Plus, Edit2, Trash2, Download } from 'lucide-react-native';
 import CreateDocumentModal from '../../components/CreateDocumentModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -182,6 +182,23 @@ export default function LibraryScreen() {
     });
   };
 
+  const handleDownload = (url: string, title: string) => {
+    let downloadUrl = url;
+    // Add fl_attachment to force download on cloudinary
+    if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+      downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+    }
+    
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.setAttribute('download', title);
+        a.click();
+    } else {
+        Linking.openURL(downloadUrl);
+    }
+  };
+
   const renderDocument = ({ item }: { item: Document }) => (
     <View style={{ flex: 1 }}>
       <WebHoverCard style={[styles.docCard, isDesktop && styles.docCardDesktop]}>
@@ -211,32 +228,49 @@ export default function LibraryScreen() {
           <View style={[styles.actionsRowInline, isDesktop && styles.actionsRowInlineDesktop]}>
             {item.fileUrl && (
               isDesktop ? (
-                <TouchableOpacity
-                  style={styles.actionIconBtnOpen}
-                  onPress={() => {
-                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                      window.open(item.fileUrl!, '_blank');
-                    } else {
-                      Linking.openURL(item.fileUrl!);
-                    }
-                  }}
-                >
-                  <FileText color={Colors.primary} size={16} />
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.actionIconBtnOpen}
+                    onPress={() => {
+                      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                        window.open(item.fileUrl!, '_blank');
+                      } else {
+                        Linking.openURL(item.fileUrl!);
+                      }
+                    }}
+                  >
+                    <FileText color={Colors.primary} size={16} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionIconBtnDownload}
+                    onPress={() => handleDownload(item.fileUrl!, item.title)}
+                  >
+                    <Download color="#10b981" size={16} />
+                  </TouchableOpacity>
+                </>
               ) : (
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => {
-                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                      window.open(item.fileUrl!, '_blank');
-                    } else {
-                      Linking.openURL(item.fileUrl!);
-                    }
-                  }}
-                >
-                  <FileText color={Colors.primary} size={16} />
-                  <Text style={styles.actionTextOpen}>Mở tài liệu</Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => {
+                      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                        window.open(item.fileUrl!, '_blank');
+                      } else {
+                        Linking.openURL(item.fileUrl!);
+                      }
+                    }}
+                  >
+                    <FileText color={Colors.primary} size={16} />
+                    <Text style={styles.actionTextOpen}>Mở</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={() => handleDownload(item.fileUrl!, item.title)}
+                  >
+                    <Download color="#10b981" size={16} />
+                    <Text style={{ fontSize: 14, color: '#10b981', fontWeight: '600' }}>Tải</Text>
+                  </TouchableOpacity>
+                </>
               )
             )}
 
@@ -494,6 +528,14 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: 'rgba(8, 145, 178, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  actionIconBtnDownload: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },

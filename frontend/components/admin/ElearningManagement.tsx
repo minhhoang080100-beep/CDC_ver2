@@ -28,7 +28,11 @@ import {
     ChevronUp,
     BarChart2,
     AlertCircle,
+    Edit,
+    UploadCloud,
+    CheckCircle2,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 const DEPT_LABELS: Record<string, string> = {
     VAN_PHONG_CANG: 'VP Cảng', CUA_LO: 'Cửa Lò', BEN_THUY: 'Bến Thủy',
@@ -51,6 +55,11 @@ export default function ElearningManagement() {
     const [courseType, setCourseType] = useState<'OPTIONAL' | 'MANDATORY'>('OPTIONAL');
     const [courseDepts, setCourseDepts] = useState<string[]>([]);
     const [lessons, setLessons] = useState<any[]>([]);
+    const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
+    const [uploadingLessonIdx, setUploadingLessonIdx] = useState<number | null>(null);
+
+    const CLOUD_NAME = 'dljjearo2';
+    const UPLOAD_PRESET = 'CDCnghetinh';
 
     // Quiz modal
     const [quizModalVisible, setQuizModalVisible] = useState(false);
@@ -79,9 +88,82 @@ export default function ElearningManagement() {
     // ─── Course CRUD ─────────────────────
 
     const openNewCourse = () => {
+        setEditingCourseId(null);
         setCourseTitle(''); setCourseDesc(''); setCourseCategory('');
         setCourseType('OPTIONAL'); setCourseDepts([]); setLessons([]);
         setCourseModalVisible(true);
+    };
+
+    const openEditCourse = async (courseId: string) => {
+        try {
+            const res = await api.get(`/api/elearning/${courseId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const c = res.data;
+            setEditingCourseId(c.id);
+            setCourseTitle(c.title || '');
+            setCourseDesc(c.description || '');
+            setCourseCategory(c.category || '');
+            setCourseType(c.courseType || 'OPTIONAL');
+            setCourseDepts(c.targetDepartments || []);
+            setLessons(c.lessons || []);
+            setCourseModalVisible(true);
+        } catch (e: any) {
+            showToast({ message: e.response?.data?.detail || 'Lỗi tải chi tiết khóa học', type: 'error' });
+        }
+    };
+
+    const pickLessonDocument = async (idx: number) => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const file = result.assets[0];
+                await uploadLessonToCloudinary(file, idx);
+            }
+        } catch (error) {
+            console.error('Error picking document:', error);
+            showToast({ message: 'Lỗi khi chọn tài liệu', type: 'error' });
+        }
+    };
+
+    const uploadLessonToCloudinary = async (fileObj: any, idx: number) => {
+        setUploadingLessonIdx(idx);
+        try {
+            const formData = new FormData();
+            if (Platform.OS === 'web' && fileObj.file) {
+                formData.append('file', fileObj.file);
+            } else if (Platform.OS === 'web') {
+                formData.append('file', fileObj.uri);
+            } else {
+                formData.append('file', {
+                    uri: fileObj.uri,
+                    type: fileObj.mimeType || 'application/pdf',
+                    name: fileObj.name,
+                } as any);
+            }
+            formData.append('upload_preset', UPLOAD_PRESET);
+            formData.append('folder', 'elearning-assets');
+
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (response.ok && data.secure_url) {
+                updateLesson(idx, 'url', data.secure_url);
+                showToast({ message: 'Tải tài liệu lên thành công!', type: 'success' });
+            } else {
+                throw new Error(data.error?.message || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Error uploading lesson to Cloudinary:', error);
+            showToast({ message: 'Upload tài liệu thất bại', type: 'error' });
+        } finally {
+            setUploadingLessonIdx(null);
+        }
     };
 
     const addLesson = () => {
@@ -100,27 +182,41 @@ export default function ElearningManagement() {
         if (!courseTitle.trim()) {
             showToast({ message: 'Vui lòng nhập tên khóa học', type: 'error' }); return;
         }
+
+        const hasEmptyLessonTitle = lessons.some(l => !l.title || !l.title.trim());
+        if (hasEmptyLessonTitle) {
+            showToast({ message: 'Vui lòng nhập tên cho tất cả các bài học', type: 'error' }); return;
+        }
+
         setSubmitting(true);
         try {
-            await api.post('/api/elearning', {
+            const payload = {
                 title: courseTitle.trim(),
                 description: courseDesc.trim() || null,
                 category: courseCategory || null,
                 courseType,
                 targetDepartments: courseDepts,
-                lessons: lessons.filter(l => l.title.trim()).map(l => ({
+                lessons: lessons.map(l => ({
                     title: l.title.trim(),
                     type: l.type,
-                    url: l.url.trim() || null,
-                    content: l.content.trim() || null,
+                    url: l.url?.trim() || null,
+                    content: l.content?.trim() || null,
                     duration: l.duration ? parseInt(l.duration) : null,
                 })),
-            }, { headers: { Authorization: `Bearer ${token}` } });
-            showToast({ message: 'Tạo khóa học thành công!', type: 'success' });
+            };
+
+            if (editingCourseId) {
+                await api.put(`/api/elearning/${editingCourseId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+                showToast({ message: 'Cập nhật khóa học thành công!', type: 'success' });
+            } else {
+                await api.post('/api/elearning', payload, { headers: { Authorization: `Bearer ${token}` } });
+                showToast({ message: 'Tạo khóa học thành công!', type: 'success' });
+            }
+
             setCourseModalVisible(false);
             fetchCourses();
         } catch (e: any) {
-            showToast({ message: e.response?.data?.detail || 'Lỗi tạo khóa học', type: 'error' });
+            showToast({ message: e.response?.data?.detail || 'Lỗi lưu khóa học', type: 'error' });
         } finally { setSubmitting(false); }
     };
 
@@ -259,6 +355,9 @@ export default function ElearningManagement() {
                                 <TouchableOpacity style={styles.iconBtn} onPress={() => openNewQuiz(c.id)}>
                                     <FileText color="#f59e0b" size={18} />
                                 </TouchableOpacity>
+                                <TouchableOpacity style={styles.iconBtn} onPress={() => openEditCourse(c.id)}>
+                                    <Edit color="#8b5cf6" size={18} />
+                                </TouchableOpacity>
                                 <TouchableOpacity style={styles.iconBtn} onPress={() => handleDeleteCourse(c.id, c.title)}>
                                     <Trash2 color="#ef4444" size={18} />
                                 </TouchableOpacity>
@@ -273,7 +372,7 @@ export default function ElearningManagement() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>📚 Tạo khóa học mới</Text>
+                            <Text style={styles.modalTitle}>{editingCourseId ? '✏️ Chỉnh sửa khóa học' : '📚 Tạo khóa học mới'}</Text>
                             <TouchableOpacity onPress={() => setCourseModalVisible(false)} style={styles.closeBtn}>
                                 <X color="#64748b" size={24} />
                             </TouchableOpacity>
@@ -338,9 +437,14 @@ export default function ElearningManagement() {
                                             <Trash2 color="#ef4444" size={16} />
                                         </TouchableOpacity>
                                     </View>
-                                    <TextInput style={styles.inputSmall} value={lesson.title}
+                                    <TextInput style={[styles.inputSmall, !lesson.title.trim() && { borderColor: '#fca5a5', borderWidth: 1 }]} value={lesson.title}
                                         onChangeText={v => updateLesson(idx, 'title', v)}
-                                        placeholder="Tên bài học" placeholderTextColor="#94a3b8" />
+                                        placeholder="Tên bài học (* Bắt buộc)" placeholderTextColor="#f87171" />
+                                    {!lesson.title.trim() && (
+                                        <Text style={{ fontSize: 11, color: '#ef4444', marginBottom: 6, marginTop: -4, marginLeft: 2 }}>
+                                            * Bạn phải nhập tên cho bài học này
+                                        </Text>
+                                    )}
                                     <View style={styles.chipRow}>
                                         {[
                                             { key: 'TEXT', label: 'Bài đọc', icon: <Type color={lesson.type === 'TEXT' ? Colors.primary : '#64748b'} size={14} /> },
@@ -356,9 +460,27 @@ export default function ElearningManagement() {
                                         ))}
                                     </View>
                                     {(lesson.type === 'VIDEO' || lesson.type === 'PDF') && (
-                                        <TextInput style={styles.inputSmall} value={lesson.url}
-                                            onChangeText={v => updateLesson(idx, 'url', v)}
-                                            placeholder="URL video/PDF" placeholderTextColor="#94a3b8" />
+                                        <View>
+                                            {lesson.url && lesson.url.includes('api.cloudinary') ? null : (
+                                                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                                                    <TextInput style={[styles.inputSmall, { flex: 1, marginBottom: 0 }]} value={lesson.url}
+                                                        onChangeText={v => updateLesson(idx, 'url', v)}
+                                                        placeholder="Nhập URL hoặc tải file =>" placeholderTextColor="#94a3b8" />
+                                                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickLessonDocument(idx)} disabled={uploadingLessonIdx === idx}>
+                                                        {uploadingLessonIdx === idx ? <ActivityIndicator size="small" color="#fff" /> : <UploadCloud color="#fff" size={16} />}
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                            {lesson.url && (
+                                                <View style={styles.uploadedFileBadge}>
+                                                    <CheckCircle2 color="#10b981" size={14} />
+                                                    <Text style={styles.uploadedFileText} numberOfLines={1}>{lesson.url}</Text>
+                                                    <TouchableOpacity onPress={() => updateLesson(idx, 'url', '')}>
+                                                        <X color="#ef4444" size={16} />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                        </View>
                                     )}
                                     {lesson.type === 'TEXT' && (
                                         <TextInput style={[styles.inputSmall, { minHeight: 60 }]} value={lesson.content}
@@ -374,7 +496,7 @@ export default function ElearningManagement() {
                         <View style={styles.modalFooter}>
                             <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
                                 onPress={handleCreateCourse} disabled={submitting}>
-                                <Text style={styles.submitBtnText}>{submitting ? 'Đang tạo...' : 'Tạo khóa học'}</Text>
+                                <Text style={styles.submitBtnText}>{submitting ? 'Đang lưu...' : (editingCourseId ? 'Cập nhật' : 'Tạo khóa học')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -667,4 +789,14 @@ const styles = StyleSheet.create({
     enrollBar: { width: 80, height: 4, backgroundColor: '#e2e8f0', borderRadius: 2, overflow: 'hidden' },
     enrollFill: { height: '100%', borderRadius: 2 },
     quizBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    uploadBtn: {
+        backgroundColor: Colors.primary, width: 40, height: 40, borderRadius: 8,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    uploadedFileBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#ecfdf5', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8,
+        borderWidth: 1, borderColor: '#a7f3d0', marginBottom: 6,
+    },
+    uploadedFileText: { fontSize: 12, color: '#047857', flex: 1 },
 });

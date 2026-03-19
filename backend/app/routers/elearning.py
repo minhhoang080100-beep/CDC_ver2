@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user
 from app.core.permissions import resolve_target_departments, is_admin, require_admin
 from app.core.push import send_bulk_push_notifications_async
+from app.core.cloudinary_utils import delete_cloudinary_asset
 from app.models.elearning import (
     CourseCreate, CourseUpdate, QuizCreate, QuizUpdate, QuizSubmission
 )
@@ -215,8 +216,12 @@ async def create_course(data: CourseCreate, current_user=Depends(get_current_use
 
 
 @router.put("/{course_id}")
-async def update_course(course_id: str, data: CourseUpdate, current_user=Depends(get_current_user)):
+async def update_course(course_id: str, data: CourseUpdate, background_tasks: BackgroundTasks, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền chỉnh sửa")
+
+    existing_course = await db.courses.find_one({"_id": ObjectId(course_id)})
+    if not existing_course:
+        raise HTTPException(status_code=404, detail="Khóa học không tồn tại")
 
     update_data = {}
     for k, v in data.dict(exclude_unset=True).items():
@@ -228,6 +233,13 @@ async def update_course(course_id: str, data: CourseUpdate, current_user=Depends
             else:
                 update_data[k] = v
 
+    if "lessons" in update_data:
+        old_urls = set([l.get("url") for l in existing_course.get("lessons", []) if l.get("url") and "cloudinary.com" in l.get("url")])
+        new_urls = set([l.get("url") for l in update_data["lessons"] if l.get("url")])
+        urls_to_delete = old_urls - new_urls
+        for url in urls_to_delete:
+            background_tasks.add_task(delete_cloudinary_asset, url)
+
     if update_data:
         update_data["updatedAt"] = datetime.now(timezone.utc)
         await db.courses.update_one({"_id": ObjectId(course_id)}, {"$set": update_data})
@@ -235,8 +247,15 @@ async def update_course(course_id: str, data: CourseUpdate, current_user=Depends
 
 
 @router.delete("/{course_id}")
-async def delete_course(course_id: str, current_user=Depends(get_current_user)):
+async def delete_course(course_id: str, background_tasks: BackgroundTasks, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xóa")
+
+    existing_course = await db.courses.find_one({"_id": ObjectId(course_id)})
+    if existing_course:
+        for l in existing_course.get("lessons", []):
+            url = l.get("url")
+            if url and "cloudinary.com" in url:
+                background_tasks.add_task(delete_cloudinary_asset, url)
 
     await db.courses.delete_one({"_id": ObjectId(course_id)})
     await db.quizzes.delete_many({"courseId": course_id})
