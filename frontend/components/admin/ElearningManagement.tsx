@@ -132,10 +132,18 @@ export default function ElearningManagement() {
         setUploadingLessonIdx(idx);
         try {
             const formData = new FormData();
-            if (Platform.OS === 'web' && fileObj.file) {
-                formData.append('file', fileObj.file);
-            } else if (Platform.OS === 'web') {
-                formData.append('file', fileObj.uri);
+            if (Platform.OS === 'web') {
+                if (fileObj.file) {
+                    formData.append('file', fileObj.file);
+                } else {
+                    try {
+                        const res = await fetch(fileObj.uri);
+                        const blob = await res.blob();
+                        formData.append('file', blob, fileObj.name || 'lesson.file');
+                    } catch (e) {
+                        formData.append('file', fileObj.uri);
+                    }
+                }
             } else {
                 formData.append('file', {
                     uri: fileObj.uri,
@@ -158,9 +166,9 @@ export default function ElearningManagement() {
             } else {
                 throw new Error(data.error?.message || 'Upload failed');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error uploading lesson to Cloudinary:', error);
-            showToast({ message: 'Upload tài liệu thất bại', type: 'error' });
+            showToast({ message: error.message || 'Upload tài liệu thất bại', type: 'error' });
         } finally {
             setUploadingLessonIdx(null);
         }

@@ -129,12 +129,21 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
     try {
       const formData = new FormData();
 
-      if (Platform.OS === 'web' && fileObj.file) {
-        // On web, fileObj.file is the actual HTML5 DOM File. This preserves bytes 100% perfectly.
-        formData.append('file', fileObj.file);
-      } else if (Platform.OS === 'web') {
-        // Fallback: send the base64 data URI string directly to Cloudinary
-        formData.append('file', fileObj.uri);
+      if (Platform.OS === 'web') {
+        if (fileObj.file) {
+          // Trình duyệt tiêu chuẩn có đối tượng File
+          formData.append('file', fileObj.file);
+        } else {
+          // Trình duyệt đặc thù fallback dùng Blob URI (Safari, Edge cũ...)
+          try {
+            const res = await fetch(fileObj.uri);
+            const blob = await res.blob();
+            formData.append('file', blob, fileObj.name || 'document.file');
+          } catch (e) {
+            // Backup cuối cùng
+            formData.append('file', fileObj.uri);
+          }
+        }
       } else {
         // React Native mobile approach
         formData.append('file', {
@@ -160,9 +169,9 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading document to Cloudinary:', error);
-      showToast({ message: 'Upload tài liệu thất bại', type: 'error' });
+      showToast({ message: error.message || 'Upload tài liệu thất bại', type: 'error' });
       setFileUrl('');
       setFileName('');
       setFileSize('');
