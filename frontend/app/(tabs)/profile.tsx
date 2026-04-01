@@ -61,12 +61,10 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>THẺ ĐOÀN VIÊN</Text>
-      </View>
+
 
       <ScrollView contentContainerStyle={[styles.content, isDesktop && { alignItems: 'center' as any }]}>
-        <View style={isDesktop ? { width: '100%', maxWidth: 500 } as any : undefined}>
+        <View style={isDesktop ? { width: '100%', maxWidth: 680 } as any : undefined}>
           <View style={styles.cardContainer}>
             <LinearGradient colors={['#ffffff', '#f8fafc']} style={styles.card}>
               <LinearGradient colors={Colors.gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.cardHeader}>
@@ -157,18 +155,26 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: '#1e3a8a',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
-  headerTitle: {
-    fontSize: 20,
+  headerDesktop: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  headerTitleFB: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 1,
+    color: '#050505',
   },
   content: {
     padding: 16,
@@ -179,9 +185,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 24,
-    ...Colors.shadows.lg,
     borderWidth: 1,
-    borderColor: Colors.border + '60',
+    borderColor: Colors.border + '40',
   },
   cardHeader: {
     marginHorizontal: -24,
@@ -263,11 +268,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
   },
   qrLabel: {
     fontSize: 14,
@@ -301,11 +303,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
   },
   infoBoxTitle: {
     fontSize: 18,

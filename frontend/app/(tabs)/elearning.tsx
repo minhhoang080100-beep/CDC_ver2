@@ -184,10 +184,7 @@ export default function ElearningScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
-                    <BookOpen color="#ffffff" size={24} />
-                    <Text style={styles.headerTitle}>ĐÀO TẠO TRỰC TUYẾN</Text>
-                </View>
+
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
@@ -197,16 +194,13 @@ export default function ElearningScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <BookOpen color="#ffffff" size={24} />
-                <Text style={styles.headerTitle}>ĐÀO TẠO TRỰC TUYẾN</Text>
-            </View>
+
 
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={[
                     styles.scrollContent,
-                    isDesktop && { maxWidth: 750, alignSelf: 'center' as any, width: '100%' as any },
+                    isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any },
                     !isDesktop && { paddingBottom: 110 } // Tăng padding bottom cho mobile
                 ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -428,23 +422,36 @@ export default function ElearningScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: Colors.background },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
-        backgroundColor: Colors.header.background,
-        paddingHorizontal: 16, paddingVertical: Platform.OS === 'web' ? 16 : 14,
-        flexDirection: 'row', alignItems: 'center', gap: 10,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
     },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', letterSpacing: 1 },
+    headerDesktop: {
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+    },
+    headerTitleFB: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#050505',
+    },
     scrollContent: { padding: Platform.select({ ios: 12, android: 12, default: 16 }), gap: 14 },
     empty: { alignItems: 'center', paddingVertical: 80, gap: 12 },
     emptyTitle: { fontSize: 18, fontWeight: '600', color: '#94a3b8' },
     emptySub: { fontSize: 14, color: '#cbd5e1', textAlign: 'center' },
     // Course Card
     courseCard: {
-        backgroundColor: '#fff', borderRadius: 14, padding: Platform.select({ ios: 14, android: 14, default: 16 }),
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+        backgroundColor: '#fff', borderRadius: 8, padding: 16,
+        borderWidth: 1, borderColor: Colors.border + '40',
+        marginBottom: 12,
     },
     courseCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
     categoryBadge: {

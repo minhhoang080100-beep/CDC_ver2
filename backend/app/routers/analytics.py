@@ -17,8 +17,8 @@ async def get_analytics(current_user: dict = Depends(get_current_user)):
     manager_dept = MANAGER_ROLE_TO_DEPT.get(current_user["role"])
 
     user_query = {"department": manager_dept} if is_manager else {}
-    post_query = {"targetDepartments": manager_dept} if is_manager else {}
-    activity_query = {"targetDepartments": manager_dept} if is_manager else {}
+    post_query = {"targetDepartments": manager_dept, "isDeleted": {"$ne": True}} if is_manager else {"isDeleted": {"$ne": True}}
+    activity_query = {"targetDepartments": manager_dept, "isDeleted": {"$ne": True}} if is_manager else {"isDeleted": {"$ne": True}}
     
     # 1. User stats
     total_users = await db.users.count_documents(user_query)
@@ -45,7 +45,7 @@ async def get_analytics(current_user: dict = Depends(get_current_user)):
         pending_feedbacks = total_feedbacks - resolved_feedbacks
     
     # 5. Posts by Category for Chart
-    pipeline_posts = [{"$match": post_query}] if is_manager else []
+    pipeline_posts = [{"$match": post_query}]
     pipeline_posts.append({"$group": {"_id": "$category", "count": {"$sum": 1}}})
     posts_by_category_cursor = db.posts.aggregate(pipeline_posts)
     posts_by_category = [{"name": doc["_id"], "count": doc["count"]} async for doc in posts_by_category_cursor]

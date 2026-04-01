@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
@@ -9,6 +10,7 @@ from app.core.cloudinary_utils import delete_cloudinary_asset
 from app.models.elearning import (
     CourseCreate, CourseUpdate, QuizCreate, QuizUpdate, QuizSubmission
 )
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -21,11 +23,11 @@ router = APIRouter()
 async def list_courses(
     skip: int = 0,
     limit: int = 50,
-    status: str = None,
-    category: str = None,
+    status: Optional[str] = None,
+    category: Optional[str] = None,
     current_user=Depends(get_current_user)
 ):
-    query = {}
+    query = {"isDeleted": {"$ne": True}}
     if status:
         query["status"] = status
     if category:
@@ -98,7 +100,7 @@ async def get_my_courses(current_user=Depends(get_current_user)):
     user_dept = current_user.get("department", "")
 
     # 1. Fetch all published courses
-    courses = await db.courses.find({"status": "PUBLISHED"}).sort("createdAt", -1).to_list(500)
+    courses = await db.courses.find({"status": "PUBLISHED", "isDeleted": {"$ne": True}}).sort("createdAt", -1).to_list(500)
     if not courses:
         return []
 
@@ -158,7 +160,7 @@ async def get_my_courses(current_user=Depends(get_current_user)):
 
 @router.get("/{course_id}")
 async def get_course(course_id: str, current_user=Depends(get_current_user)):
-    course = await db.courses.find_one({"_id": ObjectId(course_id)})
+    course = await db.courses.find_one({"_id": ObjectId(course_id), "isDeleted": {"$ne": True}})
     if not course:
         raise HTTPException(404, "Khóa học không tồn tại")
 
@@ -207,11 +209,18 @@ async def create_course(data: CourseCreate, current_user=Depends(get_current_use
         "targetDepartments": data.targetDepartments,
         "lessons": [l.dict() for l in data.lessons],
         "status": "PUBLISHED",
+        "isDeleted": False,
         "createdBy": str(current_user["_id"]),
         "creatorName": current_user.get("fullName", ""),
         "createdAt": datetime.now(timezone.utc),
     }
     result = await db.courses.insert_one(course)
+
+    # WebSocket broadcast
+    await manager.broadcast(
+        {"type": "new_course", "title": f"Khóa học mới: {data.title}", "data": {"courseId": str(result.inserted_id)}}
+    )
+
     return {"id": str(result.inserted_id), "message": "Tạo khóa học thành công"}
 
 
@@ -219,7 +228,7 @@ async def create_course(data: CourseCreate, current_user=Depends(get_current_use
 async def update_course(course_id: str, data: CourseUpdate, background_tasks: BackgroundTasks, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền chỉnh sửa")
 
-    existing_course = await db.courses.find_one({"_id": ObjectId(course_id)})
+    existing_course = await db.courses.find_one({"_id": ObjectId(course_id), "isDeleted": {"$ne": True}})
     if not existing_course:
         raise HTTPException(status_code=404, detail="Khóa học không tồn tại")
 
@@ -250,16 +259,21 @@ async def update_course(course_id: str, data: CourseUpdate, background_tasks: Ba
 async def delete_course(course_id: str, background_tasks: BackgroundTasks, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xóa")
 
-    existing_course = await db.courses.find_one({"_id": ObjectId(course_id)})
-    if existing_course:
-        for l in existing_course.get("lessons", []):
-            url = l.get("url")
-            if url and "cloudinary.com" in url:
-                background_tasks.add_task(delete_cloudinary_asset, url)
+    existing_course = await db.courses.find_one({"_id": ObjectId(course_id), "isDeleted": {"$ne": True}})
+    if not existing_course:
+        raise HTTPException(status_code=404, detail="Khóa học không tồn tại")
 
-    await db.courses.delete_one({"_id": ObjectId(course_id)})
-    await db.quizzes.delete_many({"courseId": course_id})
-    await db.enrollments.delete_many({"courseId": course_id})
+    # Cleanup old assets
+    for l in existing_course.get("lessons", []):
+        url = l.get("url")
+        if url and "cloudinary.com" in url:
+            background_tasks.add_task(delete_cloudinary_asset, url)
+
+    # Soft delete course
+    await db.courses.update_one(
+        {"_id": ObjectId(course_id)},
+        {"$set": {"isDeleted": True, "deletedAt": datetime.now(timezone.utc)}}
+    )
     return {"message": "Đã xóa khóa học"}
 
 
@@ -460,7 +474,10 @@ async def submit_quiz(quiz_id: str, data: QuizSubmission, current_user=Depends(g
 @router.delete("/quizzes/{quiz_id}")
 async def delete_quiz(quiz_id: str, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xóa")
-    await db.quizzes.delete_one({"_id": ObjectId(quiz_id)})
+    await db.quizzes.update_one(
+        {"_id": ObjectId(quiz_id)},
+        {"$set": {"isDeleted": True, "deletedAt": datetime.now(timezone.utc)}}
+    )
     return {"message": "Đã xóa đề thi"}
 
 
@@ -472,7 +489,7 @@ async def delete_quiz(quiz_id: str, current_user=Depends(get_current_user)):
 async def get_course_stats(course_id: str, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xem thống kê")
 
-    course = await db.courses.find_one({"_id": ObjectId(course_id)})
+    course = await db.courses.find_one({"_id": ObjectId(course_id), "isDeleted": {"$ne": True}})
     if not course:
         raise HTTPException(404, "Khóa học không tồn tại")
 

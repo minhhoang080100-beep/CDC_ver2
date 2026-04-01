@@ -10,7 +10,8 @@ import { lightColors } from '../contexts/ThemeContext';
 export const Colors = {
     // ─── Core (mapped from ThemeContext lightColors) ──────────
     primary: lightColors.primary,
-    primaryDark: '#1d4ed8',  // deeper shade for pressed states
+    primaryLight: lightColors.primaryLight,
+    primaryDark: '#0050e6',  // deeper shade for pressed states
     secondary: '#06b6d4',
 
     background: lightColors.background,
@@ -25,7 +26,7 @@ export const Colors = {
     },
 
     border: lightColors.border,
-    divider: '#e2e8f0',
+    divider: '#ced0d4',
 
     status: {
         success: lightColors.success,
@@ -35,14 +36,14 @@ export const Colors = {
     },
 
     header: {
-        background: '#1e3a8a',
-        text: '#ffffff',
+        background: '#ffffff',
+        text: '#050505',
     },
 
     gradients: {
-        primary: ['#0891b2', '#0e7490'] as const,
-        header: ['#1e3a8a', '#172554'] as const,
-        auth: ['#1e3a8a', '#0f172a'] as const,
+        primary: ['#0866ff', '#0050e6'] as const,
+        header: ['#ffffff', '#ffffff'] as const,
+        auth: ['#0866ff', '#0050e6'] as const,
     },
 
     shadows: {

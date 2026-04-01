@@ -14,6 +14,9 @@ class ActivityCreate(BaseModel):
 class CheckInRequest(BaseModel):
     qr_data: str # Contains JSON string from QR code
 
+class SelfCheckinRequest(BaseModel):
+    qr_data: str # Contains JSON string scanned from activity QR
+
 class ActivityResponse(BaseModel):
     id: str
     name: str

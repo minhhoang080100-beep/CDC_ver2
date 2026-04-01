@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { api } from '../../utils/api';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
+import { Colors } from '../../constants/Colors';
 
 interface Feedback {
   id: string;
@@ -63,7 +64,7 @@ export default function FeedbackScreen() {
   const fetchFeedback = async () => {
     setListLoading(true);
     try {
-      const response = await api.get('/api/feedback', {
+      const response = await api.get('/api/feedback?mine=true', {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFeedbackList(response.data?.items || response.data || []);
@@ -179,11 +180,9 @@ export default function FeedbackScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>LẮNG NGHE & PHẢN HỒI</Text>
-      </View>
 
-      <View style={[styles.tabContainer, isDesktop && { maxWidth: 800, alignSelf: 'center' as any, width: '100%' as any }]}>
+
+      <View style={[styles.tabContainer, isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'send' && styles.activeTab]}
           onPress={() => setActiveTab('send')}
@@ -207,7 +206,7 @@ export default function FeedbackScreen() {
           style={styles.formContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <ScrollView contentContainerStyle={styles.formContent}>
+          <ScrollView contentContainerStyle={[styles.formContent, isDesktop && { maxWidth: 680, alignSelf: 'center', width: '100%' }]}>
             <Text style={styles.label}>Tiêu đề</Text>
             <TextInput
               style={styles.input}
@@ -234,7 +233,7 @@ export default function FeedbackScreen() {
               <Switch
                 value={isAnonymous}
                 onValueChange={setIsAnonymous}
-                trackColor={{ false: '#cbd5e1', true: '#0891b2' }}
+                trackColor={{ false: '#cbd5e1', true: Colors.primary }}
                 thumbColor={isAnonymous ? '#ffffff' : '#f4f4f5'}
               />
             </View>
@@ -256,7 +255,7 @@ export default function FeedbackScreen() {
           data={feedbackList}
           renderItem={renderFeedback}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any }]}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>Chưa có ý kiến nào</Text>
@@ -339,18 +338,26 @@ export default function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: '#1e3a8a',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
-  headerTitle: {
-    fontSize: 20,
+  headerDesktop: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  headerTitleFB: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 1,
+    color: '#050505',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -426,7 +433,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flexDirection: 'row',
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 8,
     justifyContent: 'center',
@@ -448,14 +455,11 @@ const styles = StyleSheet.create({
   },
   feedbackCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
   },
   feedbackHeader: {
     flexDirection: 'row',
@@ -628,7 +632,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   replyButton: {
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',

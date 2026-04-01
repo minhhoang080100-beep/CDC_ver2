@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
@@ -6,6 +7,7 @@ from app.core.security import get_current_user
 from app.core.permissions import resolve_target_departments, require_admin
 from app.core.push import send_bulk_push_notifications_async
 from app.models.honor import CampaignCreate, CampaignUpdate, NominationCreate
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -16,11 +18,11 @@ router = APIRouter()
 async def get_honor_board(current_user=Depends(get_current_user)):
     """Get all approved nominations grouped by campaign for public display"""
     campaigns = []
-    cursor = db.campaigns.find({}).sort("createdAt", -1)
+    cursor = db.campaigns.find({"isDeleted": {"$ne": True}}).sort("createdAt", -1)
     async for c in cursor:
         cid = str(c["_id"])
         approved = []
-        nom_cursor = db.nominations.find({"campaignId": cid, "status": "APPROVED"}).sort("createdAt", -1)
+        nom_cursor = db.nominations.find({"campaignId": cid, "status": "APPROVED", "isDeleted": {"$ne": True}}).sort("createdAt", -1)
         async for n in nom_cursor:
             approved.append({
                 "id": str(n["_id"]),
@@ -46,7 +48,7 @@ async def get_honor_board(current_user=Depends(get_current_user)):
 
 @router.post("/nominate")
 async def create_nomination(data: NominationCreate, current_user=Depends(get_current_user)):
-    campaign = await db.campaigns.find_one({"_id": ObjectId(data.campaignId)})
+    campaign = await db.campaigns.find_one({"_id": ObjectId(data.campaignId), "isDeleted": {"$ne": True}})
     if not campaign:
         raise HTTPException(404, "Chiến dịch không tồn tại")
     if campaign.get("status") != "ACTIVE":
@@ -109,7 +111,10 @@ async def review_nomination(
 async def delete_nomination(nomination_id: str, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xóa")
 
-    await db.nominations.delete_one({"_id": ObjectId(nomination_id)})
+    await db.nominations.update_one(
+        {"_id": ObjectId(nomination_id)},
+        {"$set": {"isDeleted": True, "deletedAt": datetime.now(timezone.utc)}}
+    )
     return {"message": "Đã xóa đề cử"}
 
 
@@ -119,10 +124,10 @@ async def delete_nomination(nomination_id: str, current_user=Depends(get_current
 async def list_campaigns(
     skip: int = 0,
     limit: int = 50,
-    status: str = None,
+    status: Optional[str] = None,
     current_user=Depends(get_current_user)
 ):
-    query = {}
+    query = {"isDeleted": {"$ne": True}}
     if status:
         query["status"] = status
 
@@ -233,6 +238,12 @@ async def create_campaign(data: CampaignCreate, current_user=Depends(get_current
         "createdAt": datetime.now(timezone.utc),
     }
     result = await db.campaigns.insert_one(campaign)
+
+    # WebSocket broadcast
+    await manager.broadcast(
+        {"type": "new_honor", "title": f"Đề cử mới: {data.title}", "data": {"campaignId": str(result.inserted_id)}}
+    )
+
     return {"id": str(result.inserted_id), "message": "Tạo chiến dịch thành công"}
 
 
@@ -256,8 +267,16 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user=D
 async def delete_campaign(campaign_id: str, current_user=Depends(get_current_user)):
     require_admin(current_user, "Không có quyền xóa")
 
-    await db.campaigns.delete_one({"_id": ObjectId(campaign_id)})
-    await db.nominations.delete_many({"campaignId": campaign_id})
+    # Soft delete campaign
+    await db.campaigns.update_one(
+        {"_id": ObjectId(campaign_id)},
+        {"$set": {"isDeleted": True, "deletedAt": datetime.now(timezone.utc)}}
+    )
+    # Soft delete nominations
+    await db.nominations.update_many(
+        {"campaignId": campaign_id},
+        {"$set": {"isDeleted": True}}
+    )
     return {"message": "Đã xóa chiến dịch"}
 
 

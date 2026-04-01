@@ -290,9 +290,7 @@ export default function SurveysScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>KHẢO SÁT</Text>
-                </View>
+
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
@@ -306,18 +304,7 @@ export default function SurveysScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <ClipboardList color="#ffffff" size={24} />
-                    <Text style={styles.headerTitle}>KHẢO SÁT</Text>
-                </View>
-                {isAdmin && (
-                    <TouchableOpacity style={styles.createButton} onPress={() => setCreateModalVisible(true)}>
-                        <Plus color="#ffffff" size={20} />
-                        <Text style={styles.createButtonText}>Tạo khảo sát</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
+
 
             <FlatList
                 data={[...activeSurveys, ...completedSurveys, ...expiredSurveys]}
@@ -325,18 +312,37 @@ export default function SurveysScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={[
                     styles.listContent,
-                    isDesktop && { maxWidth: 700, alignSelf: 'center' as any, width: '100%' as any },
+                    isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any },
                     !isDesktop && { paddingBottom: 110 } // Tăng padding bottom
                 ]}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
                 ListHeaderComponent={
-                    activeSurveys.length > 0 ? (
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>📋 Khảo sát cần thực hiện ({activeSurveys.length})</Text>
-                        </View>
-                    ) : null
+                    <View>
+                        {isAdmin && (
+                            <View style={[isDesktop && { paddingTop: 16 }, !isDesktop && { paddingTop: 8, paddingHorizontal: 0 }]}>
+                                <TouchableOpacity 
+                                    style={[styles.createPostBox, isDesktop && { borderWidth: 1, borderColor: Colors.border + '40', borderRadius: 8 }]}
+                                    onPress={() => setCreateModalVisible(true)}
+                                >
+                                    <View style={styles.createPostHeader}>
+                                        <View style={styles.avatarMini}>
+                                            <Text style={styles.avatarMiniText}>{user?.fullName?.charAt(0) || 'U'}</Text>
+                                        </View>
+                                        <View style={styles.createPostInput}>
+                                            <Text style={styles.createPostPlaceholder}>Tạo bài khảo sát mới...</Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        {activeSurveys.length > 0 && (
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>📋 Khảo sát cần thực hiện ({activeSurveys.length})</Text>
+                            </View>
+                        )}
+                    </View>
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -369,42 +375,27 @@ export default function SurveysScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8fafc',
+        backgroundColor: Colors.background,
     },
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    header: {
-        backgroundColor: '#1e3a8a',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#ffffff',
-        letterSpacing: 1,
-    },
+    createPostBox: { backgroundColor: '#ffffff', padding: 16, marginBottom: 8 },
+    createPostHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    avatarMini: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+    avatarMiniText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
+    createPostInput: { flex: 1, backgroundColor: '#f0f2f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'center' },
+    createPostPlaceholder: { color: '#65676B', fontSize: 16 },
     createButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: Colors.primary,
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
     },
     createButtonText: {
         color: '#ffffff',
@@ -425,15 +416,13 @@ const styles = StyleSheet.create({
     },
     surveyCard: {
         backgroundColor: '#ffffff',
-        borderRadius: 14,
-        padding: Platform.select({ ios: 14, android: 14, default: 16 }),
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 3,
+        borderRadius: 8,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: Colors.border + '40',
         borderLeftWidth: 4,
         borderLeftColor: Colors.primary,
+        marginBottom: 12,
     },
     surveyCardResponded: {
         borderLeftColor: Colors.status.success,

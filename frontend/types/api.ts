@@ -39,15 +39,25 @@ export interface Post {
     content: string;
     summary: string;
     category: string;
-    image?: string;
+    image?: string;        // @deprecated — use images[]
+    images: string[];
     authorId: string;
     authorName: string;
     authorDepartment: string;
     targetDepartments: string[];
     likes: string[];
-    commentCount: number;
+    comments: PostComment[];
     createdAt: string;
     updatedAt: string;
+}
+
+export interface PostComment {
+    id: string;
+    userId: string;
+    userName: string;
+    userDepartment: string;
+    content: string;
+    createdAt: string;
 }
 
 export interface Comment {
@@ -55,7 +65,7 @@ export interface Comment {
     postId: string;
     userId: string;
     userName: string;
-    userAvatar?: string;
+    userDepartment: string;
     content: string;
     createdAt: string;
 }
@@ -64,22 +74,32 @@ export interface Comment {
 //  ACTIVITIES
 // ═══════════════════════════════════════════════════════════════
 
-export type ActivityStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export interface ActivityRegistration {
+    userId: string;
+    userName: string;
+    registeredAt: string;
+}
+
+export interface ActivityAttendance {
+    userId: string;
+    userName: string;
+    unionId: string;
+    checkedInAt: string;
+    checkedInBy: string;
+}
 
 export interface Activity {
     id: string;
-    title: string;
+    name: string;
     description: string;
     location: string;
     time: string;
-    endTime?: string;
+    type: string;
     image?: string;
     targetDepartments: string[];
-    registeredUsers: string[];
-    attendedUsers: string[];
-    status: ActivityStatus;
-    authorId: string;
-    authorName: string;
+    registrations: ActivityRegistration[];
+    attendances: ActivityAttendance[];
+    createdBy: string;
     createdAt: string;
 }
 
@@ -101,14 +121,16 @@ export interface Survey {
     id: string;
     title: string;
     description?: string;
-    questions: SurveyQuestion[];
+    questions?: SurveyQuestion[];
+    questionCount?: number;
     isAnonymous: boolean;
     deadline?: string;
     targetDepartments: string[];
     status: SurveyStatus;
     responseCount: number;
-    authorId: string;
-    authorName: string;
+    hasResponded: boolean;
+    createdBy: string;
+    creatorName: string;
     createdAt: string;
 }
 
@@ -119,13 +141,15 @@ export interface Survey {
 export interface Course {
     id: string;
     title: string;
-    description: string;
-    content: string;
+    description?: string;
+    category?: string;
+    courseType: 'MANDATORY' | 'OPTIONAL';
+    status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
     targetDepartments: string[];
-    enrollmentCount: number;
+    lessonCount: number;
     quizCount: number;
-    authorId: string;
-    authorName: string;
+    enrollmentCount: number;
+    creatorName?: string;
     createdAt: string;
 }
 
@@ -149,16 +173,22 @@ export interface QuizQuestion {
 //  HONORS
 // ═══════════════════════════════════════════════════════════════
 
+export type CampaignType = 'INDIVIDUAL' | 'TEAM';
 export type CampaignStatus = 'ACTIVE' | 'CLOSED';
 export type NominationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Campaign {
     id: string;
     title: string;
-    description: string;
+    description?: string;
+    type: CampaignType;
+    startDate?: string;
+    endDate?: string;
     targetDepartments: string[];
     status: CampaignStatus;
+    creatorName?: string;
     nominationCount: number;
+    approvedCount: number;
     createdAt: string;
 }
 
@@ -189,22 +219,27 @@ export interface Notification {
     createdAt: string;
 }
 
+export type FeedbackStatus = 'PENDING' | 'IN_PROGRESS' | 'REPLIED' | 'RESOLVED' | 'CLOSED';
+
 export interface Feedback {
     id: string;
-    senderId: string;
-    senderName: string;
+    subject: string;
     content: string;
-    category: string;
+    senderId?: string;
+    senderName?: string;
+    senderDepartment?: string;
+    isAnonymous: boolean;
+    status: FeedbackStatus;
     targetRecipients: string[];
     replies: FeedbackReply[];
     createdAt: string;
 }
 
 export interface FeedbackReply {
-    responderId: string;
-    responderName: string;
+    userId: string;
+    userName: string;
     content: string;
-    createdAt: string;
+    repliedAt: string;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -216,10 +251,9 @@ export interface Document {
     title: string;
     category: string;
     fileUrl: string;
-    fileType: string;
+    fileSize: number;
     targetDepartments: string[];
-    authorId: string;
-    authorName: string;
+    uploadedBy: string;
     createdAt: string;
 }
 
@@ -249,8 +283,7 @@ export interface UnionMember {
 export interface PaginatedResponse<T> {
     items: T[];
     total: number;
-    page: number;
-    limit: number;
+    hasMore: boolean;
 }
 
 export interface ApiResponse<T = void> {

@@ -5,6 +5,7 @@ from bson import ObjectId
 from app.core.database import db
 from app.core.security import get_current_user, validate_object_id
 from app.models.feedback import FeedbackCreate, FeedbackReply, FeedbackStatusUpdate
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -12,9 +13,13 @@ router = APIRouter()
 async def get_feedback(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    mine: bool = Query(False, description="If true, only return feedback sent by the current user"),
     current_user: dict = Depends(get_current_user)
 ):
-    if current_user["role"] == "SUPER_ADMIN":
+    if mine:
+        # User-facing: only show their own sent feedback
+        query = {"senderId": current_user["_id"]}
+    elif current_user["role"] == "SUPER_ADMIN":
         query = {}
     elif current_user["role"].startswith("BCH_"):
         query = {"targetRecipients": current_user["_id"]}
@@ -72,6 +77,11 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
     }
     
     result = await db.feedback.insert_one(feedback_data)
+
+    # WebSocket broadcast to BCH recipients
+    await manager.broadcast(
+        {"type": "new_feedback", "title": f"Góp ý mới: {feedback.subject}", "data": {"feedbackId": str(result.inserted_id)}}
+    )
     
     return {
         "id": str(result.inserted_id),

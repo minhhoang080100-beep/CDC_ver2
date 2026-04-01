@@ -11,6 +11,7 @@ import {
   Animated,
   TextInput,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -19,9 +20,10 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useToast } from '../../contexts/ToastContext';
 import { format } from 'date-fns';
-import { Plus, Edit2, Trash2, Heart, MessageCircle, Search } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Heart, MessageCircle, Search, User, Image as ImageIcon, Share2, Globe, MoreHorizontal } from 'lucide-react-native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreatePostModal from '../../components/CreatePostModal';
+import PostDetailModal from '../../components/PostDetailModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
@@ -32,7 +34,7 @@ interface Post {
   content: string;
   summary: string;
   category: string;
-  image?: string;
+  images?: string[];
   authorId: string;
   authorName: string;
   authorDepartment: string;
@@ -42,6 +44,83 @@ interface Post {
   createdAt: string;
   updatedAt: string;
 }
+
+const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolean }) => {
+  if (!images || images.length === 0) return null;
+
+  if (images.length === 1) {
+    return (
+      <Image source={{ uri: images[0] }} style={styles.postImage} />
+    );
+  }
+
+  if (images.length === 2) {
+    return (
+      <View style={styles.imageGrid}>
+        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
+        <View style={styles.gridSpace} />
+        <Image source={{ uri: images[1] }} style={styles.gridImageHalf} />
+      </View>
+    );
+  }
+  
+  if (images.length === 3) {
+    return (
+      <View style={styles.imageGrid}>
+        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
+        <View style={styles.gridSpace} />
+        <View style={styles.gridColumnHalf}>
+          <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+          <View style={styles.gridSpaceH} />
+          <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+        </View>
+      </View>
+    );
+  }
+
+  if (images.length === 4) {
+    return (
+      <View style={styles.imageGrid}>
+        <View style={styles.gridColumnHalf}>
+          <Image source={{ uri: images[0] }} style={styles.gridImageQuarter} />
+          <View style={styles.gridSpaceH} />
+          <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+        </View>
+        <View style={styles.gridSpace} />
+        <View style={styles.gridColumnHalf}>
+          <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+          <View style={styles.gridSpaceH} />
+          <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
+        </View>
+      </View>
+    );
+  }
+
+    // 5 or more images
+  return (
+    <View style={[styles.imageGrid, { flexDirection: 'column', height: 320 }]}>
+      <View style={{ flex: 1.5, flexDirection: 'row', marginBottom: 2 }}>
+        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
+        <View style={styles.gridSpace} />
+        <Image source={{ uri: images[1] }} style={styles.gridImageHalf} />
+      </View>
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+        <View style={styles.gridSpace} />
+        <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
+        <View style={styles.gridSpace} />
+        <View style={styles.gridImageQuarterContainer}>
+          <Image source={{ uri: images[4] }} style={styles.gridImageQuarter} />
+          {images.length > 5 && (
+            <View style={styles.moreImagesOverlay}>
+              <Text style={styles.moreImagesText}>+{images.length - 4}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
+  );
+};
 
 const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
   const animatedValue = React.useRef(new Animated.Value(0.5)).current;
@@ -64,14 +143,13 @@ const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridCo
   }, []);
 
   const renderSkeletonItem = (item: number) => (
-    <Animated.View style={[styles.postCard, { opacity: animatedValue }, isDesktop && styles.postCardDesktop, { marginBottom: isDesktop ? 16 : 12 }]} key={item}>
-      <View style={[styles.postImage, isDesktop && styles.postImageDesktop, { backgroundColor: Colors.divider }]} />
-      <View style={[styles.postContent, isDesktop && styles.postContentDesktop]}>
+    <Animated.View style={[styles.postCard, { opacity: animatedValue }, { marginBottom: 12, maxWidth: 680, alignSelf: 'center', width: '100%' }]} key={item}>
+      <View style={[styles.postImage, { backgroundColor: Colors.divider }]} />
+      <View style={{ flex: 1, padding: 14, justifyContent: 'center' }}>
         <View style={{ width: 80, height: 24, backgroundColor: Colors.divider, borderRadius: 12, marginBottom: 12 }} />
         <View style={{ width: '80%', height: 20, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 8 }} />
         <View style={{ width: '100%', height: 16, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 4 }} />
-        <View style={{ width: '90%', height: 16, backgroundColor: Colors.divider, borderRadius: 4, marginBottom: 16 }} />
-        <View style={{ width: 120, height: 16, backgroundColor: Colors.divider, borderRadius: 4 }} />
+        <View style={{ width: '60%', height: 16, backgroundColor: Colors.divider, borderRadius: 4 }} />
       </View>
     </Animated.View>
   );
@@ -96,6 +174,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPostView, setSelectedPostView] = useState<Post | null>(null);
 
   const {
     data,
@@ -175,107 +254,112 @@ export default function HomeScreen() {
     });
   };
 
-  const renderPost = ({ item }: { item: Post }) => (
-    <TouchableOpacity
-      style={{ flex: 1 }}
-      activeOpacity={0.7}
-      onPress={() => {
-        router.push({
-          pathname: '/(tabs)/post-detail' as any,
-          params: {
-            title: item.title,
-            content: item.content,
-            summary: item.summary,
-            category: item.category,
-            authorName: item.authorName,
-            createdAt: item.createdAt,
-            image: item.image,
-            id: item.id,
-            likes: item.likes ? JSON.stringify(item.likes) : '[]',
-            comments: item.comments ? JSON.stringify(item.comments) : '[]',
-          },
-        });
-      }}
-    >
-      <WebHoverCard style={[styles.postCard, isDesktop && styles.postCardDesktop]}>
-        {item.image && (
-          <Image source={{ uri: item.image }} style={[styles.postImage, isDesktop && styles.postImageDesktop]} />
-        )}
-        <View style={[styles.postContent, isDesktop && styles.postContentDesktop]}>
-          <View style={styles.postHeader}>
-            <View
-              style={[
-                styles.categoryBadge,
-                { backgroundColor: getCategoryColor(item.category) },
-              ]}
-            >
-              <Text style={styles.categoryText}>{item.category}</Text>
-            </View>
-            <Text style={styles.postDate}>
-              {format(new Date(item.createdAt), 'dd/MM/yyyy')}
-            </Text>
-          </View>
-          <Text style={[styles.postTitle, isDesktop && styles.postTitleDesktop]} numberOfLines={2}>{item.title}</Text>
-          <Text style={[styles.postSummary, isDesktop && { marginBottom: 4 }]} numberOfLines={isDesktop ? 1 : 3}>{item.summary}</Text>
-          <View style={[styles.postFooter, isDesktop && styles.postFooterDesktop]}>
-            <Text style={[styles.postAuthor, { flex: 1, paddingRight: 16 }]} numberOfLines={1}>
-              {item.authorName} - {getDepartmentName(item.authorDepartment)}
-            </Text>
+  const navigateToPost = (item: Post) => {
+    setSelectedPostView(item);
+  };
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Heart size={16} color={item.likes?.includes(user?.id || '') ? Colors.status.error : Colors.text.secondary} fill={item.likes?.includes(user?.id || '') ? Colors.status.error : 'transparent'} />
-                  <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.likes?.length || 0}</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MessageCircle size={16} color={Colors.text.secondary} />
-                  <Text style={{ fontSize: 13, color: Colors.text.secondary, fontWeight: '500' }}>{item.comments?.length || 0}</Text>
+  const handleToggleLike = async (post: Post) => {
+    try {
+      await api.post(`/api/posts/${post.id}/like`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+    } catch (error) {
+      console.error('Lỗi khi thả tim:', error);
+      showToast({ message: 'Không thể tải thao tác thả tim.', type: 'error' });
+    }
+  };
+
+  const handleShare = async (post: Post) => {
+    try {
+      await Share.share({
+        message: `${post.title}\nXem chi tiết tại hệ thống nội bộ CDC.`,
+        title: post.title,
+      });
+    } catch (error) {
+      console.error('Lỗi khi chia sẻ:', error);
+    }
+  };
+
+  const renderPost = ({ item }: { item: Post }) => (
+    <View style={{ flex: 1, marginBottom: 8, maxWidth: 680, alignSelf: 'center', width: '100%' }}>
+      <WebHoverCard style={styles.postCard}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => navigateToPost(item)}
+        >
+          {/* Header */}
+          <View style={styles.postHeader}>
+            <View style={styles.postHeaderLeft}>
+              <View style={styles.authorAvatar}>
+                <User size={24} color="#bac2c9" />
+              </View>
+              <View>
+                <Text style={styles.postAuthorName}>{item.authorName}</Text>
+                <View style={styles.postMetaRow}>
+                  <Text style={styles.postDate}>{format(new Date(item.createdAt), 'dd/MM/yyyy')} • </Text>
+                  <Globe size={12} color={Colors.text.secondary} />
+                  <Text style={styles.categoryTag}> • {item.category}</Text>
                 </View>
               </View>
+            </View>
 
-              {isDesktop && canEditDelete(item) && (
-                <>
-                  <View style={{ width: 1, height: 14, backgroundColor: Colors.divider }} />
-                  <View style={styles.actionsRowInline}>
-                    <TouchableOpacity
-                      style={styles.actionIconBtnEdit}
-                      onPress={() => handleEdit(item)}
-                    >
-                      <Edit2 color="#3b82f6" size={14} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionIconBtnDelete}
-                      onPress={() => handleDelete(item.id)}
-                    >
-                      <Trash2 color="#ef4444" size={14} />
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-            </View>
+            {canEditDelete(item) && (
+               <View style={{flexDirection: 'row', gap: 16, alignItems: 'center'}}>
+                 <TouchableOpacity onPress={() => handleEdit(item)}>
+                   <Edit2 color={Colors.text.secondary} size={18} />
+                 </TouchableOpacity>
+                 <TouchableOpacity onPress={() => handleDelete(item.id)}>
+                   <Trash2 color={Colors.text.secondary} size={18} />
+                 </TouchableOpacity>
+               </View>
+            )}
           </View>
-          {(!isDesktop) && canEditDelete(item) && (
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleEdit(item)}
-              >
-                <Edit2 color="#3b82f6" size={18} />
-                <Text style={styles.actionTextEdit}>Sửa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleDelete(item.id)}
-              >
-                <Trash2 color="#ef4444" size={18} />
-                <Text style={styles.actionTextDelete}>Xóa</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+
+          {/* Content Text */}
+          <View style={styles.postTextContent}>
+            <Text style={styles.postTitle}>{item.title}</Text>
+            {item.summary && item.summary !== item.title ? (
+                <Text style={styles.postSummary} numberOfLines={3}>{item.summary}</Text>
+            ) : null}
+          </View>
+
+          {/* Images */}
+          <ImageGrid images={item.images || []} isDesktop={isDesktop} />
+        </TouchableOpacity>
+
+        {/* Stats */}
+        <View style={styles.postStats}>
+          <View style={styles.statsLeft}>
+             <View style={styles.likeIconCircle}>
+                <Heart size={10} color="#fff" fill="#fff" />
+             </View>
+             <Text style={styles.statsText}>{item.likes?.length || 0}</Text>
+          </View>
+          <View style={styles.statsRight}>
+             <Text style={styles.statsText}>{item.comments?.length || 0} bình luận</Text>
+          </View>
+        </View>
+
+        <View style={styles.postActionDivider} />
+
+        {/* Actions */}
+        <View style={styles.postActions}>
+           <TouchableOpacity style={styles.actionBtn} onPress={() => handleToggleLike(item)}>
+              <Heart size={20} color={item.likes?.includes(user?.id || '') ? Colors.primary : Colors.text.secondary} fill={item.likes?.includes(user?.id || '') ? Colors.primary : 'transparent'} />
+              <Text style={[styles.actionBtnText, item.likes?.includes(user?.id || '') && {color: Colors.primary}]}>Thích</Text>
+           </TouchableOpacity>
+           <TouchableOpacity style={styles.actionBtn} onPress={() => navigateToPost(item)}>
+              <MessageCircle size={20} color={Colors.text.secondary} />
+              <Text style={styles.actionBtnText}>Bình luận</Text>
+           </TouchableOpacity>
+           <TouchableOpacity style={styles.actionBtn} onPress={() => handleShare(item)}>
+              <Share2 size={20} color={Colors.text.secondary} />
+              <Text style={styles.actionBtnText}>Chia sẻ</Text>
+           </TouchableOpacity>
         </View>
       </WebHoverCard>
-    </TouchableOpacity>
+    </View>
   );
 
   const getDepartmentName = (dept: string) => {
@@ -299,9 +383,7 @@ export default function HomeScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-          <Text style={styles.headerTitle}>BẢNG TIN CÔNG ĐOÀN</Text>
-        </View>
+
         <SkeletonLoader isDesktop={isDesktop} gridColumns={gridColumns} />
       </SafeAreaView>
     );
@@ -309,43 +391,57 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-        <Text style={styles.headerTitle}>BẢNG TIN CÔNG ĐOÀN</Text>
-        {canCreatePost && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-          >
-            <Plus color={Colors.text.light} size={24} />
-          </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%', marginTop: 8 }]}>
-        <View style={styles.searchInputWrapper}>
-          <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm bài viết..."
-            placeholderTextColor={Colors.text.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
+
+
 
       <FlatList
         data={filteredPosts}
         renderItem={renderPost}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any }]}
+        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any }, !isDesktop && { paddingBottom: 110 }]}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={onRefresh}
             colors={['#0891b2']}
           />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, isDesktop && { marginTop: 8 }]}>
+              <View style={styles.searchInputWrapper}>
+                <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm kiếm bài viết..."
+                  placeholderTextColor={Colors.text.placeholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+            </View>
+
+            {/* What's on your mind? */}
+            {canCreatePost && (
+              <View style={{ paddingTop: 8 }}>
+                <TouchableOpacity 
+                  style={[styles.createPostCard, isDesktop && { borderWidth: 1, borderColor: Colors.border + '40', borderRadius: 8 }]}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <View style={styles.createPostTop}>
+                    <View style={styles.authorAvatar}>
+                       <User size={24} color="#bac2c9" />
+                    </View>
+                    <View style={styles.createPostInput}>
+                      <Text style={styles.createPostInputText}>Bạn đang nghĩ gì vậy?</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         }
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) {
@@ -375,6 +471,12 @@ export default function HomeScreen() {
         }}
         onSuccess={handleCreateSuccess}
         editPost={editingPost}
+      />
+
+      <PostDetailModal 
+        visible={!!selectedPostView}
+        post={selectedPostView}
+        onClose={() => setSelectedPostView(null)}
       />
     </SafeAreaView>
   );
@@ -451,12 +553,7 @@ const styles = StyleSheet.create({
   postCard: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 16,
-    marginBottom: 16,
-    ...Colors.shadows.md,
-    borderWidth: 1,
-    borderColor: Colors.border + '40',
-    overflow: 'hidden',
+    marginBottom: 8,
   },
   postCardDesktop: {
     flexDirection: 'row',
@@ -464,7 +561,7 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: '100%',
-    height: 160,
+    aspectRatio: 4/3,
     backgroundColor: Colors.divider,
   },
   postImageDesktop: {
@@ -472,19 +569,157 @@ const styles = StyleSheet.create({
     height: 180,
     resizeMode: 'cover',
   },
-  postContent: {
-    padding: 14,
-  },
-  postContentDesktop: {
-    flex: 1,
-    padding: 12,
-    justifyContent: 'center',
-  },
   postHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  postHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  authorAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e4e6eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  postAuthorName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#050505',
+    marginBottom: 2,
+  },
+  postMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  categoryTag: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    fontWeight: '500',
+  },
+  postTextContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  postStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  statsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  likeIconCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsText: {
+    fontSize: 13,
+    color: '#65676b',
+  },
+  statsRight: {},
+  postActionDivider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginHorizontal: 16,
+  },
+  postActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#65676b',
+  },
+  headerTitleFB: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButtonCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e4e6eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createPostCard: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  createPostTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  createPostInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f0f2f5',
+    borderRadius: 20,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  createPostInputText: {
+    fontSize: 15,
+    color: '#65676b',
+  },
+  createPostDivider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  createPostActionsTop: {
+    flexDirection: 'row',
+  },
+  createPostActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  createPostActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#65676b',
   },
   categoryBadge: {
     paddingHorizontal: 12,
@@ -589,5 +824,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.status.error,
     fontWeight: '600',
+  },
+  imageGrid: {
+    width: '100%',
+    aspectRatio: 4/3,
+    flexDirection: 'row',
+  },
+  imageGridDesktop: {
+    width: 240,
+    height: 180,
+    marginBottom: 0,
+    marginRight: 12,
+  },
+  gridImageHalf: {
+    flex: 1,
+    height: '100%',
+    backgroundColor: Colors.divider,
+    resizeMode: 'cover',
+  },
+  gridSpace: {
+    width: 2,
+    height: '100%',
+    backgroundColor: Colors.background,
+  },
+  gridColumnHalf: {
+    flex: 1,
+    height: '100%',
+  },
+  gridImageQuarter: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: Colors.divider,
+    resizeMode: 'cover',
+  },
+  gridSpaceH: {
+    width: '100%',
+    height: 2,
+    backgroundColor: Colors.background,
+  },
+  gridImageQuarterContainer: {
+    flex: 1,
+    width: '100%',
+    position: 'relative',
+  },
+  moreImagesOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  moreImagesText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
 });

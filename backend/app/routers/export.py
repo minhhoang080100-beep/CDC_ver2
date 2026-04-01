@@ -41,7 +41,7 @@ async def export_surveys(current_user: dict = Depends(get_current_user)):
     headers = ["STT", "Tiêu đề", "Loại", "Trạng thái", "Số phản hồi", "Ngày tạo"]
     _style_header(ws, headers, Font, PatternFill, Alignment)
 
-    surveys = await db.surveys.find().sort("createdAt", -1).to_list(500)
+    surveys = await db.surveys.find({"isDeleted": {"$ne": True}}).sort("createdAt", -1).to_list(500)
     for i, s in enumerate(surveys, 1):
         response_count = await db.survey_responses.count_documents({"surveyId": str(s["_id"])})
         ws.append([
@@ -79,15 +79,15 @@ async def export_activities(current_user: dict = Depends(get_current_user)):
     headers = ["STT", "Tiêu đề", "Thể loại", "Ngày diễn ra", "Đã đăng ký", "Đã tham gia", "Ngày tạo"]
     _style_header(ws, headers, Font, PatternFill, Alignment)
 
-    activities = await db.activities.find().sort("createdAt", -1).to_list(500)
+    activities = await db.activities.find({"isDeleted": {"$ne": True}}).sort("createdAt", -1).to_list(500)
     for i, a in enumerate(activities, 1):
         ws.append([
             i,
-            a.get("title", ""),
-            a.get("category", ""),
-            str(a.get("date", "")),
-            len(a.get("registeredUsers", [])),
-            len(a.get("attendedUsers", [])),
+            a.get("name", ""),
+            a.get("type", ""),
+            str(a.get("time", "")),
+            len(a.get("registrations", [])),
+            len(a.get("attendances", [])),
             a.get("createdAt", "")
         ])
 

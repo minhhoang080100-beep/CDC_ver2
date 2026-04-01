@@ -30,7 +30,7 @@ const MENU_ITEMS: MenuItem[] = [
     { name: 'activities', path: '/(tabs)/activities', icon: Calendar, label: 'Hoạt động' },
     { name: 'library', path: '/(tabs)/library', icon: BookOpen, label: 'Thư viện' },
     { name: 'profile', path: '/(tabs)/profile', icon: IdCard, label: 'Thẻ Đoàn viên' },
-    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Lắng nghe & Phản hồi' },
+    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Góp ý & Giải đáp' },
     { name: 'surveys', path: '/(tabs)/surveys', icon: ClipboardList, label: 'Khảo sát' },
     { name: 'honors', path: '/(tabs)/honors', icon: Trophy, label: 'Vinh danh' },
     { name: 'elearning', path: '/(tabs)/elearning', icon: GraduationCap, label: 'Đào tạo' },
@@ -99,13 +99,12 @@ function DesktopSidebar({ width }: Props) {
                             activeOpacity={0.7}
                         >
                             <IconComponent
-                                color={active ? Colors.primary : Colors.text.secondary}
-                                size={20}
+                                color={active ? Colors.primary : '#65676b'}
+                                size={22}
                             />
                             <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                                 {item.label}
                             </Text>
-                            {active && <View style={styles.activeIndicator} />}
                         </TouchableOpacity>
                     );
                 })}
@@ -138,9 +137,8 @@ export default memo(DesktopSidebar);
 
 const styles = StyleSheet.create({
     sidebar: {
-        backgroundColor: '#ffffff',
-        borderRightWidth: 1,
-        borderRightColor: Colors.divider,
+        backgroundColor: 'transparent',
+        borderRightWidth: 0,
         paddingVertical: 0,
         justifyContent: 'space-between',
         ...(Platform.OS === 'web' ? { height: '100vh' as any, position: 'fixed' as any, left: 0, top: 0, zIndex: 100 } : {}),
@@ -150,7 +148,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 24,
-        backgroundColor: Colors.header.background,
+        backgroundColor: 'transparent',
         gap: 12,
     },
     logoContainer: {
@@ -165,13 +163,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     brandTitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: '#050505',
     },
     brandSubtitle: {
-        fontSize: 12,
-        color: 'rgba(255,255,255,0.8)',
+        fontSize: 13,
+        color: '#65676b',
         marginTop: 2,
     },
     nav: {
@@ -183,32 +181,22 @@ const styles = StyleSheet.create({
     navItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 10,
-        gap: 14,
-        position: 'relative',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        gap: 12,
     },
     navItemActive: {
-        backgroundColor: 'rgba(8, 145, 178, 0.08)',
+        backgroundColor: '#e4e6eb',
     },
     navLabel: {
-        fontSize: 14,
-        color: Colors.text.secondary,
+        fontSize: 15,
+        color: '#050505',
         fontWeight: '500',
     },
     navLabelActive: {
         color: Colors.primary,
         fontWeight: '600',
-    },
-    activeIndicator: {
-        position: 'absolute',
-        left: 0,
-        top: 8,
-        bottom: 8,
-        width: 3,
-        borderRadius: 2,
-        backgroundColor: Colors.primary,
     },
     userSection: {
         paddingHorizontal: 16,

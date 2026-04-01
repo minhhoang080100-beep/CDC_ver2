@@ -6,8 +6,16 @@ from app.core.database import db
 from app.core.security import get_current_user, validate_object_id
 from app.core.permissions import build_content_filter, resolve_target_departments, can_manage_content
 from app.models.post import PostCreate, PostCommentCreate
-from app.core.push import send_bulk_push_notifications_async
 from app.core.cloudinary_utils import delete_cloudinary_asset
+from app.services.post_service import (
+    get_posts as svc_get_posts,
+    create_post as svc_create_post,
+    update_post as svc_update_post,
+    delete_post as svc_delete_post,
+    toggle_like as svc_toggle_like,
+    notify_new_post,
+)
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -18,90 +26,33 @@ async def get_posts(
     cursor: Optional[datetime] = Query(None, description="Cursor for pagination (ISO datetime string)"),
     current_user: dict = Depends(get_current_user)
 ):
-    content_filter = build_content_filter(current_user)
-    content_filter["isDeleted"] = {"$ne": True}
-    
-    if cursor:
-        content_filter["createdAt"] = {"$lt": cursor}
-
-    total = await db.posts.count_documents(content_filter)
-    posts = await db.posts.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
-    
-    items = [{
-        "id": str(post["_id"]),
-        "title": post["title"],
-        "content": post["content"],
-        "summary": post["summary"],
-        "category": post["category"],
-        "image": post.get("image"),
-        "authorId": post["authorId"],
-        "authorName": post["authorName"],
-        "authorDepartment": post["authorDepartment"],
-        "targetDepartments": post["targetDepartments"],
-        "likes": post.get("likes", []),
-        "comments": post.get("comments", []),
-        "createdAt": post["createdAt"],
-        "updatedAt": post["updatedAt"]
-    } for post in posts]
-
-    return {"items": items, "total": total, "hasMore": skip + limit < total}
+    return await svc_get_posts(skip, limit, cursor, current_user)
 
 @router.post("")
 async def create_post(post: PostCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
-    if not can_manage_content(current_user):
-        raise HTTPException(status_code=403, detail="You don't have permission to create posts")
-    
-    target_departments = resolve_target_departments(current_user, post.targetDepartments)
-    
-    post_data = {
-        "title": post.title,
-        "content": post.content,
-        "summary": post.summary,
-        "category": post.category,
-        "image": post.image,
-        "authorId": current_user["_id"],
-        "authorName": current_user["fullName"],
-        "authorDepartment": current_user["department"],
-        "targetDepartments": target_departments,
-        "likes": [],
-        "comments": [],
-        "isDeleted": False,
-        "createdAt": datetime.now(timezone.utc),
-        "updatedAt": datetime.now(timezone.utc)
-    }
-    
-    result = await db.posts.insert_one(post_data)
-    post_data["_id"] = result.inserted_id
-    
-    # Notify users asynchronously
+    post_data, target_departments = await svc_create_post(post.model_dump(), current_user)
+
+    post_id = str(post_data["_id"])
+
+    # Push notification (async background)
     background_tasks.add_task(
         notify_new_post,
         title=f"Bản tin: {post.title}",
         body=post.summary,
         target_departments=target_departments,
-        post_id=str(post_data["_id"])
+        post_id=post_id
     )
-    
+
+    # WebSocket broadcast (real-time)
+    background_tasks.add_task(
+        manager.broadcast,
+        {"type": "new_post", "title": f"Bản tin mới: {post.title}", "data": {"postId": post_id}}
+    )
+
     return {
-        "id": str(post_data["_id"]),
+        "id": post_id,
         **{k: v for k, v in post_data.items() if k != "_id"}
     }
-
-async def notify_new_post(title: str, body: str, target_departments: list, post_id: str):
-    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
-    if "ALL" not in target_departments and target_departments:
-        query["department"] = {"$in": target_departments}
-        
-    users = await db.users.find(query).to_list(1000)
-    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
-    
-    if tokens:
-        await send_bulk_push_notifications_async(
-            tokens=tokens, 
-            title=title, 
-            body=body,
-            data={"postId": post_id}
-        )
 
 @router.put("/{post_id}")
 async def update_post(
@@ -110,37 +61,13 @@ async def update_post(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    oid = validate_object_id(post_id, "Post ID")
-    existing_post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
-    if not existing_post:
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
-        raise HTTPException(status_code=403, detail="You don't have permission to edit this post")
-    
-    target_departments = resolve_target_departments(current_user, post.targetDepartments)
-    
-    # Check if image changed to clean up old image from Cloudinary 
-    old_image = existing_post.get("image")
-    if old_image and old_image != post.image:
-        background_tasks.add_task(delete_cloudinary_asset, old_image)
-    
-    update_data = {
-        "title": post.title,
-        "content": post.content,
-        "summary": post.summary,
-        "category": post.category,
-        "image": post.image,
-        "targetDepartments": target_departments,
-        "updatedAt": datetime.now(timezone.utc)
-    }
-    
-    await db.posts.update_one(
-        {"_id": oid},
-        {"$set": update_data}
-    )
-    
-    return {"status": "success", "message": "Post updated"}
+    result, images_to_delete = await svc_update_post(post_id, post.model_dump(), current_user)
+
+    if images_to_delete:
+        for img in images_to_delete:
+            background_tasks.add_task(delete_cloudinary_asset, img)
+
+    return result
 
 @router.delete("/{post_id}")
 async def delete_post(
@@ -148,45 +75,17 @@ async def delete_post(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    oid = validate_object_id(post_id, "Post ID")
-    existing_post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
-    if not existing_post:
-        raise HTTPException(status_code=404, detail="Post not found")
-    
-    if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
-        raise HTTPException(status_code=403, detail="You don't have permission to delete this post")
-    
-    # Soft delete the post but wipe the image from Cloudinary to save space
-    image = existing_post.get("image")
-    if image:
-        background_tasks.add_task(delete_cloudinary_asset, image)
-        
-    await db.posts.update_one({"_id": oid}, {"$set": {"isDeleted": True, "image": None}})
-    
+    images = await svc_delete_post(post_id, current_user)
+
+    if images:
+        for img in images:
+            background_tasks.add_task(delete_cloudinary_asset, img)
+
     return {"status": "success", "message": "Post deleted"}
 
 @router.post("/{post_id}/like")
 async def toggle_like(post_id: str, current_user: dict = Depends(get_current_user)):
-    oid = validate_object_id(post_id, "Post ID")
-    post = await db.posts.find_one({"_id": oid, "isDeleted": {"$ne": True}})
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
-        
-    user_id_str = str(current_user["_id"])
-    likes = post.get("likes", [])
-    
-    # Use atomic MongoDB operations to prevent race conditions
-    if user_id_str in likes:
-        await db.posts.update_one({"_id": oid}, {"$pull": {"likes": user_id_str}})
-        action = "unliked"
-    else:
-        await db.posts.update_one({"_id": oid}, {"$addToSet": {"likes": user_id_str}})
-        action = "liked"
-    
-    # Fetch updated likes
-    updated = await db.posts.find_one({"_id": oid}, {"likes": 1})
-    
-    return {"status": "success", "action": action, "likes": updated.get("likes", [])}
+    return await svc_toggle_like(post_id, current_user)
 
 @router.post("/{post_id}/comments")
 async def add_comment(post_id: str, comment: PostCommentCreate, current_user: dict = Depends(get_current_user)):

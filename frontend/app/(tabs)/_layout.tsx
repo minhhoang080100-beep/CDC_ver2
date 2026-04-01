@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React, { useCallback } from 'react';
-import { View, Platform } from 'react-native';
+import { View, Platform, StyleSheet, Text } from 'react-native';
 import { Home, Calendar, BookOpen, IdCard, MoreHorizontal } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -11,21 +11,32 @@ import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useToast } from '../../contexts/ToastContext';
 
+// Custom Tab Bar Icon with Active Pill Indicator
+const TabIcon = ({ Icon, color, size, focused, label }: {
+  Icon: any;
+  color: string;
+  size: number;
+  focused: boolean;
+  label: string;
+}) => (
+  <View style={tabStyles.iconContainer}>
+    {focused && <View style={tabStyles.activePill} />}
+    <Icon color={color} size={size} fill={focused ? color : 'transparent'} strokeWidth={focused ? 2.5 : 2} />
+  </View>
+);
+
 export default function TabsLayout() {
   const { isDesktop, sidebarWidth } = useResponsive();
-  usePushNotifications(); // Registers token in the background
+  usePushNotifications();
 
-  // ─── Real-time WebSocket notifications ─────────────────
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   const handleWebSocketMessage = useCallback((msg: any) => {
-    // Show toast for new events
     if (msg.title) {
       showToast({ message: msg.title, type: 'success' });
     }
 
-    // Auto-refresh relevant data based on message type
     const typeToQuery: Record<string, string[]> = {
       new_post: ['posts'],
       new_activity: ['activities'],
@@ -40,7 +51,6 @@ export default function TabsLayout() {
     if (queries) {
       queries.forEach(q => queryClient.invalidateQueries({ queryKey: [q] }));
     }
-    // Always refresh notification count
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
   }, [queryClient, showToast]);
 
@@ -48,10 +58,8 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
-      {/* Desktop Sidebar */}
       {isDesktop && <DesktopSidebar width={sidebarWidth} />}
 
-      {/* Main Content */}
       <View style={{ flex: 1, marginLeft: isDesktop ? sidebarWidth : 0 }}>
         <Tabs
           screenOptions={{
@@ -61,21 +69,30 @@ export default function TabsLayout() {
             tabBarStyle: isDesktop
               ? { display: 'none' }
               : {
-                backgroundColor: Colors.surface,
-                borderTopWidth: 0, // Remove solid border, use shadow instead
-                elevation: 10,     // Shadow for Android
-                shadowColor: '#000', // Shadow for iOS
-                shadowOffset: { width: 0, height: -4 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-                height: Platform.select({ ios: 90, android: 70, default: 80 }), // Increased height slightly
-                paddingBottom: Platform.select({ ios: 28, android: 12, default: 12 }), // Increased paddingBottom
-                paddingTop: 8,
-              },
+                  position: 'absolute',
+                  bottom: Platform.select({ ios: 24, android: 12, default: 12 }),
+                  left: 16,
+                  right: 16,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 24,
+                  height: 72,
+                  paddingBottom: 8,
+                  paddingTop: 0,
+                  borderTopWidth: 0,
+                  elevation: 12,
+                  shadowColor: '#000000',
+                  shadowOffset: { width: 0, height: -4 },
+                  shadowOpacity: 0.12,
+                  shadowRadius: 16,
+                },
             tabBarLabelStyle: {
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: '600',
-              marginTop: 4, // Added margin to space out icon from text slightly
+              marginTop: 4,
+              marginBottom: 0,
+            },
+            tabBarItemStyle: {
+              paddingTop: 10,
             },
           }}
         >
@@ -83,35 +100,45 @@ export default function TabsLayout() {
             name="index"
             options={{
               title: 'Bảng tin',
-              tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+              tabBarIcon: ({ color, size, focused }) => (
+                <TabIcon Icon={Home} color={color} size={22} focused={focused} label="Bảng tin" />
+              ),
             }}
           />
           <Tabs.Screen
             name="activities"
             options={{
               title: 'Hoạt động',
-              tabBarIcon: ({ color, size }) => <Calendar color={color} size={size} />,
+              tabBarIcon: ({ color, size, focused }) => (
+                <TabIcon Icon={Calendar} color={color} size={22} focused={focused} label="Hoạt động" />
+              ),
             }}
           />
           <Tabs.Screen
             name="library"
             options={{
               title: 'Thư viện',
-              tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} />,
+              tabBarIcon: ({ color, size, focused }) => (
+                <TabIcon Icon={BookOpen} color={color} size={22} focused={focused} label="Thư viện" />
+              ),
             }}
           />
           <Tabs.Screen
             name="profile"
             options={{
               title: 'Thẻ ĐV',
-              tabBarIcon: ({ color, size }) => <IdCard color={color} size={size} />,
+              tabBarIcon: ({ color, size, focused }) => (
+                <TabIcon Icon={IdCard} color={color} size={22} focused={focused} label="Thẻ ĐV" />
+              ),
             }}
           />
           <Tabs.Screen
             name="more"
             options={{
               title: 'Thêm',
-              tabBarIcon: ({ color, size }) => <MoreHorizontal color={color} size={size} />,
+              tabBarIcon: ({ color, size, focused }) => (
+                <TabIcon Icon={MoreHorizontal} color={color} size={22} focused={focused} label="Thêm" />
+              ),
             }}
           />
           <Tabs.Screen
@@ -161,3 +188,19 @@ export default function TabsLayout() {
     </View>
   );
 }
+
+const tabStyles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  activePill: {
+    position: 'absolute',
+    top: -8,
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: Colors.primary,
+  },
+});

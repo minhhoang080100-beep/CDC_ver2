@@ -7,7 +7,9 @@ import {
     TouchableOpacity,
     TextInput,
     Alert,
-    Platform
+    Platform,
+    Image,
+    Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +18,9 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../utils/api';
-import { ArrowLeft, Calendar, User, Tag, Heart, MessageCircle, Send } from 'lucide-react-native';
+import { ArrowLeft, Calendar, User, Tag, Heart, MessageCircle, Send, Globe } from 'lucide-react-native';
+
+const windowWidth = Dimensions.get('window').width;
 
 export default function PostDetailScreen() {
     const router = useRouter();
@@ -112,32 +116,49 @@ export default function PostDetailScreen() {
             </View>
 
             <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}
-                contentContainerStyle={isDesktop ? { maxWidth: 700, alignSelf: 'center' as any, width: '100%' as any } : undefined}
+                contentContainerStyle={isDesktop ? { maxWidth: 700, alignSelf: 'center' as any, width: '100%' as any, paddingBottom: 40 } : undefined}
             >
-                {/* Category Badge */}
-                {category ? (
-                    <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(category) }]}>
-                        <Tag color="#ffffff" size={14} />
-                        <Text style={styles.categoryText}>{category}</Text>
+                {/* Meta Info */}
+                <View style={styles.postHeaderLeft}>
+                  <View style={styles.authorAvatar}>
+                    <User size={24} color="#bac2c9" />
+                  </View>
+                  <View>
+                    <Text style={styles.postAuthorName}>{authorName}</Text>
+                    <View style={styles.postMetaRow}>
+                      <Text style={styles.postDate}>{formatDate(createdAt)} • </Text>
+                      <Globe size={12} color={Colors.text.secondary} />
+                      {category ? <Text style={styles.categoryTag}> • {category}</Text> : null}
                     </View>
-                ) : null}
+                  </View>
+                </View>
 
                 {/* Title */}
                 <Text style={styles.title}>{title}</Text>
 
-                {/* Meta Info */}
-                <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                        <User color={Colors.text.secondary} size={16} />
-                        <Text style={styles.metaText}>{authorName}</Text>
-                    </View>
-                    {createdAt ? (
-                        <View style={styles.metaItem}>
-                            <Calendar color={Colors.text.secondary} size={16} />
-                            <Text style={styles.metaText}>{formatDate(createdAt)}</Text>
-                        </View>
-                    ) : null}
-                </View>
+                {/* Post Images */}
+                {(() => {
+                    try {
+                        const imagesArray = params.images ? JSON.parse(params.images as string) : [];
+                        if (imagesArray.length > 0) {
+                            return (
+                                <View style={styles.imagesVerticalContainer}>
+                                    {imagesArray.map((img: string, idx: number) => (
+                                        <Image 
+                                            key={idx} 
+                                            source={{ uri: img }} 
+                                            style={styles.postDetailImageVertical} 
+                                            resizeMode="cover"
+                                        />
+                                    ))}
+                                </View>
+                            );
+                        }
+                    } catch (e) {
+                        console.error("Error parsing images in detail:", e);
+                    }
+                    return null;
+                })()}
 
                 {/* Summary */}
                 {summary && summary !== title ? (
@@ -216,15 +237,17 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.background,
+        backgroundColor: '#ffffff',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: Colors.header.background,
+        backgroundColor: '#ffffff',
         paddingHorizontal: 16,
         paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: Colors.divider,
     },
     backButton: {
         width: 40,
@@ -235,35 +258,65 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.header.text,
+        color: '#050505',
         flex: 1,
         textAlign: 'center',
     },
     scrollContent: {
         flex: 1,
-        padding: 20,
     },
-    categoryBadge: {
+    postHeaderLeft: {
         flexDirection: 'row',
-        alignSelf: 'flex-start',
         alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 14,
-        paddingVertical: 6,
-        borderRadius: 20,
-        marginBottom: 16,
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        marginBottom: 12,
     },
-    categoryText: {
+    authorAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#e4e6eb',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    postAuthorName: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#050505',
+        marginBottom: 2,
+    },
+    postMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    postDate: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#ffffff',
+        color: '#65676b',
+    },
+    categoryTag: {
+        fontSize: 13,
+        color: '#65676b',
+    },
+    imagesVerticalContainer: {
+        width: '100%',
+        marginBottom: 20,
+        gap: 12,
+    },
+    postDetailImageVertical: {
+        width: '100%',
+        aspectRatio: 16 / 9,
+        backgroundColor: Colors.divider,
+        borderRadius: 12,
     },
     title: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
-        color: Colors.text.primary,
-        lineHeight: 32,
-        marginBottom: 16,
+        color: '#050505',
+        lineHeight: 30,
+        marginBottom: 12,
+        paddingHorizontal: 16,
     },
     metaRow: {
         flexDirection: 'row',
@@ -281,45 +334,48 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
     },
     summaryBox: {
-        backgroundColor: '#f0f9ff',
+        backgroundColor: '#f0f2f5',
         borderLeftWidth: 4,
         borderLeftColor: Colors.primary,
         padding: 16,
+        marginHorizontal: 16,
         borderRadius: 8,
-        marginBottom: 20,
+        marginBottom: 16,
     },
     summaryLabel: {
         fontSize: 12,
         fontWeight: '600',
-        color: Colors.primary,
+        color: Colors.text.secondary,
         marginBottom: 6,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
     },
     summaryText: {
         fontSize: 15,
-        color: Colors.text.primary,
+        color: '#050505',
         lineHeight: 22,
     },
     divider: {
         height: 1,
         backgroundColor: Colors.divider,
-        marginBottom: 20,
+        marginBottom: 16,
+        marginHorizontal: 16,
     },
     content: {
         fontSize: 16,
-        color: Colors.text.primary,
+        color: '#050505',
         lineHeight: 26,
         marginBottom: 20,
+        paddingHorizontal: 16,
     },
     interactionBar: {
         flexDirection: 'row',
         borderTopWidth: 1,
         borderBottomWidth: 1,
         borderColor: Colors.divider,
-        paddingVertical: 12,
-        marginBottom: 24,
-        gap: 24,
+        paddingVertical: 8,
+        marginBottom: 16,
+        marginHorizontal: 16,
+        justifyContent: 'space-around',
     },
     interactionBtn: {
         flexDirection: 'row',
@@ -328,50 +384,54 @@ const styles = StyleSheet.create({
     },
     interactionText: {
         fontSize: 15,
-        fontWeight: '500',
+        fontWeight: '600',
+        color: '#65676b',
     },
     commentsSection: {
         marginBottom: 40,
+        paddingHorizontal: 16,
     },
     commentsHeader: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: Colors.text.primary,
+        color: '#050505',
         marginBottom: 16,
     },
     commentBox: {
         flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
+        gap: 8,
+        marginBottom: 12,
     },
     commentAvatar: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#e2e8f0',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#e4e6eb',
         justifyContent: 'center',
         alignItems: 'center',
     },
     commentContent: {
         flex: 1,
-        backgroundColor: '#f1f5f9',
-        padding: 12,
-        borderRadius: 12,
-        borderTopLeftRadius: 4,
+        backgroundColor: '#f0f2f5',
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 18,
     },
     commentAuthorRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 4,
+        alignItems: 'baseline',
+        gap: 8,
+        marginBottom: 2,
     },
     commentAuthor: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: Colors.text.primary,
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#050505',
     },
     commentTime: {
-        fontSize: 11,
-        color: Colors.text.secondary,
+        fontSize: 12,
+        color: '#65676b',
+        fontWeight: '500',
     },
     commentText: {
         fontSize: 14,
@@ -386,15 +446,15 @@ const styles = StyleSheet.create({
     },
     commentInput: {
         flex: 1,
-        borderWidth: 1,
-        borderColor: Colors.divider,
+        borderWidth: 0,
         borderRadius: 20,
         paddingHorizontal: 16,
         paddingTop: 10,
         paddingBottom: 10,
         minHeight: 40,
         maxHeight: 120,
-        backgroundColor: '#fff',
+        backgroundColor: '#f0f2f5',
+        fontSize: 15,
     },
     sendButton: {
         width: 40,

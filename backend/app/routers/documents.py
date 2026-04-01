@@ -21,6 +21,7 @@ async def get_documents(
     current_user: dict = Depends(get_current_user)
 ):
     content_filter = build_content_filter(current_user)
+    content_filter["isDeleted"] = {"$ne": True}
     
     # Add search filter if provided
     if search:
@@ -65,6 +66,7 @@ async def create_document(document: DocumentCreate, current_user: dict = Depends
         "fileUrl": document.fileUrl,
         "uploadedBy": current_user["_id"],
         "targetDepartments": target_departments,
+        "isDeleted": False,
         "createdAt": datetime.now(timezone.utc)
     }
     
@@ -84,7 +86,7 @@ async def update_document(
     current_user: dict = Depends(get_current_user)
 ):
     oid = validate_object_id(document_id, "Document ID")
-    existing_document = await db.documents.find_one({"_id": oid})
+    existing_document = await db.documents.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
     
@@ -125,7 +127,7 @@ async def delete_document(
     current_user: dict = Depends(get_current_user)
 ):
     oid = validate_object_id(document_id, "Document ID")
-    existing_document = await db.documents.find_one({"_id": oid})
+    existing_document = await db.documents.find_one({"_id": oid, "isDeleted": {"$ne": True}})
     if not existing_document:
         raise HTTPException(status_code=404, detail="Document not found")
     
@@ -137,6 +139,10 @@ async def delete_document(
     if file_url:
         background_tasks.add_task(delete_cloudinary_asset, file_url)
 
-    await db.documents.delete_one({"_id": oid})
+    # Soft delete
+    await db.documents.update_one(
+        {"_id": oid},
+        {"$set": {"isDeleted": True, "deletedAt": datetime.now(timezone.utc)}}
+    )
     
     return {"status": "success", "message": "Document deleted"}

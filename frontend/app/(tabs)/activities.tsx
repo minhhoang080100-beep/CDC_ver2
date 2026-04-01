@@ -16,10 +16,12 @@ import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search } from 'lucide-react-native';
+import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search, User, ScanLine, Monitor, ToggleLeft, ToggleRight } from 'lucide-react-native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
+import ActivityCheckinQRModal from '../../components/ActivityCheckinQRModal';
+import MemberCheckinModal from '../../components/MemberCheckinModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { api } from '../../utils/api';
 
@@ -34,6 +36,7 @@ interface Activity {
   targetDepartments: string[];
   registrations: Array<{ userId: string; userName: string }>;
   attendances?: Array<{ userId: string; userName: string; checkedInAt: string }>;
+  checkinEnabled?: boolean;
 }
 
 export default function ActivitiesScreen() {
@@ -46,6 +49,9 @@ export default function ActivitiesScreen() {
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [scannerActivityId, setScannerActivityId] = useState<string | null>(null);
+  const [checkinQRVisible, setCheckinQRVisible] = useState(false);
+  const [checkinQRActivityId, setCheckinQRActivityId] = useState<string | null>(null);
+  const [memberCheckinVisible, setMemberCheckinVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -95,6 +101,21 @@ export default function ActivitiesScreen() {
   };
 
   const canCreateActivity = user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_');
+  const isBCH = user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_');
+
+  const handleToggleCheckin = async (activityId: string) => {
+    try {
+      const response = await api.post(
+        `/api/activities/${activityId}/toggle-checkin`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      showToast({ message: response.data.message, type: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    } catch (error: any) {
+      showToast({ message: error.detail || 'Không thể thay đổi trạng thái điểm danh', type: 'error' });
+    }
+  };
 
   const canEditDelete = (activity: Activity) => {
     return user?.role === 'SUPER_ADMIN' || activity.createdBy === user?.id;
@@ -159,31 +180,26 @@ export default function ActivitiesScreen() {
   const renderActivity = ({ item }: { item: Activity }) => {
     const registered = isRegistered(item);
     return (
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, marginBottom: 8, maxWidth: 680, alignSelf: 'center', width: '100%' }}>
         <WebHoverCard style={styles.activityCard}>
-          <View
-            style={[
-              styles.typeBadge,
-              { backgroundColor: getTypeColor(item.type) },
-            ]}
-          >
-            <Text style={styles.typeText}>{getTypeName(item.type)}</Text>
+          <View style={styles.activityHeaderRow}>
+            <View>
+              <Text style={styles.activityName}>{item.name}</Text>
+              <Text style={styles.activityDateMeta}>
+                {getTypeName(item.type)} • {item.time}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.activityName}>{item.name}</Text>
+          
           <Text style={styles.activityDescription}>{item.description}</Text>
 
           <View style={styles.infoRow}>
-            <Calendar color="#64748b" size={18} />
-            <Text style={styles.infoText}>{item.time}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <MapPin color="#64748b" size={18} />
+            <MapPin color="#64748b" size={16} />
             <Text style={styles.infoText}>{item.location}</Text>
           </View>
 
           <View style={styles.infoRow}>
-            <Users color="#64748b" size={18} />
+            <Users color="#64748b" size={16} />
             <Text style={styles.infoText}>
               {item.registrations.length} đăng ký • {item.attendances?.length || 0} có mặt
             </Text>
@@ -204,11 +220,23 @@ export default function ActivitiesScreen() {
                   registered && styles.registeredButtonText,
                 ]}
               >
-                {registered ? 'Đã đăng ký' : 'Đăng ký ngay'}
+                {registered ? 'Đã đăng ký tham gia' : 'Tham gia'}
               </Text>
             </TouchableOpacity>
 
-            {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
+            {/* Member: Điểm danh via self-checkin */}
+            {item.checkinEnabled && (
+              <TouchableOpacity
+                style={styles.checkinButton}
+                onPress={() => setMemberCheckinVisible(true)}
+              >
+                <ScanLine color="#fff" size={18} />
+                <Text style={styles.checkinButtonText}>Điểm danh</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* BCH: Quét QR đoàn viên (cũ) */}
+            {isBCH && (
               <TouchableOpacity
                 style={styles.scanButton}
                 onPress={() => {
@@ -216,10 +244,42 @@ export default function ActivitiesScreen() {
                   setScannerVisible(true);
                 }}
               >
-                <QrCode color="#ffffff" size={20} />
+                <QrCode color="#050505" size={20} />
               </TouchableOpacity>
             )}
           </View>
+
+          {/* BCH: Toggle checkin + Hiển thị QR */}
+          {isBCH && (
+            <View style={styles.bchCheckinRow}>
+              <TouchableOpacity
+                style={[styles.toggleCheckinBtn, item.checkinEnabled && styles.toggleCheckinBtnActive]}
+                onPress={() => handleToggleCheckin(item.id)}
+              >
+                {item.checkinEnabled ? (
+                  <ToggleRight color="#10b981" size={20} />
+                ) : (
+                  <ToggleLeft color="#94a3b8" size={20} />
+                )}
+                <Text style={[styles.toggleCheckinText, item.checkinEnabled && { color: '#10b981' }]}>
+                  {item.checkinEnabled ? 'Điểm danh: Bật' : 'Điểm danh: Tắt'}
+                </Text>
+              </TouchableOpacity>
+
+              {item.checkinEnabled && (
+                <TouchableOpacity
+                  style={styles.showQRBtn}
+                  onPress={() => {
+                    setCheckinQRActivityId(item.id);
+                    setCheckinQRVisible(true);
+                  }}
+                >
+                  <Monitor color="#fff" size={16} />
+                  <Text style={styles.showQRBtnText}>Hiển thị QR</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {canEditDelete(item) && (
             <View style={styles.actionsRow}>
@@ -227,14 +287,14 @@ export default function ActivitiesScreen() {
                 style={styles.actionButton}
                 onPress={() => handleEdit(item)}
               >
-                <Edit2 color="#3b82f6" size={20} />
+                <Edit2 color={Colors.text.secondary} size={18} />
                 <Text style={styles.actionTextEdit}>Sửa</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleDelete(item.id)}
               >
-                <Trash2 color="#ef4444" size={20} />
+                <Trash2 color={Colors.text.secondary} size={18} />
                 <Text style={styles.actionTextDelete}>Xóa</Text>
               </TouchableOpacity>
             </View>
@@ -252,9 +312,6 @@ export default function ActivitiesScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>HOẠT ĐỘNG CÔNG ĐOÀN</Text>
-        </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Đang tải...</Text>
         </View>
@@ -264,31 +321,7 @@ export default function ActivitiesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-        <Text style={styles.headerTitle}>HOẠT ĐỘNG CÔNG ĐOÀN</Text>
-        {canCreateActivity && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-          >
-            <Plus color="#ffffff" size={24} />
-          </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%', marginTop: 8 }]}>
-        <View style={styles.searchInputWrapper}>
-          <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm hoạt động..."
-            placeholderTextColor={Colors.text.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
 
       <FlatList
         data={filteredActivities}
@@ -296,7 +329,7 @@ export default function ActivitiesScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
           styles.listContent,
-          isDesktop && { maxWidth: 1000, alignSelf: 'center' as any, width: '100%' as any },
+          isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any },
           !isDesktop && { paddingBottom: 110 } // Tăng padding bottom cho mobile để tránh bị tab bar đè lên
         ]}
         refreshControl={
@@ -305,6 +338,41 @@ export default function ActivitiesScreen() {
             onRefresh={onRefresh}
             colors={['#0891b2']}
           />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, isDesktop && { marginTop: 8 }]}>
+              <View style={styles.searchInputWrapper}>
+                <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Tìm kiếm hoạt động..."
+                  placeholderTextColor={Colors.text.placeholder}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </View>
+            </View>
+
+            {canCreateActivity && (
+              <View style={[isDesktop && { paddingTop: 8 }, !isDesktop && { paddingTop: 8, paddingHorizontal: 0 }]}>
+                <TouchableOpacity 
+                  style={[styles.createPostBox, isDesktop && { borderWidth: 1, borderColor: Colors.border + '40', borderRadius: 8 }]}
+                  onPress={() => setModalVisible(true)}
+                >
+                  <View style={styles.createPostHeader}>
+                    <View style={styles.avatarMini}>
+                      <User size={24} color="#bac2c9" />
+                    </View>
+                    <View style={styles.createPostInput}>
+                      <Text style={styles.createPostPlaceholder}>Tạo hoạt động mới...</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         }
         onEndReached={() => {
           if (hasNextPage && !isFetchingNextPage) {
@@ -344,6 +412,20 @@ export default function ActivitiesScreen() {
           queryClient.invalidateQueries({ queryKey: ['activities'] });
         }}
       />
+
+      <ActivityCheckinQRModal
+        visible={checkinQRVisible}
+        activityId={checkinQRActivityId}
+        onClose={() => setCheckinQRVisible(false)}
+      />
+
+      <MemberCheckinModal
+        visible={memberCheckinVisible}
+        onClose={() => setMemberCheckinVisible(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['activities'] });
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -353,32 +435,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Colors.header.background,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.header.text,
-    letterSpacing: 1,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: Colors.primary,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerDesktop: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-  },
+  createPostBox: { backgroundColor: '#ffffff', padding: 16, marginBottom: 8 },
+  createPostHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarMini: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e4e6eb', justifyContent: 'center', alignItems: 'center' },
+  avatarMiniText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
+  createPostInput: { flex: 1, backgroundColor: '#f0f2f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'center' },
+  createPostPlaceholder: { color: '#65676B', fontSize: 16 },
   searchContainer: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -419,14 +481,18 @@ const styles = StyleSheet.create({
   activityCard: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    padding: Platform.select({ ios: 14, android: 14, default: 16 }), // Small padding on mobile
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    padding: Platform.select({ ios: 14, android: 14, default: 16 }),
+    marginBottom: 8,
+  },
+  activityHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  activityDateMeta: {
+    fontSize: 13,
+    color: '#65676b',
+    marginTop: 2,
   },
   typeBadge: {
     alignSelf: 'flex-start',
@@ -441,10 +507,9 @@ const styles = StyleSheet.create({
     color: Colors.text.light,
   },
   activityName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text.primary,
-    marginBottom: 8,
   },
   activityDescription: {
     fontSize: 14,
@@ -463,22 +528,23 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   registerButton: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 14,
+    backgroundColor: Colors.primaryLight,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
+    justifyContent: 'center',
+    height: 40,
   },
   registeredButton: {
-    backgroundColor: Colors.status.success,
+    backgroundColor: '#e4e6eb',
   },
   registerButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.text.light,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   registeredButtonText: {
-    color: Colors.text.light,
+    color: '#050505',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -523,12 +589,89 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scanButton: {
-    backgroundColor: Colors.primary,
-    width: 44,
-    height: 48,
+    backgroundColor: '#e4e6eb',
+    width: 40,
+    height: 40,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerTitleFB: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: Colors.primary,
+    letterSpacing: -0.5,
+  },
+  iconButtonCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e4e6eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconButtonCircleActive: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // ── Self Check-in styles ──
+  checkinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#10b981',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    height: 40,
+  },
+  checkinButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bchCheckinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+  },
+  toggleCheckinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  toggleCheckinBtnActive: {
+    backgroundColor: '#dcfce7',
+  },
+  toggleCheckinText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94a3b8',
+  },
+  showQRBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  showQRBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

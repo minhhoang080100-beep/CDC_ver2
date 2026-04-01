@@ -345,49 +345,7 @@ export default function AdminScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-                <View style={styles.headerLeft}>
-                    <Users color={Colors.primary} size={28} />
-                    <View>
-                        <Text style={styles.headerTitle}>Quản trị hệ thống</Text>
-                        <Text style={styles.headerSubtitle}>Quản lý người dùng và dữ liệu</Text>
-                    </View>
-                </View>
-                <View style={styles.headerActions}>
-                    {activeTab === 'users' && (
-                        <>
-                            {user?.role === 'SUPER_ADMIN' && (
-                                <>
-                                    <TouchableOpacity
-                                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                                        onPress={handleExportCSV}
-                                    >
-                                        <Download color={Colors.text.primary} size={20} />
-                                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Xuất Excel</Text>}
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.addButton, { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.divider }]}
-                                        onPress={handleImportCSV}
-                                    >
-                                        <Upload color={Colors.text.primary} size={20} />
-                                        {isDesktop && <Text style={[styles.addButtonText, { color: Colors.text.primary }]}>Nhập Excel</Text>}
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={() => {
-                                    setEditingUser(null);
-                                    setModalVisible(true);
-                                }}
-                            >
-                                <Plus color="#ffffff" size={20} />
-                                {isDesktop && <Text style={styles.addButtonText}>Thêm</Text>}
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </View>
-            </View>
+
 
             {/* Tabs */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabScrollWrapper, isDesktop && styles.tabContainerDesktop]}>
@@ -412,7 +370,7 @@ export default function AdminScreen() {
                             onPress={() => setActiveTab('feedbacks')}
                         >
                             <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
-                            <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Lắng nghe & Phản hồi</Text>
+                            <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Góp ý & Giải đáp</Text>
                         </TouchableOpacity>
                     )}
                     {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (
@@ -489,9 +447,9 @@ export default function AdminScreen() {
                         </View>
                     </View>
 
-                    {/* Search & Filter Bar */}
-                    <View style={styles.filterBar}>
-                        <View style={styles.searchContainer}>
+                    {/* Unified Search & Action Bar */}
+                    <View style={[styles.filterBar, isDesktop ? { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 } : { flexDirection: 'column', gap: 12 }]}>
+                        <View style={[styles.searchContainer, { flex: isDesktop ? 1 : 0 }]}>
                             <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
                             <TextInput
                                 style={styles.searchInput}
@@ -499,6 +457,30 @@ export default function AdminScreen() {
                                 value={searchText}
                                 onChangeText={setSearchText}
                             />
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 8, alignSelf: isDesktop ? 'auto' : 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                            {user?.role === 'SUPER_ADMIN' && (
+                                <>
+                                    <TouchableOpacity style={styles.outlineButton} onPress={handleExportCSV}>
+                                        <Download color={Colors.text.primary} size={18} />
+                                        {isDesktop && <Text style={styles.outlineButtonText}>Xuất Excel</Text>}
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.outlineButton} onPress={handleImportCSV}>
+                                        <Upload color={Colors.text.primary} size={18} />
+                                        {isDesktop && <Text style={styles.outlineButtonText}>Nhập Excel</Text>}
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                            <TouchableOpacity
+                                style={styles.addButton}
+                                onPress={() => {
+                                    setEditingUser(null);
+                                    setModalVisible(true);
+                                }}
+                            >
+                                <Plus color="#ffffff" size={18} />
+                                {isDesktop && <Text style={styles.addButtonText}>Thêm tài khoản</Text>}
+                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -653,45 +635,7 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         fontWeight: '500',
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        backgroundColor: Colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.divider,
-    },
-    headerDesktop: {
-        paddingVertical: 10,
-        marginHorizontal: 'auto',
-        width: '100%',
-        maxWidth: 800,
-        borderBottomWidth: 0,
-        backgroundColor: 'transparent',
-        paddingTop: 24,
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: Colors.text.primary,
-    },
-    headerSubtitle: {
-        fontSize: 13,
-        color: Colors.text.secondary,
-        marginTop: 2,
-    },
-    headerActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
+
     addButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -704,6 +648,22 @@ const styles = StyleSheet.create({
     addButtonText: {
         color: '#ffffff',
         fontWeight: '600',
+        fontSize: 14,
+    },
+    outlineButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.surface,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 8,
+        gap: 6,
+    },
+    outlineButtonText: {
+        color: Colors.text.primary,
+        fontWeight: '500',
         fontSize: 14,
     },
     tabScrollWrapper: {
@@ -719,9 +679,9 @@ const styles = StyleSheet.create({
     tabContainerDesktop: {
         marginHorizontal: 'auto',
         width: '100%',
-        maxWidth: 1100,
+        maxWidth: 1000,
         backgroundColor: 'transparent',
-        paddingHorizontal: 0,
+        paddingHorizontal: 16,
     },
     tabItem: {
         flexDirection: 'row',
@@ -745,7 +705,7 @@ const styles = StyleSheet.create({
     },
     content: {
         flex: 1,
-        padding: 16,
+        paddingVertical: 16,
     },
     contentDesktop: {
         maxWidth: 1000,
@@ -755,8 +715,8 @@ const styles = StyleSheet.create({
     statsContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingTop: 16,
-        gap: 12,
+        paddingTop: 8,
+        gap: 16,
     },
     statsContainerMobile: {
         flexDirection: 'column',
@@ -793,7 +753,7 @@ const styles = StyleSheet.create({
     filterBar: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingTop: 16,
+        paddingTop: 24,
         gap: 12,
     },
     searchContainer: {
@@ -838,7 +798,9 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.surface,
         borderRadius: 12,
-        margin: 16,
+        marginHorizontal: 16,
+        marginTop: 16,
+        marginBottom: 24,
         borderWidth: 1,
         borderColor: Colors.divider,
         overflow: 'hidden',

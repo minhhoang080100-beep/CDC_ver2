@@ -41,7 +41,7 @@ async def search(
             })
 
     if type in ("all", "documents"):
-        doc_filter = {"$text": {"$search": q}}
+        doc_filter = {"$text": {"$search": q}, "isDeleted": {"$ne": True}}
         if content_filter:
             doc_filter = {"$and": [doc_filter, content_filter]}
 

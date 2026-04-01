@@ -3,15 +3,15 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const lightColors = {
-    background: '#F5F7FA',
+    background: '#f0f2f5',
     surface: '#FFFFFF',
     surfaceSecondary: '#F0F2F5',
-    text: '#1A1A2E',
-    textSecondary: '#6B7280',
-    textTertiary: '#9CA3AF',
-    primary: '#2563EB',
-    primaryLight: '#DBEAFE',
-    border: '#E5E7EB',
+    text: '#050505',
+    textSecondary: '#65676b',
+    textTertiary: '#8C939D',
+    primary: '#0866ff',
+    primaryLight: '#E7F3FF',
+    border: '#ced0d4',
     card: '#FFFFFF',
     cardShadow: 'rgba(0,0,0,0.08)',
     danger: '#EF4444',

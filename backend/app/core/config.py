@@ -3,6 +3,7 @@ import logging
 import secrets
 from pathlib import Path
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +15,19 @@ load_dotenv(ROOT_DIR / '.env')
 _DEFAULT_JWT_SECRET = secrets.token_urlsafe(64)
 
 
-class Settings:
-    MONGO_URL: str = os.environ.get('MONGO_URL', "mongodb://localhost:27017")
-    DB_NAME: str = os.environ.get('DB_NAME', "cong_doan_db")
-    JWT_SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", _DEFAULT_JWT_SECRET)
+class Settings(BaseSettings):
+    MONGO_URL: str = "mongodb://localhost:27017"
+    DB_NAME: str = "cong_doan_db"
+    JWT_SECRET_KEY: str = _DEFAULT_JWT_SECRET
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24))
-    REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    model_config = SettingsConfigDict(
+        env_file=str(ROOT_DIR / '.env'),
+        env_file_encoding='utf-8',
+        extra='ignore',
+    )
 
 
 settings = Settings()
@@ -32,3 +39,4 @@ if not os.environ.get("JWT_SECRET_KEY"):
         "A random key was generated — tokens will be invalidated on each restart. "
         "Set a strong JWT_SECRET_KEY in your .env file for production."
     )
+

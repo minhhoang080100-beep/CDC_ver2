@@ -37,7 +37,7 @@ const MENU_ITEMS: MenuItem[] = [
         name: 'feedback',
         path: '/(tabs)/feedback',
         icon: MessageSquare,
-        label: 'Lắng nghe & Phản hồi',
+        label: 'Góp ý & Giải đáp',
         description: 'Gửi và xem ý kiến đóng góp',
         color: '#3b82f6',
         bgColor: '#eff6ff',

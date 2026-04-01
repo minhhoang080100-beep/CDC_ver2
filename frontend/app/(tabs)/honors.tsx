@@ -156,9 +156,7 @@ export default function HonorsScreen() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>VINH DANH</Text>
-                </View>
+
                 <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
@@ -168,18 +166,13 @@ export default function HonorsScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Trophy color="#ffffff" size={24} />
-                    <Text style={styles.headerTitle}>VINH DANH & THI ĐUA</Text>
-                </View>
-            </View>
+
 
             <ScrollView
                 style={{ flex: 1 }}
                 contentContainerStyle={[
                     styles.scrollContent,
-                    isDesktop && { maxWidth: 750, alignSelf: 'center' as any, width: '100%' as any },
+                    isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any },
                     !isDesktop && { paddingBottom: 110 } // Tăng padding bottom
                 ]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -362,24 +355,28 @@ export default function HonorsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, backgroundColor: Colors.background },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     header: {
-        backgroundColor: Colors.header.background,
-        paddingHorizontal: 16, paddingVertical: Platform.OS === 'web' ? 16 : 14,
+        backgroundColor: '#ffffff',
+        paddingHorizontal: 16, paddingVertical: 14,
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        borderBottomWidth: 1, borderBottomColor: Colors.divider,
+    },
+    headerDesktop: {
+        paddingVertical: 10, paddingHorizontal: 24,
     },
     headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', letterSpacing: 1 },
+    headerTitleFB: { fontSize: 22, fontWeight: 'bold', color: '#050505' },
     scrollContent: { padding: Platform.select({ ios: 12, android: 12, default: 16 }), gap: 20 },
     section: { gap: 12 },
     sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text.primary },
     // Campaign Card
     campaignCard: {
-        backgroundColor: '#ffffff', borderRadius: 14, padding: Platform.select({ ios: 14, android: 14, default: 16 }),
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+        backgroundColor: '#ffffff', borderRadius: 8, padding: 16,
+        borderWidth: 1, borderColor: Colors.border + '40',
         borderLeftWidth: 4, borderLeftColor: Colors.primary,
+        marginBottom: 12,
     },
     campaignInfo: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
     campaignTypeIcon: {
@@ -398,9 +395,9 @@ const styles = StyleSheet.create({
     nominateText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
     // Honor Board
     honorSection: {
-        backgroundColor: '#ffffff', borderRadius: 14, overflow: 'hidden',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+        backgroundColor: '#ffffff', borderRadius: 8, overflow: 'hidden',
+        borderWidth: 1, borderColor: Colors.border + '40',
+        marginBottom: 12,
     },
     honorSectionHeader: {
         flexDirection: 'row', alignItems: 'center', padding: Platform.select({ ios: 14, android: 14, default: 16 }),
@@ -461,7 +458,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
         borderWidth: 1, borderColor: '#e2e8f0', backgroundColor: '#f8fafc',
     },
-    deptChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(8, 145, 178, 0.08)' },
+    deptChipActive: { borderColor: Colors.primary, backgroundColor: '#e7f3ff' },
     deptChipText: { fontSize: 13, color: '#64748b', fontWeight: '500' },
     deptChipTextActive: { color: Colors.primary },
     submitBtn: {

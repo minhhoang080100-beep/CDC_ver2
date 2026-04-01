@@ -30,6 +30,7 @@ import {
   Globe,
 } from 'lucide-react-native';
 import { useResponsive } from '../../hooks/useResponsive';
+import { Colors } from '../../constants/Colors';
 
 export default function SettingsScreen() {
   const { user, token, logout } = useAuth();
@@ -129,7 +130,7 @@ export default function SettingsScreen() {
 
   const handleHelp = () => {
     showToast({
-      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheti.vn\nHoặc gửi ý kiến qua mục "Lắng nghe & Phản hồi".',
+      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheti.vn\nHoặc gửi ý kiến qua mục "Góp ý & Giải đáp".',
       type: 'info'
     });
   };
@@ -170,12 +171,10 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>CÀI ĐẶT</Text>
-      </View>
+
 
       <ScrollView contentContainerStyle={[styles.content, isDesktop && { alignItems: 'center' as any }]}>
-        <View style={isDesktop ? { width: '100%', maxWidth: 600 } as any : undefined}>
+        <View style={isDesktop ? { width: '100%', maxWidth: 680 } as any : { width: '100%' }}>
           {/* User Info Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tài khoản</Text>
@@ -215,7 +214,7 @@ export default function SettingsScreen() {
                 <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
                   <MessageSquare color="#3b82f6" size={20} />
                 </View>
-                <Text style={styles.settingItemText}>Lắng nghe & Phản hồi</Text>
+                <Text style={styles.settingItemText}>Góp ý & Giải đáp</Text>
               </View>
               <ChevronRight color="#94a3b8" size={20} />
             </TouchableOpacity>
@@ -373,18 +372,23 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
   header: {
-    backgroundColor: '#1e3a8a',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
   },
-  headerTitle: {
-    fontSize: 20,
+  headerDesktop: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  headerTitleFB: {
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 1,
+    color: '#050505',
   },
   content: {
     paddingBottom: 32,
@@ -403,13 +407,10 @@ const styles = StyleSheet.create({
   },
   userInfoCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
   },
   avatarContainer: {
     flexDirection: 'row',
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -448,13 +449,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
   },
   settingItemLeft: {
     flexDirection: 'row',
@@ -484,8 +482,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#ffffff',
     padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: '#fee2e2',
   },
   logoutButtonText: {
@@ -553,7 +551,7 @@ const styles = StyleSheet.create({
     color: '#0f172a',
   },
   saveButton: {
-    backgroundColor: '#0891b2',
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',

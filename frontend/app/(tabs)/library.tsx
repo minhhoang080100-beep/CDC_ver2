@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { FileText, Search, Plus, Edit2, Trash2, Download } from 'lucide-react-native';
+import { FileText, Search, Plus, Edit2, Trash2, Download, User } from 'lucide-react-native';
 import CreateDocumentModal from '../../components/CreateDocumentModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -75,7 +75,7 @@ const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridCo
   );
 
   return (
-    <View style={[styles.listContent, isDesktop && { maxWidth: 1000, alignSelf: 'center', width: '100%' }]}>
+    <View style={[styles.listContent, isDesktop && { maxWidth: 680, alignSelf: 'center', width: '100%' }]}>
       <View style={{ flexDirection: 'column', gap: 16 }}>
         {[1, 2, 3, 4].map(renderSkeletonItem)}
       </View>
@@ -319,11 +319,8 @@ export default function LibraryScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-          <Text style={styles.headerTitle}>THƯ VIỆN SỐ</Text>
-        </View>
-        <View style={styles.searchContainer}>
-          <Search color="#64748b" size={20} />
+        <View style={[styles.searchContainer, isDesktop && { maxWidth: 680, alignSelf: 'center', width: '100%', marginTop: 8 }]}>
+          <Search color={Colors.text.placeholder} size={20} />
           <TextInput style={styles.searchInput} placeholder="Tìm kiếm tài liệu..." editable={false} />
         </View>
         <SkeletonLoader isDesktop={isDesktop} gridColumns={gridColumns} />
@@ -333,35 +330,12 @@ export default function LibraryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
-        <Text style={styles.headerTitle}>THƯ VIỆN SỐ</Text>
-        {canCreateDocument && (
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => {
-              setEditingDocument(null);
-              setModalVisible(true);
-            }}
-          >
-            <Plus color="#ffffff" size={24} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <View style={styles.searchContainer}>
-        <Search color="#64748b" size={20} />
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Tìm kiếm tài liệu..."
-          placeholderTextColor="#94a3b8"
-        />
-      </View>
+
       <FlatList
         data={filteredDocs}
         renderItem={renderDocument}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 800, alignSelf: 'center' as any, width: '100%' as any }]}
+        contentContainerStyle={[styles.listContent, isDesktop && { maxWidth: 680, alignSelf: 'center' as any, width: '100%' as any }, !isDesktop && { paddingBottom: 110 }]}
         refreshControl={
           <RefreshControl
             refreshing={loading}
@@ -369,6 +343,44 @@ export default function LibraryScreen() {
             colors={[Colors.primary]}
             tintColor={Colors.primary}
           />
+        }
+        ListHeaderComponent={
+          <>
+            {/* Search Bar */}
+            <View style={[styles.searchContainer, isDesktop && { marginTop: 8 }]}>
+              <View style={styles.searchInputWrapper}>
+                <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Tìm kiếm tài liệu..."
+                  placeholderTextColor={Colors.text.placeholder}
+                />
+              </View>
+            </View>
+
+            {canCreateDocument && (
+              <View style={[isDesktop && { paddingTop: 8 }, !isDesktop && { paddingTop: 8, paddingHorizontal: 0 }]}>
+                <TouchableOpacity 
+                  style={[styles.createPostBox, isDesktop && { borderWidth: 1, borderColor: Colors.border + '40', borderRadius: 8 }]}
+                  onPress={() => {
+                    setEditingDocument(null);
+                    setModalVisible(true);
+                  }}
+                >
+                  <View pointerEvents="none" style={styles.createPostHeader}>
+                    <View style={styles.avatarMini}>
+                      <User size={24} color="#bac2c9" />
+                    </View>
+                    <View style={styles.createPostInput}>
+                      <Text style={styles.createPostPlaceholder}>Thêm tài liệu mới...</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -393,53 +405,38 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1e3a8a',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    letterSpacing: 1,
-  },
-  addButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#0891b2',
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  createPostBox: { backgroundColor: '#ffffff', padding: 16, marginBottom: 8 },
+  createPostHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatarMini: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e4e6eb', justifyContent: 'center', alignItems: 'center' },
+  avatarMiniText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
+  createPostInput: { flex: 1, backgroundColor: '#f0f2f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'center' },
+  createPostPlaceholder: { color: '#65676B', fontSize: 16 },
   searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    margin: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: Colors.surface,
     borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: Colors.border + '40',
+    ...Colors.shadows.sm,
   },
-  headerDesktop: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#0f172a',
+    fontSize: 15,
+    color: Colors.text.primary,
+    height: '100%',
   },
   loadingContainer: {
     flex: 1,
@@ -455,12 +452,9 @@ const styles = StyleSheet.create({
   },
   docCard: {
     backgroundColor: Colors.surface,
-    borderRadius: 16,
+    borderRadius: 8,
     padding: 16,
-    marginBottom: 16,
-    ...Colors.shadows.md,
-    borderWidth: 1,
-    borderColor: Colors.border + '40',
+    marginBottom: 12,
   },
   docCardDesktop: {
     flexDirection: 'row',

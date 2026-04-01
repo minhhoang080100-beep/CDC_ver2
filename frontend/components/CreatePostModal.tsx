@@ -28,7 +28,7 @@ const postSchema = z.object({
   content: z.string().min(10, 'Nội dung bài viết quá ngắn (tối thiểu 10 ký tự)'),
   category: z.string(),
   targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
-  image: z.string().nullable().optional(),
+  images: z.array(z.string()).max(10, 'Tối đa 10 ảnh').optional(),
 });
 
 type PostFormValues = z.infer<typeof postSchema>;
@@ -40,7 +40,7 @@ interface Post {
   summary: string;
   category: string;
   targetDepartments: string[];
-  image?: string;
+  images?: string[];
 }
 
 interface CreatePostModalProps {
@@ -74,13 +74,13 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       content: '',
       category: 'Thông báo',
       targetDepartments: ['ALL'],
-      image: null,
+      images: [],
     },
   });
 
   const watchedCategory = watch('category');
   const watchedDepts = watch('targetDepartments');
-  const watchedImage = watch('image');
+  const watchedImages = watch('images') || [];
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         content: editPost.content,
         category: editPost.category || 'Thông báo',
         targetDepartments: editPost.targetDepartments || ['ALL'],
-        image: editPost.image || null,
+        images: editPost.images || [],
       });
     } else if (visible) {
       // Reset form fields without closing the modal
@@ -101,7 +101,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         content: '',
         category: 'Thông báo',
         targetDepartments: ['ALL'],
-        image: null,
+        images: [],
       });
     }
   }, [editPost, visible, reset]);
@@ -141,17 +141,34 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: 10 - watchedImages.length, // Only allow filling up to 10
+        quality: 0.6, // Optimize size
         base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        // Temporarily show local image while uploading
-        setValue('image', result.assets[0].uri);
-
-        const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        await uploadToCloudinary(base64Img);
+        setUploadingImage(true);
+        try {
+          const validUrls: string[] = [];
+          
+          // Upload sequentially to prevent memory/network overload on mobile/web
+          for (const asset of result.assets) {
+            const base64Img = `data:image/jpeg;base64,${asset.base64}`;
+            const url = await uploadSingleToCloudinary(base64Img);
+            if (url) {
+              validUrls.push(url);
+            }
+          }
+          
+          if (validUrls.length > 0) {
+            setValue('images', [...watchedImages, ...validUrls], { shouldValidate: true });
+          }
+        } catch (error) {
+          console.error("Lỗi upload nhiều ảnh:", error);
+        } finally {
+          setUploadingImage(false);
+        }
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -159,8 +176,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     }
   };
 
-  const uploadToCloudinary = async (base64Img: string) => {
-    setUploadingImage(true);
+  const uploadSingleToCloudinary = async (base64Img: string): Promise<string | null> => {
     try {
       const formData = new FormData();
       formData.append('file', base64Img);
@@ -175,16 +191,14 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       const data = await response.json();
 
       if (response.ok && data.secure_url) {
-        setValue('image', data.secure_url);
+        return data.secure_url;
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading to Cloudinary:', error);
-      showToast({ message: 'Upload ảnh thất bại. Bạn đã bật Unsigned Upload Preset chưa?', type: 'error' });
-      setValue('image', null); // Reset on failure
-    } finally {
-      setUploadingImage(false);
+      showToast({ message: 'Upload ảnh thất bại. Kiểm tra kết nối hoặc size.', type: 'error' });
+      return null;
     }
   };
 
@@ -292,18 +306,38 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
             />
             {errors.content && <Text style={styles.errorText}>{errors.content.message}</Text>}
 
-            <Text style={styles.label}>Ảnh minh họa (Tùy chọn)</Text>
-            {watchedImage ? (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: watchedImage }} style={styles.imagePreview} />
-                <TouchableOpacity
-                  style={styles.removeImageButton}
-                  onPress={() => setValue('image', null)}
-                  disabled={isSubmitting || uploadingImage}
-                >
-                  <X color="#fff" size={20} />
-                </TouchableOpacity>
-              </View>
+            <Text style={styles.label}>Ảnh minh họa (Tối đa 10 ảnh)</Text>
+            {watchedImages.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalImageScroll}>
+                {watchedImages.map((imgUri, index) => (
+                  <View key={index} style={styles.multiImagePreviewContainer}>
+                    <Image source={{ uri: imgUri }} style={styles.imagePreview} />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() => {
+                        const newImages = watchedImages.filter((_, i) => i !== index);
+                        setValue('images', newImages, { shouldValidate: true });
+                      }}
+                      disabled={isSubmitting || uploadingImage}
+                    >
+                      <X color="#fff" size={20} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {watchedImages.length < 10 && (
+                  <TouchableOpacity
+                    style={[styles.imageUploadButton, styles.addMoreImageButton]}
+                    onPress={pickImage}
+                    disabled={isSubmitting || uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator color={Colors.primary} />
+                    ) : (
+                      <ImagePlus color={Colors.primary} size={28} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
             ) : (
               <TouchableOpacity
                 style={styles.imageUploadButton}
@@ -318,13 +352,13 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                 ) : (
                   <>
                     <ImagePlus color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
-                    <Text style={styles.imageUploadText}>Nhấn để tải ảnh lên</Text>
-                    <Text style={styles.imageUploadSubText}>Hỗ trợ JPG, PNG (Tối đa 5MB)</Text>
+                    <Text style={styles.imageUploadText}>Nhấn để tải ảnh lên (tối đa 10)</Text>
+                    <Text style={styles.imageUploadSubText}>Hỗ trợ JPG, PNG (Tối đa 5MB/ảnh)</Text>
                   </>
                 )}
               </TouchableOpacity>
             )}
-            {errors.image && <Text style={styles.errorText}>{errors.image.message}</Text>}
+            {errors.images && <Text style={styles.errorText}>{errors.images.message}</Text>}
 
             <Text style={styles.label}>Danh mục</Text>
             <View style={styles.categoryContainer}>
@@ -482,6 +516,25 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
     marginTop: 4,
   },
+  horizontalImageScroll: {
+    marginBottom: 8,
+    flexDirection: 'row',
+  },
+  multiImagePreviewContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: Colors.divider,
+    marginRight: 10,
+  },
+  addMoreImageButton: {
+    width: 120,
+    height: 120,
+    marginBottom: 0,
+    padding: 0,
+  },
   imagePreviewContainer: {
     width: '100%',
     height: 200,
@@ -498,12 +551,12 @@ const styles = StyleSheet.create({
   },
   removeImageButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 4,
+    right: 4,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-    width: 32,
-    height: 32,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
