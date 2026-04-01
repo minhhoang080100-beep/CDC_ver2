@@ -4,6 +4,7 @@ import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import { MessageSquare, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, Send } from 'lucide-react-native';
 import WebHoverCard from '../WebHoverCard';
 
@@ -28,6 +29,7 @@ interface Feedback {
 
 export default function FeedbackManagement() {
     const { token, user } = useAuth();
+    const { isDesktop } = useResponsive();
     const { showToast } = useToast();
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [loading, setLoading] = useState(true);
@@ -247,7 +249,7 @@ export default function FeedbackManagement() {
     if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>;
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isDesktop && styles.containerDesktop]}>
             <FlatList
                 data={feedbacks}
                 renderItem={renderFeedback}
@@ -266,7 +268,12 @@ export default function FeedbackManagement() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f1f5f9' },
+    container: { flex: 1, padding: 16 },
+    containerDesktop: {
+        maxWidth: 1000,
+        marginHorizontal: 'auto',
+        width: '100%',
+    },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     list: { padding: 16 },
     card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden' },

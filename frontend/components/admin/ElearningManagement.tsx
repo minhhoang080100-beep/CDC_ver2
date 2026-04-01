@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 import {
@@ -42,6 +43,7 @@ const CATEGORIES = ['An toàn lao động', 'Nghiệp vụ', 'Kỹ năng mềm',
 
 export default function ElearningManagement() {
     const { token } = useAuth();
+    const { isDesktop } = useResponsive();
     const { showToast } = useToast();
     const { showConfirm } = useConfirm();
     const [courses, setCourses] = useState<any[]>([]);
@@ -317,7 +319,7 @@ export default function ElearningManagement() {
     if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={Colors.primary} />;
 
     return (
-        <ScrollView style={styles.container}>
+        <ScrollView style={[styles.container, isDesktop && styles.containerDesktop]}>
             {/* Top Actions */}
             <View style={styles.topBar}>
                 <Text style={styles.title}>📚 Quản lý E-learning</Text>
@@ -685,6 +687,11 @@ export default function ElearningManagement() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 16 },
+    containerDesktop: {
+        maxWidth: 1000,
+        marginHorizontal: 'auto',
+        width: '100%',
+    },
     topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     title: { fontSize: 18, fontWeight: '700', color: '#0f172a' },
     addBtn: {

@@ -417,7 +417,7 @@ export default function SurveyManagement() {
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isDesktop && styles.containerDesktop]}>
             {/* Header Actions */}
             <View style={styles.headerBar}>
                 <View style={styles.filterRow}>
@@ -743,7 +743,12 @@ export default function SurveyManagement() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, padding: 16 },
+    containerDesktop: {
+        maxWidth: 1000,
+        marginHorizontal: 'auto',
+        width: '100%',
+    },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerBar: {
         flexDirection: 'row',

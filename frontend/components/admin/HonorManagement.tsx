@@ -17,6 +17,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
+import { useResponsive } from '../../hooks/useResponsive';
 import {
     Plus,
     Trash2,
@@ -67,6 +68,7 @@ const DEPT_LABELS: Record<string, string> = {
 
 export default function HonorManagement() {
     const { token } = useAuth();
+    const { isDesktop } = useResponsive();
     const { showToast } = useToast();
     const { showConfirm } = useConfirm();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -221,7 +223,7 @@ export default function HonorManagement() {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isDesktop && styles.containerDesktop]}>
             {/* Header */}
             <View style={styles.headerBar}>
                 <View style={styles.filterRow}>
@@ -399,7 +401,12 @@ export default function HonorManagement() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1, padding: 16 },
+    containerDesktop: {
+        maxWidth: 1000,
+        marginHorizontal: 'auto',
+        width: '100%',
+    },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     headerBar: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

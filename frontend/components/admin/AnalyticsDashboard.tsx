@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from '
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useResponsive } from '../../hooks/useResponsive';
 import { Users, FileText, Calendar, MessageSquare, CheckCircle, Clock } from 'lucide-react-native';
 
 interface AnalyticsData {
@@ -25,6 +26,7 @@ interface AnalyticsData {
 
 export default function AnalyticsDashboard() {
     const { token } = useAuth();
+    const { isDesktop } = useResponsive();
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -81,7 +83,7 @@ export default function AnalyticsDashboard() {
     return (
         <ScrollView
             style={styles.container}
-            contentContainerStyle={styles.content}
+            contentContainerStyle={[styles.content, isDesktop && styles.containerDesktop]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
         >
             <Text style={styles.sectionTitle}>Tổng quan hệ thống</Text>
@@ -165,7 +167,12 @@ export default function AnalyticsDashboard() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
+    container: { flex: 1 },
+    containerDesktop: {
+        maxWidth: 1000,
+        marginHorizontal: 'auto',
+        width: '100%',
+    },
     content: { padding: 20 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, marginTop: 12 },
