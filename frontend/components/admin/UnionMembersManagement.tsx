@@ -21,20 +21,35 @@ import { Plus, Edit2, Trash2, Search, Download, Upload, Users, Filter, CheckSqua
 import WebHoverCard from '../WebHoverCard';
 import * as DocumentPicker from 'expo-document-picker';
 import UnionMemberModal from './UnionMemberModal';
+import UnionMemberEditModal from './UnionMemberEditModal';
 
 export interface UnionMember {
     id: string;
     employeeId?: string;
     fullName: string;
     gender?: string;
+    birthDate?: string;
     department?: string;
     workUnit?: string;
     position?: string;
     phoneNumber?: string;
-    unionJoinDate?: string;
-    isPartyMember?: boolean;
-    familyBackground?: string;
     email?: string;
+    hometown?: string;
+    permanentAddress?: string;
+    educationLevel?: string;
+    qualification?: string;
+    professionalQualification?: string;
+    major?: string;
+    isPartyMember?: boolean;
+    partyJoinDate?: string;
+    partyOfficialDate?: string;
+    unionJoinDate?: string;
+    idNumber?: string;
+    cccdNumber?: string;
+    idIssueDate?: string;
+    idIssuePlace?: string;
+    familyBackground?: string;
+    userId?: string;
 }
 
 export default function UnionMembersManagement() {
@@ -49,13 +64,15 @@ export default function UnionMembersManagement() {
     const [searchText, setSearchText] = useState('');
     const [filterFamilyBg, setFilterFamilyBg] = useState(false);
     const [filterPartyMember, setFilterPartyMember] = useState(false);
+    const [filterNoAccount, setFilterNoAccount] = useState(false);
 
     const [selectedWorkUnit, setSelectedWorkUnit] = useState<string | null>(null);
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
     const [selectedMember, setSelectedMember] = useState<UnionMember | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
-    // const [editingMember, setEditingMember] = useState<UnionMember | null>(null);
+    const [editingMember, setEditingMember] = useState<UnionMember | null>(null);
+    const [editModalVisible, setEditModalVisible] = useState(false);
 
     useEffect(() => {
         fetchMembers();
@@ -81,10 +98,10 @@ export default function UnionMembersManagement() {
         fetchMembers();
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = (id: string, name: string) => {
         showConfirm({
             title: 'Xóa đoàn viên',
-            message: 'Bạn có chắc chắn muốn xóa hồ sơ đoàn viên này?',
+            message: `Bạn có chắc chắn muốn xóa hồ sơ của "${name}"?\nThao tác này không thể hoàn tác.`,
             type: 'danger',
             confirmText: 'Xóa',
             onConfirm: async () => {
@@ -92,13 +109,18 @@ export default function UnionMembersManagement() {
                     await api.delete(`/api/union-members/${id}`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
-                    showToast({ message: 'Đã xóa đoàn viên', type: 'success' });
+                    showToast({ message: `Đã xóa hồ sơ ${name}`, type: 'success' });
                     fetchMembers();
                 } catch (error) {
-                    showToast({ message: 'Lỗi khi xóa', type: 'error' });
+                    showToast({ message: 'Lỗi khi xóa hồ sơ', type: 'error' });
                 }
             }
         });
+    };
+
+    const handleEdit = (item: UnionMember) => {
+        setEditingMember(item);
+        setEditModalVisible(true);
     };
 
     const handleImportExcel = async () => {
@@ -197,7 +219,12 @@ export default function UnionMembersManagement() {
             matchesParty = !!m.isPartyMember;
         }
 
-        return matchesSearch && matchesFamilyBg && matchesParty;
+        let matchesNoAccount = true;
+        if (filterNoAccount) {
+            matchesNoAccount = !m.userId;
+        }
+
+        return matchesSearch && matchesFamilyBg && matchesParty && matchesNoAccount;
     });
 
     const handleRowClick = (item: UnionMember) => {
@@ -218,9 +245,7 @@ export default function UnionMembersManagement() {
                         style={[styles.actionBtn, styles.editBtn]}
                         onPress={(e) => {
                             e.stopPropagation();
-                            // setEditingMember(item);
-                            // setModalVisible(true);
-                            showToast({ message: 'Chức năng Edit đang hoàn thiện', type: 'info' })
+                            handleEdit(item);
                         }}
                     >
                         <Edit2 color={Colors.primary} size={18} />
@@ -229,7 +254,7 @@ export default function UnionMembersManagement() {
                         style={[styles.actionBtn, styles.deleteBtn]}
                         onPress={(e) => {
                             e.stopPropagation();
-                            handleDelete(item.id);
+                            handleDelete(item.id, item.fullName);
                         }}
                     >
                         <Trash2 color={Colors.status.error} size={18} />
@@ -323,7 +348,7 @@ export default function UnionMembersManagement() {
                 </View>
             </View>
 
-            {/* Background Filters */}
+            {/* Filter Chips */}
             <View style={styles.filterRow}>
                 <Text style={styles.filterLabel}>Lọc nhanh:</Text>
                 <TouchableOpacity
@@ -345,6 +370,16 @@ export default function UnionMembersManagement() {
                         Đảng viên
                     </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.filterChip, filterNoAccount && styles.filterChipActiveWarning]}
+                    onPress={() => setFilterNoAccount(!filterNoAccount)}
+                >
+                    {filterNoAccount ? <CheckSquare size={16} color="#f59e0b" /> : <Square size={16} color={Colors.text.secondary} />}
+                    <Text style={[styles.filterChipText, filterNoAccount && styles.filterChipTextWarning]}>
+                        Chưa có tài khoản
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.listContainer}>
@@ -352,9 +387,11 @@ export default function UnionMembersManagement() {
                     <View style={styles.table}>
                         <View style={styles.tableHeader}>
                             <Text style={[styles.th, { flex: 0.8 }]}>Mã NV</Text>
-                            <Text style={[styles.th, { flex: 2 }]}>Họ và Tên</Text>
-                            <Text style={[styles.th, { flex: 1.5 }]}>Chức vụ / PB</Text>
+                            <Text style={[styles.th, { flex: 1.6 }]}>Họ và Tên</Text>
+                            <Text style={[styles.th, { flex: 1.4 }]}>Chức vụ / PB</Text>
                             <Text style={[styles.th, { flex: 1 }]}>Điện thoại</Text>
+                            <Text style={[styles.th, { flex: 1.5 }]}>Hoàn cảnh GĐ</Text>
+                            <Text style={[styles.th, { width: 110, textAlign: 'center' }]}>Tài khoản</Text>
                             <Text style={[styles.th, { width: 100, textAlign: 'center' }]}>Thao tác</Text>
                         </View>
                         <FlatList
@@ -364,22 +401,43 @@ export default function UnionMembersManagement() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.tr} activeOpacity={0.7} onPress={() => handleRowClick(item)}>
                                     <Text style={[styles.td, { flex: 0.8, color: Colors.text.secondary }]}>{item.employeeId || '-'}</Text>
-                                    <Text style={[styles.td, { flex: 2, fontWeight: '500' }]}>{item.fullName}</Text>
-                                    <Text style={[styles.td, { flex: 1.5 }]}>
+                                    <Text style={[styles.td, { flex: 1.6, fontWeight: '500' }]}>{item.fullName}</Text>
+                                    <Text style={[styles.td, { flex: 1.4 }]}>
                                         <Text style={{ fontWeight: '500' }}>{item.position || '-'}</Text>
-                                        <Text style={{ color: Colors.text.secondary, fontSize: 13 }}>{'\n'}{item.department || '-'}</Text>
+                                        <Text style={{ color: Colors.text.secondary, fontSize: 13 }}>{`\n`}{item.department || '-'}</Text>
                                     </Text>
                                     <Text style={[styles.td, { flex: 1 }]}>{item.phoneNumber || '-'}</Text>
+                                    <View style={{ flex: 1.5, paddingRight: 8 }}>
+                                        {item.familyBackground && item.familyBackground.trim() !== '' && item.familyBackground.toLowerCase() !== 'nan' ? (
+                                            <Text style={styles.familyBgText} numberOfLines={2} ellipsizeMode="tail">
+                                                {item.familyBackground}
+                                            </Text>
+                                        ) : (
+                                            <Text style={[styles.td, { color: Colors.text.placeholder }]}>—</Text>
+                                        )}
+                                    </View>
+                                    {/* Cột Tài khoản */}
+                                    <View style={{ width: 110, alignItems: 'center', justifyContent: 'center' }}>
+                                        {item.userId ? (
+                                            <View style={styles.accountBadgeLinked}>
+                                                <Text style={styles.accountBadgeLinkedText}>✓ Đã tạo</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={styles.accountBadgeNone}>
+                                                <Text style={styles.accountBadgeNoneText}>Chưa có</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                     <View style={{ width: 100, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
                                         <TouchableOpacity onPress={(e) => {
                                             e.stopPropagation();
-                                            showToast({ message: 'Đang phát triển', type: 'info' });
+                                            handleEdit(item);
                                         }}>
                                             <Edit2 color={Colors.primary} size={16} />
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={(e) => {
                                             e.stopPropagation();
-                                            handleDelete(item.id);
+                                            handleDelete(item.id, item.fullName);
                                         }}>
                                             <Trash2 color={Colors.status.error} size={16} />
                                         </TouchableOpacity>
@@ -395,6 +453,7 @@ export default function UnionMembersManagement() {
                             }
                         />
                     </View>
+
                 ) : (
                     <FlatList
                         data={filteredMembers}
@@ -418,12 +477,21 @@ export default function UnionMembersManagement() {
                 visible={modalVisible}
                 onClose={() => {
                     setModalVisible(false);
-                    // delay clearing selected member slightly for smooth fade out
                     setTimeout(() => setSelectedMember(null), 300);
                 }}
                 member={selectedMember}
             />
-            {/* Modal for Edit/Add will go here */}
+
+            {/* Edit Modal */}
+            <UnionMemberEditModal
+                visible={editModalVisible}
+                onClose={() => {
+                    setEditModalVisible(false);
+                    setTimeout(() => setEditingMember(null), 300);
+                }}
+                member={editingMember}
+                onSaved={fetchMembers}
+            />
             </View>
         </View>
     );
@@ -591,17 +659,26 @@ const styles = StyleSheet.create({
         borderColor: Colors.divider,
         gap: 8,
     },
-    filterChipActive: {
-        borderColor: Colors.primary,
-        backgroundColor: `${Colors.primary}10`,
-    },
     filterChipText: {
         fontSize: 14,
         color: Colors.text.secondary,
+        fontWeight: '500',
+    },
+    filterChipActive: {
+        borderColor: Colors.primary,
+        backgroundColor: Colors.primary + '10',
     },
     filterChipTextActive: {
         color: Colors.primary,
-        fontWeight: '500',
+        fontWeight: '600',
+    },
+    filterChipActiveWarning: {
+        borderColor: '#f59e0b',
+        backgroundColor: '#f59e0b' + '10',
+    },
+    filterChipTextWarning: {
+        color: '#f59e0b',
+        fontWeight: '600',
     },
     listContainer: {
         flex: 1,
@@ -684,5 +761,37 @@ const styles = StyleSheet.create({
     emptyText: {
         color: Colors.text.secondary,
         fontStyle: 'italic',
+    },
+    familyBgText: {
+        fontSize: 13,
+        color: Colors.text.secondary,
+        fontStyle: 'italic',
+        lineHeight: 18,
+    },
+    accountBadgeLinked: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: '#dcfce7',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#bbf7d0',
+    },
+    accountBadgeLinkedText: {
+        color: '#166534',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    accountBadgeNone: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: Colors.background,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+    },
+    accountBadgeNoneText: {
+        color: Colors.text.placeholder,
+        fontSize: 12,
+        fontWeight: '500',
     }
 });

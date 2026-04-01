@@ -23,6 +23,10 @@ import { useToast } from '../contexts/ToastContext';
 
 const registerSchema = z.object({
     fullName: z.string().min(2, 'Họ và tên quá ngắn').max(100, 'Họ và tên quá dài'),
+    cccdNumber: z.string()
+        .min(9, 'CCCD/CMND phải có từ 9 đến 12 số')
+        .max(12, 'CCCD/CMND phải có từ 9 đến 12 số')
+        .regex(/^[0-9]+$/, 'CCCD/CMND chỉ được chứa chữ số'),
     username: z.string()
         .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
         .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
@@ -53,6 +57,7 @@ export default function RegisterScreen() {
         resolver: zodResolver(registerSchema),
         defaultValues: {
             fullName: '',
+            cccdNumber: '',
             username: '',
             password: '',
             department: 'VAN_PHONG_CANG',
@@ -146,6 +151,25 @@ export default function RegisterScreen() {
                                     </TouchableOpacity>
                                 ))}
                             </View>
+
+                            <Text style={styles.label}>Số CCCD / CMND</Text>
+                            <Controller
+                                control={control}
+                                name="cccdNumber"
+                                render={({ field: { onChange, onBlur, value } }) => (
+                                    <TextInput
+                                        style={[styles.input, errors.cccdNumber && styles.inputError]}
+                                        value={value}
+                                        onChangeText={onChange}
+                                        onBlur={onBlur}
+                                        placeholder="Nhập 9 hoặc 12 số CCCD/CMND"
+                                        placeholderTextColor="#94a3b8"
+                                        keyboardType="numeric"
+                                        editable={!isLoading}
+                                    />
+                                )}
+                            />
+                            {errors.cccdNumber && <Text style={styles.errorText}>{errors.cccdNumber.message}</Text>}
 
                             <Text style={styles.label}>Tên đăng nhập (Tài khoản)</Text>
                             <Controller

@@ -69,6 +69,7 @@ class UnionMemberUpdate(BaseModel):
 
 class UnionMemberResponse(UnionMemberBase):
     id: str
+    userId: Optional[str] = None
 
     @field_validator(
         'idNumber', 'cccdNumber', 'phoneNumber', 'employeeId',

@@ -163,6 +163,47 @@ async def get_union_members(
 
     cursor = db.union_members.find(query).skip(skip).limit(limit)
     members = await cursor.to_list(length=limit)
+
+    # Automatically map User ID based on exact match: cccdNumber == cccdNumber
+    if members:
+        def normalize_cccd(val):
+            if val is None or str(val).lower() == 'nan': return None
+            s = str(val)
+            if isinstance(val, float):
+                s, _, _ = s.partition('.')
+            if len(s) == 11:
+                return s.zfill(12)
+            if len(s) == 8:
+                return s.zfill(9)
+            return s
+
+        normalized_map = {}
+        for m in members:
+            cccd = m.get("cccdNumber")
+            if cccd:
+                norm = normalize_cccd(cccd)
+                if norm:
+                    m["cccdNumber"] = norm  # Correct the in-memory representation
+                    # Group by normalized cccd to handle multiple records identically if needed
+                    # But since we're just setting userId on m, we can just use a list, 
+                    # but since multiple union members might theoretically have same CCCD (edge case),
+                    # we should list append
+                    if norm not in normalized_map:
+                        normalized_map[norm] = []
+                    normalized_map[norm].append(m)
+
+        cccd_list = list(normalized_map.keys())
+        
+        if cccd_list:
+            users = await db.users.find({"cccdNumber": {"$in": cccd_list}}, {"_id": 1, "cccdNumber": 1}).to_list(length=len(cccd_list))
+            user_map = {u["cccdNumber"]: str(u["_id"]) for u in users if u.get("cccdNumber")}
+            
+            for norm_cccd, members_with_cccd in normalized_map.items():
+                if norm_cccd in user_map:
+                    user_id = user_map[norm_cccd]
+                    for m in members_with_cccd:
+                        m["userId"] = user_id
+
     return [format_member(m) for m in members]
 
 @router.get("/{member_id}", response_model=UnionMemberResponse)

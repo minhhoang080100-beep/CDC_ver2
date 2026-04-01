@@ -117,6 +117,7 @@ async def create_user(user_data: UserCreate, current_user: dict = Depends(get_cu
         "password": hash_password(user_data.password),
         "fullName": user_data.fullName,
         "unionId": user_data.unionId,
+        "cccdNumber": user_data.cccdNumber,
         "role": user_data.role,
         "department": user_data.department,
         "avatar": user_data.avatar,
@@ -175,6 +176,9 @@ async def update_user(
         
     if user_data.status is not None:
         update_fields["status"] = user_data.status
+        
+    if user_data.cccdNumber is not None:
+        update_fields["cccdNumber"] = user_data.cccdNumber
         
     if user_data.avatar is not None:
         # Check if old avatar exists to clean up

@@ -150,6 +150,7 @@ async def register_user(user_data: UserCreate, request: Request):
         "password": hash_password(user_data.password),
         "fullName": user_data.fullName,
         "unionId": user_data.unionId,
+        "cccdNumber": user_data.cccdNumber,
         "role": "MEMBER",
         "department": user_data.department,
         "avatar": user_data.avatar,
