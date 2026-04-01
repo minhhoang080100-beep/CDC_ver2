@@ -32,6 +32,7 @@ import {
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import QuizModal from '../../components/QuizModal';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 
 interface Lesson {
     title: string;
@@ -74,6 +75,10 @@ export default function ElearningScreen() {
     const [quizModalVisible, setQuizModalVisible] = useState(false);
     const [quizCourseId, setQuizCourseId] = useState('');
     const [viewingLessonIdx, setViewingLessonIdx] = useState<number | null>(null);
+
+    const [docViewerVisible, setDocViewerVisible] = useState(false);
+    const [docViewerUrl, setDocViewerUrl] = useState<string>('');
+    const [docViewerTitle, setDocViewerTitle] = useState<string>('');
 
     const fetchCourses = async () => {
         try {
@@ -363,9 +368,13 @@ export default function ElearningScreen() {
                                             {viewingLessonIdx === idx && lesson.url && (lesson.type === 'VIDEO' || lesson.type === 'PDF') && Platform.OS !== 'web' && (
                                                 <TouchableOpacity
                                                     style={styles.openExternalBtn}
-                                                    onPress={() => Linking.openURL(lesson.url!)}
+                                                    onPress={() => {
+                                                        setDocViewerUrl(lesson.url!);
+                                                        setDocViewerTitle(lesson.title);
+                                                        setDocViewerVisible(true);
+                                                    }}
                                                 >
-                                                    <Text style={styles.openExternalText}>Mở {lesson.type === 'VIDEO' ? 'video' : 'PDF'} ↗</Text>
+                                                    <Text style={styles.openExternalText}>Mở {lesson.type === 'VIDEO' ? 'video' : 'PDF'}</Text>
                                                 </TouchableOpacity>
                                             )}
                                         </View>
@@ -416,6 +425,13 @@ export default function ElearningScreen() {
                 visible={quizModalVisible}
                 courseId={quizCourseId}
                 onClose={() => { setQuizModalVisible(false); fetchCourses(); }}
+            />
+
+            <DocumentViewerModal
+                visible={docViewerVisible}
+                url={docViewerUrl}
+                title={docViewerTitle}
+                onClose={() => setDocViewerVisible(false)}
             />
         </SafeAreaView>
     );

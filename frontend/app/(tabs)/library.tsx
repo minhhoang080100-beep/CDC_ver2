@@ -18,6 +18,7 @@ import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { FileText, Search, Plus, Edit2, Trash2, Download, User } from 'lucide-react-native';
 import CreateDocumentModal from '../../components/CreateDocumentModal';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { format } from 'date-fns';
@@ -94,6 +95,10 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState<string>('');
 
   useEffect(() => {
     fetchDocuments();
@@ -182,6 +187,12 @@ export default function LibraryScreen() {
     });
   };
 
+  const handleViewDocument = (url: string, title: string) => {
+    setViewerUrl(url);
+    setViewerTitle(title);
+    setViewerVisible(true);
+  };
+
   const handleDownload = (url: string, title: string) => {
     let downloadUrl = url;
     // Add fl_attachment to force download on cloudinary
@@ -231,13 +242,7 @@ export default function LibraryScreen() {
                 <>
                   <TouchableOpacity
                     style={styles.actionIconBtnOpen}
-                    onPress={() => {
-                      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                        window.open(item.fileUrl!, '_blank');
-                      } else {
-                        Linking.openURL(item.fileUrl!);
-                      }
-                    }}
+                    onPress={() => handleViewDocument(item.fileUrl!, item.title)}
                   >
                     <FileText color={Colors.primary} size={16} />
                   </TouchableOpacity>
@@ -252,13 +257,7 @@ export default function LibraryScreen() {
                 <>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => {
-                      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                        window.open(item.fileUrl!, '_blank');
-                      } else {
-                        Linking.openURL(item.fileUrl!);
-                      }
-                    }}
+                    onPress={() => handleViewDocument(item.fileUrl!, item.title)}
                   >
                     <FileText color={Colors.primary} size={16} />
                     <Text style={styles.actionTextOpen}>Mở</Text>
@@ -397,6 +396,13 @@ export default function LibraryScreen() {
         }}
         onSuccess={handleCreateSuccess}
         editDocument={editingDocument}
+      />
+
+      <DocumentViewerModal
+        visible={viewerVisible}
+        url={viewerUrl}
+        title={viewerTitle}
+        onClose={() => setViewerVisible(false)}
       />
     </SafeAreaView>
   );

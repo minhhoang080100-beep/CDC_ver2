@@ -98,12 +98,18 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
   const pickDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*', // Allow all files, or specify pdf/doc etc.
+        type: 'application/pdf',
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
+        
+        if (file.name && !file.name.toLowerCase().endsWith('.pdf')) {
+          showToast({ message: 'Vui lòng chỉ chọn tệp định dạng PDF', type: 'error' });
+          return;
+        }
+
         setFileName(file.name);
 
         // Convert the bytes to MB or KB
@@ -326,7 +332,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
                   <>
                     <FileUp color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
                     <Text style={styles.fileUploadText}>Nhấn để chọn và tải tệp lên</Text>
-                    <Text style={styles.fileUploadSubText}>Hỗ trợ PDF, Word, Excel, PPT...</Text>
+                    <Text style={styles.fileUploadSubText}>Chỉ hỗ trợ định dạng PDF</Text>
                   </>
                 )}
               </TouchableOpacity>
