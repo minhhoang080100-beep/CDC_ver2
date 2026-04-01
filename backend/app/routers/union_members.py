@@ -47,9 +47,14 @@ async def import_union_members(
         
         imported_count = 0
         errors = []
+        current_work_unit = None
+        current_department = None
         
         for index, row in df.iterrows():
             try:
+                # Các cột chứa số định danh cần ép kiểu về string
+                STR_COLS = {'Số điện thoại', 'Số CMND', 'Số CCCD', 'Mã nhân viên'}
+
                 def get_val(col_name):
                     val = row.get(col_name)
                     if pd.isna(val):
@@ -58,40 +63,60 @@ async def import_union_members(
                         return val.to_pydatetime()
                     if isinstance(val, str):
                         return val.strip()
-                    # Handle float parsed as int
-                    if isinstance(val, float) and col_name == 'Số điện thoại':
-                        return str(int(val))
-                    if isinstance(val, int) and col_name == 'Số điện thoại':
-                        return str(val)
+                    # Ép kiểu float/int → str cho các cột số định danh
+                    if col_name in STR_COLS:
+                        if isinstance(val, float):
+                            return str(int(val)) if val == int(val) else str(val)
+                        if isinstance(val, int):
+                            return str(val)
                     return val
 
-                full_name = get_val('Họ và Tên')
-                if not full_name:
+                full_name = get_val('Tên nhân viên')
+                employee_id = get_val('Mã nhân viên')
+                
+                if not full_name and not employee_id:
                     continue
 
-                is_party = False
-                party_val = get_val('Là Đảng Viên?')
-                if party_val and str(party_val).strip().lower() in ['x', 'có', 'yes', 'true', '1']:
-                    is_party = True
+                # Nhận diện dòng Header Lớp 1 (Đơn vị) & Lớp 2 (Bộ phận)
+                if not employee_id and full_name:
+                    if '(Tổng' in full_name or '(Tổng:' in full_name:
+                        current_department = full_name.split('(Tổng')[0].strip()
+                    else:
+                        current_work_unit = full_name.strip()
+                        current_department = None
+                    continue
+                
+                if not employee_id:
+                    continue
+
+                party_join = get_val('Ngày vào Đảng')
+                is_party = bool(party_join)
 
                 member_data = {
+                    "employeeId": str(employee_id).strip(),
                     "fullName": full_name,
                     "gender": get_val('Giới tính'),
                     "birthDate": get_val('Ngày sinh'),
+                    "workUnit": get_val('Đơn vị Công tác') or current_work_unit,
+                    "department": get_val('Bộ phận') or current_department,
+                    "position": get_val('Chức vụ'),
                     "hometown": get_val('Quê quán'),
-                    "permanentAddress": get_val('Địa chỉ thường trú'),
-                    "phoneNumber": get_val('Số điện thoại'),
-                    "ethnicity": get_val('Dân tộc'),
-                    "religion": get_val('Tôn giáo'),
+                    "permanentAddress": get_val('Đại chỉ thường trú'),
+                    "email": get_val('Email'),
+                    "phoneNumber": get_val('SĐT'),
+                    "educationLevel": get_val('Trình độ văn hóa'),
+                    "qualification": get_val('Trình độ'),
+                    "professionalQualification": get_val('Trình độ chuyên môn'),
+                    "major": get_val('Chuyên ngành'),
                     "isPartyMember": is_party,
-                    "partyJoinDate": get_val('Ngày vào đảng'),
+                    "partyJoinDate": party_join,
                     "partyOfficialDate": get_val('Ngày chính thức'),
-                    "workUnit": get_val('Đơn vị công tác'),
-                    "department": get_val('Bộ phận'),
-                    "companyJoinDate": get_val('Ngày vào công ty'),
-                    "unionJoinDate": get_val('Ngày vào công đoàn'),
-                    "familyBackground": get_val('Hoàn cảnh Gia đình'),
-                    "personalBackground": get_val('Hoàn cảnh bản thân')
+                    "unionJoinDate": get_val('Ngày tham gia Công đoàn'),
+                    "idNumber": get_val('Số CMND'),
+                    "cccdNumber": get_val('Số CCCD'),
+                    "idIssueDate": get_val('Ngày cấp'),
+                    "idIssuePlace": get_val('Nơi cấp'),
+                    "familyBackground": get_val('Hoàn cảnh gia đình')
                 }
 
                 await db.union_members.insert_one(member_data)
@@ -108,10 +133,11 @@ async def import_union_members(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
+@router.get("", response_model=List[UnionMemberResponse])
 @router.get("/", response_model=List[UnionMemberResponse])
 async def get_union_members(
     skip: int = 0,
-    limit: int = 50,
+    limit: int = 2000,
     department: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):

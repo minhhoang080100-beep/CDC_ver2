@@ -7,24 +7,30 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 interface UnionMember {
-    id: string;
+    employeeId?: string;
     fullName: string;
     gender?: string;
     birthDate?: string;
+    workUnit?: string;
+    department?: string;
+    position?: string;
     hometown?: string;
     permanentAddress?: string;
+    email?: string;
     phoneNumber?: string;
-    ethnicity?: string;
-    religion?: string;
+    educationLevel?: string;
+    qualification?: string;
+    professionalQualification?: string;
+    major?: string;
     isPartyMember?: boolean;
     partyJoinDate?: string;
     partyOfficialDate?: string;
-    workUnit?: string;
-    department?: string;
-    companyJoinDate?: string;
     unionJoinDate?: string;
+    idNumber?: string;
+    cccdNumber?: string;
+    idIssueDate?: string;
+    idIssuePlace?: string;
     familyBackground?: string;
-    personalBackground?: string;
 }
 
 interface UnionMemberModalProps {
@@ -101,7 +107,7 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
                             </View>
                             <View style={styles.profileMainInfo}>
                                 <Text style={styles.profileName}>{member.fullName}</Text>
-                                <Text style={styles.profileSubtitle}>{member.department || 'Chưa phân ban'}</Text>
+                                <Text style={styles.profileSubtitle}>{member.position ? `${member.position} • ` : ''}{member.department || 'Chưa phân ban'}</Text>
                             </View>
                         </View>
 
@@ -110,19 +116,23 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
                                 {renderField("Giới tính", member.gender, <User size={18} color={Colors.text.secondary} />)}
                                 {renderField("Ngày sinh", formatDate(member.birthDate), <CalendarIcon size={18} color={Colors.text.secondary} />)}
                                 {renderField("Số điện thoại", member.phoneNumber, <Phone size={18} color={Colors.text.secondary} />)}
+                                {renderField("Email", member.email)}
                                 {renderField("Quê quán", member.hometown, <MapPin size={18} color={Colors.text.secondary} />)}
                                 {renderField("Thường trú", member.permanentAddress, <MapPin size={18} color={Colors.text.secondary} />)}
-                                {renderField("Dân tộc", member.ethnicity)}
-                                {renderField("Tôn giáo", member.religion)}
                             </>
                         ))}
 
                         {renderSection("Thông tin Công tác & Đảng/Đoàn", (
                             <>
+                                {renderField("Mã nhân viên", member.employeeId, <Briefcase size={18} color={Colors.text.secondary} />)}
                                 {renderField("Đơn vị công tác", member.workUnit, <Briefcase size={18} color={Colors.text.secondary} />)}
                                 {renderField("Bộ phận", member.department, <Briefcase size={18} color={Colors.text.secondary} />)}
-                                {renderField("Ngày vào công ty", formatDate(member.companyJoinDate), <CalendarIcon size={18} color={Colors.text.secondary} />)}
+                                {renderField("Chức vụ", member.position)}
                                 {renderField("Ngày vào Công đoàn", formatDate(member.unionJoinDate), <Users size={18} color={Colors.text.secondary} />)}
+                                {renderField("Trình độ văn hóa", member.educationLevel)}
+                                {renderField("Trình độ", member.qualification)}
+                                {renderField("Trình độ chuyên môn", member.professionalQualification)}
+                                {renderField("Chuyên ngành", member.major)}
                                 {renderField("Là Đảng Viên?", member.isPartyMember, <CheckCircle size={18} color={Colors.text.secondary} />)}
                                 {member.isPartyMember && (
                                     <>
@@ -133,10 +143,13 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
                             </>
                         ))}
 
-                        {renderSection("Hoàn cảnh", (
+                        {renderSection("Giấy tờ & Hoàn cảnh", (
                             <>
+                                {renderField("Số CMND", member.idNumber)}
+                                {renderField("Số CCCD", member.cccdNumber)}
+                                {renderField("Ngày cấp", formatDate(member.idIssueDate))}
+                                {renderField("Nơi cấp", member.idIssuePlace)}
                                 {renderField("Hoàn cảnh gia đình", member.familyBackground)}
-                                {renderField("Hoàn cảnh bản thân", member.personalBackground)}
                             </>
                         ))}
                     </ScrollView>

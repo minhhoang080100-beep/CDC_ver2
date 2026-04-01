@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,8 @@ import {
     RefreshControl,
     Platform,
     TextInput,
-    Alert
+    Alert,
+    ScrollView
 } from 'react-native';
 import { api } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -16,22 +17,24 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Plus, Edit2, Trash2, Search, Download, Upload, Users, Filter, CheckSquare, Square } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Search, Download, Upload, Users, Filter, CheckSquare, Square, Folder, FolderOpen } from 'lucide-react-native';
 import WebHoverCard from '../WebHoverCard';
 import * as DocumentPicker from 'expo-document-picker';
 import UnionMemberModal from './UnionMemberModal';
 
 export interface UnionMember {
     id: string;
+    employeeId?: string;
     fullName: string;
     gender?: string;
     department?: string;
     workUnit?: string;
+    position?: string;
     phoneNumber?: string;
     unionJoinDate?: string;
     isPartyMember?: boolean;
     familyBackground?: string;
-    personalBackground?: string;
+    email?: string;
 }
 
 export default function UnionMembersManagement() {
@@ -45,7 +48,10 @@ export default function UnionMembersManagement() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [filterFamilyBg, setFilterFamilyBg] = useState(false);
-    const [filterPersonalBg, setFilterPersonalBg] = useState(false);
+    const [filterPartyMember, setFilterPartyMember] = useState(false);
+
+    const [selectedWorkUnit, setSelectedWorkUnit] = useState<string | null>(null);
+    const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
     const [selectedMember, setSelectedMember] = useState<UnionMember | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -57,7 +63,7 @@ export default function UnionMembersManagement() {
 
     const fetchMembers = async () => {
         try {
-            const response = await api.get('/api/union-members', {
+            const response = await api.get('/api/union-members/', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setMembers(response.data);
@@ -98,7 +104,7 @@ export default function UnionMembersManagement() {
     const handleImportExcel = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
-                type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'],
+                type: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', '.xls', '.xlsx', '*/*'],
                 copyToCacheDirectory: true,
             });
 
@@ -153,7 +159,31 @@ export default function UnionMembersManagement() {
         }
     };
 
+    const structure = useMemo(() => {
+        const tree: Record<string, { total: number, departments: Record<string, number> }> = {};
+        
+        members.forEach(m => {
+            const wu = m.workUnit || 'Khác';
+            const dp = m.department || 'Chưa phân ban';
+            
+            if (!tree[wu]) {
+                tree[wu] = { total: 0, departments: {} };
+            }
+            tree[wu].total += 1;
+            
+            if (!tree[wu].departments[dp]) {
+                tree[wu].departments[dp] = 0;
+            }
+            tree[wu].departments[dp] += 1;
+        });
+        
+        return tree;
+    }, [members]);
+
     const filteredMembers = members.filter(m => {
+        if (selectedWorkUnit && (m.workUnit || 'Khác') !== selectedWorkUnit) return false;
+        if (selectedDepartment && (m.department || 'Chưa phân ban') !== selectedDepartment) return false;
+
         const matchesSearch = m.fullName?.toLowerCase().includes(searchText.toLowerCase()) ||
             m.department?.toLowerCase().includes(searchText.toLowerCase());
 
@@ -162,12 +192,12 @@ export default function UnionMembersManagement() {
             matchesFamilyBg = !!m.familyBackground && m.familyBackground.trim() !== '' && m.familyBackground.toLowerCase() !== 'nan';
         }
 
-        let matchesPersonalBg = true;
-        if (filterPersonalBg) {
-            matchesPersonalBg = !!m.personalBackground && m.personalBackground.trim() !== '' && m.personalBackground.toLowerCase() !== 'nan';
+        let matchesParty = true;
+        if (filterPartyMember) {
+            matchesParty = !!m.isPartyMember;
         }
 
-        return matchesSearch && matchesFamilyBg && matchesPersonalBg;
+        return matchesSearch && matchesFamilyBg && matchesParty;
     });
 
     const handleRowClick = (item: UnionMember) => {
@@ -179,8 +209,8 @@ export default function UnionMembersManagement() {
         <TouchableOpacity activeOpacity={0.7} onPress={() => handleRowClick(item)}>
             <WebHoverCard style={styles.card}>
                 <View style={styles.cardInfo}>
-                    <Text style={styles.nameText}>{item.fullName}</Text>
-                    <Text style={styles.subText}>{item.department || 'Chưa cập nhật PB'}</Text>
+                    <Text style={styles.nameText}>{item.employeeId ? `[${item.employeeId}] ` : ''}{item.fullName}</Text>
+                    <Text style={styles.subText}>{item.position || 'Chưa cập nhật CV'} • {item.department || 'Chưa cập nhật PB'}</Text>
                     <Text style={styles.subText}>{item.phoneNumber || 'Không có SĐT'}</Text>
                 </View>
                 <View style={styles.actions}>
@@ -210,8 +240,58 @@ export default function UnionMembersManagement() {
     );
 
     return (
-        <View style={[styles.container, isDesktop && styles.containerDesktop]}>
-            <View style={styles.toolbar}>
+        <View style={[styles.mainLayout, isDesktop && styles.mainLayoutDesktop]}>
+            {isDesktop && (
+                <View style={styles.sidebar}>
+                    <Text style={styles.sidebarTitle}>Cơ cấu tổ chức</Text>
+                    <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
+                        {Object.entries(structure).map(([wu, wuData]) => {
+                            const isExpanded = selectedWorkUnit === wu;
+                            return (
+                                <View key={wu} style={styles.treeNode}>
+                                    <TouchableOpacity 
+                                        style={[styles.treeWorkUnit, isExpanded && !selectedDepartment && styles.treeSelected]}
+                                        onPress={() => {
+                                            setSelectedWorkUnit(isExpanded && !selectedDepartment ? null : wu);
+                                            setSelectedDepartment(null);
+                                        }}
+                                    >
+                                        {isExpanded ? <FolderOpen size={16} color={Colors.primary} /> : <Folder size={16} color={Colors.text.secondary} />}
+                                        <Text style={[styles.treeText, isExpanded && styles.treeTextActive, { flex: 1 }]} numberOfLines={2}>
+                                            {wu}
+                                        </Text>
+                                        <Text style={styles.treeCount}>{wuData.total}</Text>
+                                    </TouchableOpacity>
+                                    
+                                    {isExpanded && (
+                                        <View style={styles.treeChildren}>
+                                            {Object.entries(wuData.departments).map(([dp, count]) => {
+                                                const isDepSelected = selectedDepartment === dp;
+                                                return (
+                                                    <TouchableOpacity 
+                                                        key={dp} 
+                                                        style={[styles.treeDepartment, isDepSelected && styles.treeSelected]}
+                                                        onPress={() => setSelectedDepartment(isDepSelected ? null : dp)}
+                                                    >
+                                                        <View style={styles.treeLine} />
+                                                        <Text style={[styles.treeText, isDepSelected && styles.treeTextActive, { flex: 1, fontSize: 13 }]} numberOfLines={2}>
+                                                            {dp}
+                                                        </Text>
+                                                        <Text style={styles.treeCount}>{count}</Text>
+                                                    </TouchableOpacity>
+                                                )
+                                            })}
+                                        </View>
+                                    )}
+                                </View>
+                            )
+                        })}
+                    </ScrollView>
+                </View>
+            )}
+
+            <View style={styles.container}>
+                <View style={styles.toolbar}>
                 <View style={styles.searchBar}>
                     <Search color={Colors.text.placeholder} size={20} style={{ marginRight: 8 }} />
                     <TextInput
@@ -257,12 +337,12 @@ export default function UnionMembersManagement() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.filterChip, filterPersonalBg && styles.filterChipActive]}
-                    onPress={() => setFilterPersonalBg(!filterPersonalBg)}
+                    style={[styles.filterChip, filterPartyMember && styles.filterChipActive]}
+                    onPress={() => setFilterPartyMember(!filterPartyMember)}
                 >
-                    {filterPersonalBg ? <CheckSquare size={16} color={Colors.primary} /> : <Square size={16} color={Colors.text.secondary} />}
-                    <Text style={[styles.filterChipText, filterPersonalBg && styles.filterChipTextActive]}>
-                        Hoàn cảnh bản thân
+                    {filterPartyMember ? <CheckSquare size={16} color={Colors.primary} /> : <Square size={16} color={Colors.text.secondary} />}
+                    <Text style={[styles.filterChipText, filterPartyMember && styles.filterChipTextActive]}>
+                        Đảng viên
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -271,8 +351,9 @@ export default function UnionMembersManagement() {
                 {isDesktop ? (
                     <View style={styles.table}>
                         <View style={styles.tableHeader}>
+                            <Text style={[styles.th, { flex: 0.8 }]}>Mã NV</Text>
                             <Text style={[styles.th, { flex: 2 }]}>Họ và Tên</Text>
-                            <Text style={[styles.th, { flex: 1.5 }]}>Phòng Ban</Text>
+                            <Text style={[styles.th, { flex: 1.5 }]}>Chức vụ / PB</Text>
                             <Text style={[styles.th, { flex: 1 }]}>Điện thoại</Text>
                             <Text style={[styles.th, { width: 100, textAlign: 'center' }]}>Thao tác</Text>
                         </View>
@@ -282,8 +363,12 @@ export default function UnionMembersManagement() {
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.tr} activeOpacity={0.7} onPress={() => handleRowClick(item)}>
+                                    <Text style={[styles.td, { flex: 0.8, color: Colors.text.secondary }]}>{item.employeeId || '-'}</Text>
                                     <Text style={[styles.td, { flex: 2, fontWeight: '500' }]}>{item.fullName}</Text>
-                                    <Text style={[styles.td, { flex: 1.5 }]}>{item.department || '-'}</Text>
+                                    <Text style={[styles.td, { flex: 1.5 }]}>
+                                        <Text style={{ fontWeight: '500' }}>{item.position || '-'}</Text>
+                                        <Text style={{ color: Colors.text.secondary, fontSize: 13 }}>{'\n'}{item.department || '-'}</Text>
+                                    </Text>
                                     <Text style={[styles.td, { flex: 1 }]}>{item.phoneNumber || '-'}</Text>
                                     <View style={{ width: 100, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
                                         <TouchableOpacity onPress={(e) => {
@@ -339,19 +424,99 @@ export default function UnionMembersManagement() {
                 member={selectedMember}
             />
             {/* Modal for Edit/Add will go here */}
+            </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    mainLayout: {
         flex: 1,
-        padding: 16,
+        flexDirection: 'column',
     },
-    containerDesktop: {
-        maxWidth: 1000,
+    mainLayoutDesktop: {
+        flexDirection: 'row',
+        maxWidth: 1600,
         marginHorizontal: 'auto',
         width: '100%',
+        padding: 16,
+        gap: 20,
+    },
+    sidebar: {
+        width: 320,
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: Colors.divider,
+        maxHeight: '100%',
+    },
+    sidebarTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: Colors.text.primary,
+        marginBottom: 16,
+    },
+    sidebarScroll: {
+        flex: 1,
+    },
+    treeNode: {
+        marginBottom: 4,
+    },
+    treeWorkUnit: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        gap: 8,
+    },
+    treeDepartment: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        paddingLeft: 32,
+        borderRadius: 8,
+        gap: 8,
+    },
+    treeSelected: {
+        backgroundColor: Colors.primary + '15',
+    },
+    treeLine: {
+        width: 12,
+        height: 1,
+        backgroundColor: Colors.divider,
+        marginRight: 4,
+    },
+    treeText: {
+        fontSize: 14,
+        color: Colors.text.primary,
+        fontWeight: '500',
+    },
+    treeTextActive: {
+        color: Colors.primary,
+        fontWeight: 'bold',
+    },
+    treeCount: {
+        fontSize: 12,
+        color: Colors.text.secondary,
+        backgroundColor: Colors.background,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 10,
+        overflow: 'hidden',
+    },
+    treeChildren: {
+        marginTop: 4,
+    },
+    container: {
+        flex: 1,
+        backgroundColor: Colors.surface,
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: Colors.divider,
     },
     toolbar: {
         flexDirection: 'row',
