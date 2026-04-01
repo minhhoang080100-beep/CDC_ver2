@@ -81,7 +81,7 @@ async def login(user_login: UserLogin, request: Request):
             "id": user_id,
             "username": user["username"],
             "fullName": user["fullName"],
-            "unionId": user["unionId"],
+            "unionId": user.get("unionId"),
             "role": user["role"],
             "department": user["department"],
             "avatar": user.get("avatar"),
@@ -136,10 +136,11 @@ async def register_user(user_data: UserCreate, request: Request):
     if existing_username:
         raise HTTPException(status_code=400, detail="Tên đăng nhập đã tồn tại")
 
-    # Check duplicate unionId
-    existing_union = await db.users.find_one({"unionId": user_data.unionId})
-    if existing_union:
-        raise HTTPException(status_code=400, detail="Mã đoàn viên này đã được đăng ký")
+    # Check duplicate unionId only if provided
+    if user_data.unionId:
+        existing_union = await db.users.find_one({"unionId": user_data.unionId})
+        if existing_union:
+            raise HTTPException(status_code=400, detail="Mã đoàn viên này đã được đăng ký")
 
     # Validate password (chữ hoa + chữ thường + số, >=8 ký tự)
     validate_password(user_data.password)
@@ -171,7 +172,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "id": current_user["_id"],
         "username": current_user["username"],
         "fullName": current_user["fullName"],
-        "unionId": current_user["unionId"],
+        "unionId": current_user.get("unionId"),
         "role": current_user["role"],
         "department": current_user["department"],
         "avatar": current_user.get("avatar"),

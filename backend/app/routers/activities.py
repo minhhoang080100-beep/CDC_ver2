@@ -92,11 +92,11 @@ async def checkin_activity(activity_id: str, request: CheckInRequest, current_us
     except Exception as e:
         raise HTTPException(status_code=400, detail="Mã QR không hợp lệ")
         
-    if not user_id or not union_id:
+    if not user_id:
         raise HTTPException(status_code=400, detail="Dữ liệu QR không đủ thông tin")
         
     # Check if user exists in DB to be safe
-    attendee = await db.users.find_one({"_id": ObjectId(user_id), "unionId": union_id})
+    attendee = await db.users.find_one({"_id": ObjectId(user_id)})
     if not attendee:
         raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản đoàn viên này trong hệ thống")
 

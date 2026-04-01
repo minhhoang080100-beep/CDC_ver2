@@ -62,7 +62,7 @@ export default function QRScannerModal({ visible, activityId, onClose, onSuccess
 
         try {
             const parsed = JSON.parse(data);
-            if (!parsed.id || !parsed.unionId) {
+            if (!parsed.id) {
                 throw new Error("Invalid QR data");
             }
 

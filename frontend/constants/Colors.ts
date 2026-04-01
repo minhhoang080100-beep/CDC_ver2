@@ -43,7 +43,7 @@ export const Colors = {
     gradients: {
         primary: ['#0866ff', '#0050e6'] as const,
         header: ['#ffffff', '#ffffff'] as const,
-        auth: ['#0866ff', '#0050e6'] as const,
+        auth: ['#0f172a', '#1e3a5f'] as const,
     },
 
     shadows: {

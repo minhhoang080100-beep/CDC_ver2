@@ -20,7 +20,6 @@ interface User {
     id: string;
     username: string;
     fullName: string;
-    unionId: string;
     role: string;
     department: string;
     status: string;
@@ -41,7 +40,6 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [fullName, setFullName] = useState('');
-    const [unionId, setUnionId] = useState('');
     const [role, setRole] = useState('MEMBER');
     const [department, setDepartment] = useState('VAN_PHONG_CANG');
     const [status, setStatus] = useState('active');
@@ -51,7 +49,6 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
         if (editUser) {
             setUsername(editUser.username);
             setFullName(editUser.fullName);
-            setUnionId(editUser.unionId);
             setRole(editUser.role);
             setDepartment(editUser.department);
             setStatus(editUser.status);
@@ -61,7 +58,6 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
             setUsername('');
             setPassword('');
             setFullName('');
-            setUnionId('');
             setStatus('active');
             setLoading(false);
 
@@ -98,7 +94,7 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
     ];
 
     const handleSubmit = async () => {
-        if (!editUser && (!username || !password || !fullName || !unionId)) {
+        if (!editUser && (!username || !password || !fullName)) {
             showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
             return;
         }
@@ -128,7 +124,6 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                     username,
                     password,
                     fullName,
-                    unionId,
                     role,
                     department
                 };
@@ -212,17 +207,6 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                                         onChangeText={setPassword}
                                         placeholder="Ít nhất 6 ký tự"
                                         secureTextEntry
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <Text style={styles.label}>Mã đoàn viên *</Text>
-                                    <TextInput
-                                        style={styles.input}
-                                        value={unionId}
-                                        onChangeText={setUnionId}
-                                        placeholder="VD: VD12345"
-                                        autoCapitalize="characters"
                                     />
                                 </View>
                             </>

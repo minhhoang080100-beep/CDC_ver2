@@ -182,14 +182,14 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.secondary,
+    color: '#f59e0b',
     marginTop: 8,
     letterSpacing: 1,
   },
   divider: {
     width: 100,
     height: 4,
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(255,255,255,0.3)',
     marginTop: 16,
     borderRadius: 2,
   },

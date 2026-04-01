@@ -25,7 +25,6 @@ import {
   Info,
   LogOut,
   ChevronRight,
-  MessageSquare,
   Moon,
   Globe,
 } from 'lucide-react-native';
@@ -117,10 +116,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleFeedback = () => {
-    router.push('/(tabs)/feedback');
-  };
-
   const handleAbout = () => {
     showToast({
       message: 'Ứng dụng Công đoàn Cảng Nghệ Tĩnh\nPhiên bản: 1.0.0\n\n© 2025 Công đoàn Cảng Nghệ Tĩnh',
@@ -209,15 +204,7 @@ export default function SettingsScreen() {
               <ChevronRight color="#94a3b8" size={20} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.settingItem} onPress={handleFeedback}>
-              <View style={styles.settingItemLeft}>
-                <View style={[styles.settingIcon, { backgroundColor: '#dbeafe' }]}>
-                  <MessageSquare color="#3b82f6" size={20} />
-                </View>
-                <Text style={styles.settingItemText}>Góp ý & Giải đáp</Text>
-              </View>
-              <ChevronRight color="#94a3b8" size={20} />
-            </TouchableOpacity>
+
           </View>
 
           {/* App Settings */}

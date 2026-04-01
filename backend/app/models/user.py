@@ -9,7 +9,7 @@ class UserResponse(BaseModel):
     id: str
     username: str
     fullName: str
-    unionId: str
+    unionId: Optional[str] = None
     role: str
     department: str
     avatar: Optional[str] = None
@@ -27,7 +27,7 @@ class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
     password: str = Field(..., min_length=6)
     fullName: str = Field(..., min_length=2, max_length=100)
-    unionId: str = Field(..., min_length=3, max_length=50)
+    unionId: Optional[str] = None
     role: str
     department: str
     avatar: Optional[str] = None

@@ -79,7 +79,6 @@ export default function ProfileScreen() {
 
               <View style={styles.infoSection}>
                 <Text style={styles.name}>{user.fullName}</Text>
-                <Text style={styles.unionId}>Mã đoàn viên: {user.unionId}</Text>
               </View>
 
               <View style={styles.detailsSection}>

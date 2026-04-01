@@ -186,14 +186,13 @@ export default function AdminScreen() {
             return;
         }
 
-        const headers = ['Họ Tên', 'Tài Khoản', 'Mã Đoàn Viên', 'Vai Trò', 'Phòng Ban', 'Trạng Thái'];
+        const headers = ['Họ Tên', 'Tài Khoản', 'Vai Trò', 'Phòng Ban', 'Trạng Thái'];
         const csvRows = [headers.join(',')];
 
         users.forEach(u => {
             const values = [
                 `"${u.fullName}"`,
                 `"${u.username}"`,
-                `"${u.unionId}"`,
                 `"${getRoleName(u.role)}"`,
                 `"${getDeptName(u.department)}"`,
                 `"${u.status === 'active' ? 'Hoạt động' : 'Khóa'}"`
@@ -233,7 +232,7 @@ export default function AdminScreen() {
                     if (text) {
                         try {
                             const rows = text.split('\n').map(row => row.split(','));
-                            // Basic parsing: Assuming order Username, Password, FullName, UnionId, Role, Department
+                            // Basic parsing: Assuming order Username, Password, FullName, Role, Department
                             // Real app needs solid parsing/mapping logic or generic backend handler
                             const validUsersToImport = []; // Populate payload
 
@@ -287,7 +286,7 @@ export default function AdminScreen() {
                 <View style={styles.userInfo}>
                     <View style={styles.userMainInfo}>
                         <Text style={styles.userName}>{item.fullName}</Text>
-                        <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
+                        <Text style={styles.userSubtitle}>@{item.username}</Text>
                     </View>
                     <View style={styles.badgesWrapper}>
                         <View style={styles.roleBadge}>
@@ -453,7 +452,7 @@ export default function AdminScreen() {
                             <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
                             <TextInput
                                 style={styles.searchInput}
-                                placeholder="Tìm kiếm tài khoản (Tên, Mã ĐV, Username)..."
+                                placeholder="Tìm kiếm tài khoản (Tên, Username)..."
                                 value={searchText}
                                 onChangeText={setSearchText}
                             />
@@ -502,7 +501,7 @@ export default function AdminScreen() {
                                     <View style={styles.tableRow}>
                                         <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
                                             <Text style={styles.userName}>{item.fullName}</Text>
-                                            <Text style={styles.userSubtitle}>@{item.username} • {item.unionId}</Text>
+                                            <Text style={styles.userSubtitle}>@{item.username}</Text>
                                         </View>
                                         <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
                                             <View style={styles.roleBadge}>

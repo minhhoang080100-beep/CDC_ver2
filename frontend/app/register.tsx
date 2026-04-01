@@ -23,7 +23,6 @@ import { useToast } from '../contexts/ToastContext';
 
 const registerSchema = z.object({
     fullName: z.string().min(2, 'Họ và tên quá ngắn').max(100, 'Họ và tên quá dài'),
-    unionId: z.string().min(3, 'Mã đoàn viên không hợp lệ').max(50, 'Mã đoàn viên quá dài'),
     username: z.string()
         .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
         .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
@@ -54,7 +53,6 @@ export default function RegisterScreen() {
         resolver: zodResolver(registerSchema),
         defaultValues: {
             fullName: '',
-            unionId: '',
             username: '',
             password: '',
             department: 'VAN_PHONG_CANG',
@@ -127,23 +125,27 @@ export default function RegisterScreen() {
                             />
                             {errors.fullName && <Text style={styles.errorText}>{errors.fullName.message}</Text>}
 
-                            <Text style={styles.label}>Mã Đoàn viên</Text>
-                            <Controller
-                                control={control}
-                                name="unionId"
-                                render={({ field: { onChange, onBlur, value } }) => (
-                                    <TextInput
-                                        style={[styles.input, errors.unionId && styles.inputError]}
-                                        value={value}
-                                        onChangeText={onChange}
-                                        onBlur={onBlur}
-                                        placeholder="Nhập mã ĐV của bạn"
-                                        placeholderTextColor="#94a3b8"
-                                        editable={!isLoading}
-                                    />
-                                )}
-                            />
-                            {errors.unionId && <Text style={styles.errorText}>{errors.unionId.message}</Text>}
+                            <Text style={styles.label}>Bộ phận / Đơn vị</Text>
+                            <View style={styles.departmentContainer}>
+                                {DEPARTMENTS.map(dept => (
+                                    <TouchableOpacity
+                                        key={dept.id}
+                                        style={[
+                                            styles.deptChip,
+                                            watchedDepartment === dept.id && styles.deptChipActive
+                                        ]}
+                                        onPress={() => setValue('department', dept.id)}
+                                        disabled={isLoading}
+                                    >
+                                        <Text style={[
+                                            styles.deptChipText,
+                                            watchedDepartment === dept.id && styles.deptChipTextActive
+                                        ]}>
+                                            {dept.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
 
                             <Text style={styles.label}>Tên đăng nhập (Tài khoản)</Text>
                             <Controller
@@ -183,28 +185,7 @@ export default function RegisterScreen() {
                             />
                             {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-                            <Text style={styles.label}>Phòng ban / Đơn vị</Text>
-                            <View style={styles.departmentContainer}>
-                                {DEPARTMENTS.map(dept => (
-                                    <TouchableOpacity
-                                        key={dept.id}
-                                        style={[
-                                            styles.deptChip,
-                                            watchedDepartment === dept.id && styles.deptChipActive
-                                        ]}
-                                        onPress={() => setValue('department', dept.id)}
-                                        disabled={isLoading}
-                                    >
-                                        <Text style={[
-                                            styles.deptChipText,
-                                            watchedDepartment === dept.id && styles.deptChipTextActive
-                                        ]}>
-                                            {dept.name}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 8, fontStyle: 'italic' }}>
+                            <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 16, fontStyle: 'italic' }}>
                                 * Quản trị viên có thể phân bổ lại đơn vị của bạn sau khi duyệt.
                             </Text>
 
@@ -269,14 +250,14 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.secondary,
+        color: '#f59e0b',
         marginTop: 4,
         letterSpacing: 1,
     },
     divider: {
         width: 60,
         height: 4,
-        backgroundColor: Colors.primary,
+        backgroundColor: 'rgba(255,255,255,0.3)',
         marginTop: 12,
         borderRadius: 2,
     },

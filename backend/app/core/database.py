@@ -10,7 +10,6 @@ async def close_mongo_connection():
 async def init_db_indexes():
     # Users indexes
     await db.users.create_index("username", unique=True)
-    await db.users.create_index("unionId", unique=True)
     await db.users.create_index("department")
     # Posts indexes
     await db.posts.create_index("createdAt")

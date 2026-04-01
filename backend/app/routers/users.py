@@ -84,7 +84,7 @@ async def get_users(
         "id": str(user["_id"]),
         "username": user["username"],
         "fullName": user["fullName"],
-        "unionId": user["unionId"],
+        "unionId": user.get("unionId", ""),
         "role": user["role"],
         "department": user["department"],
         "avatar": user.get("avatar"),
