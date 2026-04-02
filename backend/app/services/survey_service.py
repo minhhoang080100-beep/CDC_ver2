@@ -178,13 +178,33 @@ async def submit_survey(survey_id: str, answers: list, current_user: dict):
 
 
 async def notify_new_survey(title: str, target_departments: list, survey_id: str):
-    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
+    from datetime import datetime
+    query = {"status": "ACTIVE"}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
 
-    users = await db.users.find(query, {"pushToken": 1}).to_list(10000)
-    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
+    users = await db.users.find(query).to_list(10000)
+    if not users:
+        return
 
+    # 1. Create internal notifications
+    now = datetime.utcnow()
+    notifications = []
+    for u in users:
+        notifications.append({
+            "userId": str(u["_id"]),
+            "type": "survey",
+            "title": "📋 Khảo sát mới",
+            "body": title,
+            "data": {"surveyId": survey_id},
+            "read": False,
+            "createdAt": now
+        })
+    if notifications:
+        await db.notifications.insert_many(notifications)
+
+    # 2. Send push notifications
+    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
     if tokens:
         await send_bulk_push_notifications_async(
             tokens,

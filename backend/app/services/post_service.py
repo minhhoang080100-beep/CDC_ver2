@@ -153,13 +153,34 @@ async def toggle_like(post_id: str, current_user: dict):
 
 
 async def notify_new_post(title: str, body: str, target_departments: list, post_id: str):
-    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
+    from datetime import datetime
+    query = {"status": "ACTIVE"}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
 
     users = await db.users.find(query).to_list(1000)
-    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
+    if not users:
+        return
 
+    # 1. Create internal notifications
+    now = datetime.utcnow()
+    notifications = []
+    for u in users:
+        notifications.append({
+            "userId": str(u["_id"]),
+            "type": "post",
+            "title": title,
+            "body": body,
+            "data": {"postId": post_id},
+            "read": False,
+            "createdAt": now
+        })
+    
+    if notifications:
+        await db.notifications.insert_many(notifications)
+
+    # 2. Send push notifications
+    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
     if tokens:
         await send_bulk_push_notifications_async(
             tokens=tokens,
@@ -167,3 +188,4 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
             body=body,
             data={"postId": post_id}
         )
+

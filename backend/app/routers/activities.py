@@ -282,13 +282,33 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
     }
 
 async def notify_new_activity(title: str, body: str, target_departments: list, activity_id: str):
-    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
+    from datetime import datetime
+    query = {"status": "ACTIVE"}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
         
-    users = await db.users.find(query).to_list(1000)
+    users = await db.users.find(query).to_list(10000)
+    if not users:
+        return
+
+    # 1. Create internal notifications
+    now = datetime.utcnow()
+    notifications = []
+    for u in users:
+        notifications.append({
+            "userId": str(u["_id"]),
+            "type": "activity",
+            "title": title,
+            "body": body,
+            "data": {"activityId": activity_id},
+            "read": False,
+            "createdAt": now
+        })
+    if notifications:
+        await db.notifications.insert_many(notifications)
+
+    # 2. Send push notifications
     tokens = [u["pushToken"] for u in users if u.get("pushToken")]
-    
     if tokens:
         await send_bulk_push_notifications_async(
             tokens=tokens, 

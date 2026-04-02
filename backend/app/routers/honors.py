@@ -323,13 +323,32 @@ async def notify_campaign(campaign_id: str, current_user=Depends(get_current_use
 
     title = campaign.get("title", "")
     target_depts = campaign.get("targetDepartments", [])
-    query = {"status": "ACTIVE", "pushToken": {"$exists": True, "$ne": None}}
+    from datetime import datetime
+    query = {"status": "ACTIVE"}
     if target_depts and "ALL" not in target_depts:
         query["department"] = {"$in": target_depts}
 
-    users = await db.users.find(query, {"pushToken": 1}).to_list(5000)
-    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
+    users = await db.users.find(query).to_list(5000)
+    
+    # 1. Create internal notifications
+    if users:
+        now = datetime.utcnow()
+        notifications = []
+        for u in users:
+            notifications.append({
+                "userId": str(u["_id"]),
+                "type": "campaign",
+                "title": "🏆 Chiến dịch vinh danh mới",
+                "body": title,
+                "data": {"campaignId": campaign_id},
+                "read": False,
+                "createdAt": now
+            })
+        if notifications:
+            await db.notifications.insert_many(notifications)
 
+    # 2. Send push notifications
+    tokens = [u["pushToken"] for u in users if u.get("pushToken")]
     if tokens:
         await send_bulk_push_notifications_async(
             tokens,
@@ -338,4 +357,4 @@ async def notify_campaign(campaign_id: str, current_user=Depends(get_current_use
             {"type": "campaign", "campaignId": campaign_id}
         )
 
-    return {"message": f"Đã gửi thông báo đến {len(tokens)} người"}
+    return {"message": f"Đã gửi thông báo đến {len(users)} người"}
