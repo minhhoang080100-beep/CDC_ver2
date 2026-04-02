@@ -11,6 +11,12 @@ async def init_db_indexes():
     # Users indexes
     await db.users.create_index("username", unique=True)
     await db.users.create_index("department")
+    # Thay thế unionId index bằng cccdNumber index
+    try:
+        await db.users.drop_index("unionId_1")
+    except Exception:
+        pass
+    await db.users.create_index("cccdNumber", unique=True, sparse=True)
     # Posts indexes
     await db.posts.create_index("createdAt")
     await db.posts.create_index("targetDepartments")
