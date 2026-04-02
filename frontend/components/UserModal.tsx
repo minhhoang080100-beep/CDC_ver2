@@ -211,7 +211,7 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                                         style={styles.input}
                                         value={password}
                                         onChangeText={setPassword}
-                                        placeholder="Ít nhất 6 ký tự"
+                                        placeholder="Nhập mật khẩu"
                                         secureTextEntry
                                     />
                                 </View>

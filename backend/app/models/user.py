@@ -3,7 +3,7 @@ from typing import Optional
 
 class UserLogin(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=1)
 
 class UserResponse(BaseModel):
     id: str
@@ -21,12 +21,12 @@ class UpdatePushToken(BaseModel):
     token: str
 
 class ChangePassword(BaseModel):
-    currentPassword: str = Field(..., min_length=6)
-    newPassword: str = Field(..., min_length=6)
+    currentPassword: str = Field(..., min_length=1)
+    newPassword: str = Field(..., min_length=1)
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=1)
     fullName: str = Field(..., min_length=2, max_length=100)
     unionId: Optional[str] = None
     role: str
@@ -43,7 +43,7 @@ class UserUpdate(BaseModel):
     cccdNumber: Optional[str] = None
 
 class ResetPasswordRequest(BaseModel):
-    newPassword: str = Field(..., min_length=6)
+    newPassword: str = Field(..., min_length=1)
 
 from typing import List
 class BulkUserCreate(BaseModel):

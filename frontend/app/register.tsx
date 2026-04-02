@@ -30,7 +30,7 @@ const registerSchema = z.object({
     username: z.string()
         .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
         .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
-    password: z.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
     department: z.string(),
 });
 
@@ -200,7 +200,7 @@ export default function RegisterScreen() {
                                         value={value}
                                         onChangeText={onChange}
                                         onBlur={onBlur}
-                                        placeholder="Ít nhất 6 ký tự"
+                                        placeholder="Nhập mật khẩu"
                                         placeholderTextColor="#94a3b8"
                                         secureTextEntry
                                         editable={!isLoading}

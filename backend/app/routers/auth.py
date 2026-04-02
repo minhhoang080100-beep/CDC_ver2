@@ -187,6 +187,87 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/my-profile")
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
+    """Lấy thông tin cá nhân từ bảng union_members qua cccdNumber.
+    Xử lý trường hợp CCCD bị mất số 0 đầu do import từ Excel.
+    """
+    user_cccd = current_user.get("cccdNumber")
+    if not user_cccd:
+        return {"found": False, "message": "Tài khoản chưa có số CCCD"}
+
+    # Normalize: bỏ khoảng trắng, convert float string
+    user_cccd = str(user_cccd).strip()
+    if user_cccd.lower() == "nan":
+        return {"found": False, "message": "Tài khoản chưa có số CCCD"}
+
+    # Tạo danh sách các biến thể CCCD để tìm kiếm
+    # VD: user có "040200025605" → trong union_members có thể lưu "40200025605" (thiếu số 0 đầu)
+    # Hoặc ngược lại: user có "40200025605" → cần thêm "0" để match
+    cccd_variants = set()
+    cccd_variants.add(user_cccd)
+
+    # Bỏ leading zeros
+    stripped = user_cccd.lstrip("0")
+    if stripped:
+        cccd_variants.add(stripped)
+
+    # Thêm leading zeros cho CCCD (12 chữ số) và CMND (9 chữ số)
+    if len(user_cccd) <= 12:
+        cccd_variants.add(user_cccd.zfill(12))
+    if len(user_cccd) <= 9:
+        cccd_variants.add(user_cccd.zfill(9))
+
+    # Cũng thêm variants cho stripped
+    if stripped and len(stripped) <= 12:
+        cccd_variants.add(stripped.zfill(12))
+    if stripped and len(stripped) <= 9:
+        cccd_variants.add(stripped.zfill(9))
+
+    # Tìm trong union_members
+    member = await db.union_members.find_one({
+        "cccdNumber": {"$in": list(cccd_variants)}
+    })
+
+    if not member:
+        return {"found": False, "message": "Không tìm thấy hồ sơ đoàn viên"}
+
+    # Format dates
+    def fmt_date(val):
+        if val is None:
+            return None
+        if isinstance(val, datetime):
+            return val.strftime("%d/%m/%Y")
+        return str(val)
+
+    return {
+        "found": True,
+        "profile": {
+            "fullName": member.get("fullName"),
+            "workUnit": member.get("workUnit"),
+            "department": member.get("department"),
+            "position": member.get("position"),
+            "birthDate": fmt_date(member.get("birthDate")),
+            "phoneNumber": member.get("phoneNumber"),
+            "hometown": member.get("hometown"),
+            "permanentAddress": member.get("permanentAddress"),
+            "email": member.get("email"),
+            "gender": member.get("gender"),
+            "educationLevel": member.get("educationLevel"),
+            "qualification": member.get("qualification"),
+            "professionalQualification": member.get("professionalQualification"),
+            "major": member.get("major"),
+            "isPartyMember": member.get("isPartyMember"),
+            "partyJoinDate": fmt_date(member.get("partyJoinDate")),
+            "unionJoinDate": fmt_date(member.get("unionJoinDate")),
+            "cccdNumber": member.get("cccdNumber"),
+            "idNumber": member.get("idNumber"),
+            "familyBackground": member.get("familyBackground"),
+            "employeeId": member.get("employeeId"),
+        }
+    }
+
+
 @router.put("/change-password")
 async def change_password(data: ChangePassword, current_user: dict = Depends(get_current_user)):
     user = await db.users.find_one({"_id": validate_object_id(current_user["_id"])})

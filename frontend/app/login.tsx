@@ -27,7 +27,7 @@ const loginSchema = z.object({
     .min(3, 'Tên đăng nhập phải có ít nhất 3 ký tự')
     .regex(/^[a-zA-Z0-9_]+$/, 'Tài khoản không được chứa khoảng trắng và ký tự đặc biệt'),
   password: z.string()
-    .min(6, 'Mật khẩu phải có ít nhất 6 ký tự'),
+    .min(1, 'Vui lòng nhập mật khẩu'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;

@@ -52,6 +52,7 @@ export default function TabsLayout() {
       queries.forEach(q => queryClient.invalidateQueries({ queryKey: [q] }));
     }
     queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    queryClient.invalidateQueries({ queryKey: ['notifications-badge'] });
   }, [queryClient, showToast]);
 
   useWebSocket({ onMessage: handleWebSocketMessage });
@@ -179,6 +180,12 @@ export default function TabsLayout() {
           />
           <Tabs.Screen
             name="settings"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="notifications"
             options={{
               href: null,
             }}

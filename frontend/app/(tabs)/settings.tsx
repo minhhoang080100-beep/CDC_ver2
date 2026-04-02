@@ -87,11 +87,6 @@ export default function SettingsScreen() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      showToast({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự', type: 'error' });
-      return;
-    }
-
     try {
       await api.put(
         '/api/auth/change-password',

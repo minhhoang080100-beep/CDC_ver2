@@ -3,8 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../utils/api';
 import {
     Home,
+    Bell,
     Calendar,
     BookOpen,
     IdCard,
@@ -46,7 +49,21 @@ interface Props {
 function DesktopSidebar({ width }: Props) {
     const router = useRouter();
     const pathname = usePathname();
-    const { user, logout } = useAuth();
+    const { user, token, logout } = useAuth();
+
+    // Fetch unread count for notification badge
+    const { data: notifData } = useQuery({
+        queryKey: ['notifications-badge'],
+        queryFn: async () => {
+            const res = await api.get('/api/notifications?skip=0&limit=1', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            return res.data;
+        },
+        enabled: !!token,
+        refetchInterval: 30000, // Poll every 30 seconds
+    });
+    const unreadCount = notifData?.unread || 0;
 
     const isActive = (item: MenuItem) => {
         if (item.name === 'index') {
@@ -70,9 +87,11 @@ function DesktopSidebar({ width }: Props) {
         router.replace('/login');
     };
 
+    const isNotifActive = pathname.includes('notifications');
+
     return (
         <View style={[styles.sidebar, { width }]}>
-            {/* Logo / Brand */}
+            {/* Logo / Brand + Bell icon */}
             <View style={styles.brand}>
                 <View style={[styles.logoContainer, { backgroundColor: 'transparent' }]}>
                     <Image
@@ -84,6 +103,21 @@ function DesktopSidebar({ width }: Props) {
                     <Text style={styles.brandTitle}>Công Đoàn</Text>
                     <Text style={styles.brandSubtitle}>Cảng Nghệ Tĩnh</Text>
                 </View>
+                {/* Bell icon — top right */}
+                <TouchableOpacity
+                    style={[styles.bellButton, isNotifActive && styles.bellButtonActive]}
+                    onPress={() => router.push('/(tabs)/notifications' as any)}
+                    activeOpacity={0.7}
+                >
+                    <Bell color={isNotifActive ? Colors.primary : '#65676b'} size={20} />
+                    {unreadCount > 0 && (
+                        <View style={styles.bellBadge}>
+                            <Text style={styles.bellBadgeText}>
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
             </View>
 
             {/* Navigation Items */}
@@ -98,10 +132,12 @@ function DesktopSidebar({ width }: Props) {
                             onPress={() => router.push(item.path as any)}
                             activeOpacity={0.7}
                         >
-                            <IconComponent
-                                color={active ? Colors.primary : '#65676b'}
-                                size={22}
-                            />
+                            <View style={{ position: 'relative' }}>
+                                <IconComponent
+                                    color={active ? Colors.primary : '#65676b'}
+                                    size={22}
+                                />
+                            </View>
                             <Text style={[styles.navLabel, active && styles.navLabelActive]}>
                                 {item.label}
                             </Text>
@@ -197,6 +233,37 @@ const styles = StyleSheet.create({
     navLabelActive: {
         color: Colors.primary,
         fontWeight: '600',
+    },
+    bellButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#e4e6eb',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'relative',
+    },
+    bellButtonActive: {
+        backgroundColor: '#e7f3ff',
+    },
+    bellBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 2,
+        borderColor: '#ffffff',
+    },
+    bellBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#ffffff',
     },
     userSection: {
         paddingHorizontal: 16,
