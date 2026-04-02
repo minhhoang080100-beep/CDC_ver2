@@ -71,7 +71,7 @@ export default function CreateDocumentModal({ visible, onClose, onSuccess, editD
     }
   }, [editDocument, visible]);
 
-  const categories = ['Thỏa ước lao động', 'Nội quy', 'An toàn'];
+  const categories = ['Thỏa ước lao động', 'Nội quy', 'An toàn', 'Khác'];
 
   const departments = [
     { value: 'ALL', label: 'Tất cả' },

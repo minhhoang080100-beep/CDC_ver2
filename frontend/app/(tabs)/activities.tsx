@@ -22,6 +22,7 @@ import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
 import ActivityCheckinQRModal from '../../components/ActivityCheckinQRModal';
 import MemberCheckinModal from '../../components/MemberCheckinModal';
+import ActivityParticipantsModal from '../../components/ActivityParticipantsModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { api } from '../../utils/api';
 
@@ -52,6 +53,8 @@ export default function ActivitiesScreen() {
   const [checkinQRVisible, setCheckinQRVisible] = useState(false);
   const [checkinQRActivityId, setCheckinQRActivityId] = useState<string | null>(null);
   const [memberCheckinVisible, setMemberCheckinVisible] = useState(false);
+  const [participantsVisible, setParticipantsVisible] = useState(false);
+  const [participantsActivity, setParticipantsActivity] = useState<Activity | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -198,12 +201,18 @@ export default function ActivitiesScreen() {
             <Text style={styles.infoText}>{item.location}</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Users color="#64748b" size={16} />
-            <Text style={styles.infoText}>
+          <TouchableOpacity 
+            style={[styles.infoRow, { paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#f1f5f9', borderRadius: 6, alignSelf: 'flex-start' }]}
+            onPress={() => {
+              setParticipantsActivity(item);
+              setParticipantsVisible(true);
+            }}
+          >
+            <Users color="#0891b2" size={16} />
+            <Text style={[styles.infoText, { color: '#0f172a', fontWeight: '500' }]}>
               {item.registrations.length} đăng ký • {item.attendances?.length || 0} có mặt
             </Text>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
@@ -425,6 +434,12 @@ export default function ActivitiesScreen() {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['activities'] });
         }}
+      />
+
+      <ActivityParticipantsModal
+        visible={participantsVisible}
+        onClose={() => setParticipantsVisible(false)}
+        activity={participantsActivity}
       />
     </SafeAreaView>
   );

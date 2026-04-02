@@ -122,9 +122,10 @@ async def get_my_courses(current_user=Depends(get_current_user)):
         cid = str(c["_id"])
         target_depts = c.get("targetDepartments", [])
 
-        # Filter: only courses for user's department or open to all
-        if target_depts and "ALL" not in target_depts and user_dept not in target_depts:
-            continue
+        # Filter: Super Admin can see all courses. Otherwise, check target departments.
+        if target_depts and "ALL" not in target_depts:
+            if current_user.get("role") != "SUPER_ADMIN" and user_dept not in target_depts:
+                continue
 
         enrollment = enrollment_map.get(cid)
         lessons = c.get("lessons", [])
