@@ -104,7 +104,7 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
     const [form, setForm] = useState<FormState>(initForm(null));
 
     useEffect(() => {
-        if (member && visible) {
+        if (visible) {
             setForm(initForm(member));
         }
     }, [member, visible]);
@@ -113,7 +113,6 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
         setForm(prev => ({ ...prev, [key]: val }));
 
     const handleSave = async () => {
-        if (!member?.id) return;
         if (!form.fullName.trim()) {
             showToast({ message: 'Họ tên không được để trống', type: 'error' });
             return;
@@ -146,24 +145,29 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                 familyBackground: form.familyBackground.trim() || null,
             };
 
-            await api.put(`/api/union-members/${member.id}`, payload, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            if (member?.id) {
+                await api.put(`/api/union-members/${member.id}`, payload, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                showToast({ message: 'Cập nhật hồ sơ thành công!', type: 'success' });
+            } else {
+                await api.post(`/api/union-members`, payload, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                showToast({ message: 'Thêm mới đoàn viên thành công!', type: 'success' });
+            }
 
-            showToast({ message: 'Cập nhật hồ sơ thành công!', type: 'success' });
             onSaved();
             onClose();
         } catch (error: any) {
             showToast({
-                message: error.response?.data?.detail || 'Lỗi khi cập nhật hồ sơ',
+                message: error.response?.data?.detail || 'Lỗi khi lưu hồ sơ',
                 type: 'error',
             });
         } finally {
             setSaving(false);
         }
     };
-
-    if (!member) return null;
 
     const Field = ({
         label, value, onChange, multiline = false, placeholder = '',
@@ -194,7 +198,7 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                 >
                     {/* ── Header ── */}
                     <View style={styles.header}>
-                        <Text style={styles.headerTitle}>Chỉnh sửa hồ sơ đoàn viên</Text>
+                        <Text style={styles.headerTitle}>{member ? 'Chỉnh sửa hồ sơ đoàn viên' : 'Thêm mới đoàn viên'}</Text>
                         <TouchableOpacity onPress={onClose} style={styles.headerClose}>
                             <X color={Colors.text.secondary} size={22} />
                         </TouchableOpacity>

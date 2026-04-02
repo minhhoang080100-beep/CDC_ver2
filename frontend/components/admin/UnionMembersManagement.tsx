@@ -337,9 +337,8 @@ export default function UnionMembersManagement() {
                     <TouchableOpacity
                         style={styles.btn}
                         onPress={() => {
-                            // setEditingMember(null);
-                            // setModalVisible(true);
-                            showToast({ message: 'Tính năng Thêm đang phát triển', type: 'info' })
+                            setEditingMember(null);
+                            setEditModalVisible(true);
                         }}
                     >
                         <Plus color="#fff" size={18} />

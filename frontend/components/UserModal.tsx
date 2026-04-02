@@ -23,6 +23,7 @@ interface User {
     role: string;
     department: string;
     status: string;
+    cccdNumber?: string;
 }
 
 interface UserModalProps {
@@ -43,6 +44,7 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
     const [role, setRole] = useState('MEMBER');
     const [department, setDepartment] = useState('VAN_PHONG_CANG');
     const [status, setStatus] = useState('active');
+    const [cccdNumber, setCccdNumber] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -52,12 +54,14 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
             setRole(editUser.role);
             setDepartment(editUser.department);
             setStatus(editUser.status);
+            setCccdNumber(editUser.cccdNumber || '');
             setPassword('');
             setLoading(false);
         } else if (visible) {
             setUsername('');
             setPassword('');
             setFullName('');
+            setCccdNumber('');
             setStatus('active');
             setLoading(false);
 
@@ -94,8 +98,8 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
     ];
 
     const handleSubmit = async () => {
-        if (!editUser && (!username || !password || !fullName)) {
-            showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc', type: 'error' });
+        if (!editUser && (!username || !password || !fullName || !cccdNumber)) {
+            showToast({ message: 'Vui lòng nhập đầy đủ thông tin bắt buộc (kể cả CCCD)', type: 'error' });
             return;
         }
 
@@ -112,7 +116,8 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                     fullName,
                     role,
                     department,
-                    status
+                    status,
+                    cccdNumber: cccdNumber.trim() || null
                 };
                 await api.put(`/api/users/${editUser.id}`, updateData, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -125,7 +130,8 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                     password,
                     fullName,
                     role,
-                    department
+                    department,
+                    cccdNumber: cccdNumber.trim()
                 };
                 await api.post('/api/users', createData, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -220,6 +226,21 @@ export default function UserModal({ visible, onClose, onSuccess, editUser }: Use
                                 onChangeText={setFullName}
                                 placeholder="VD: Nguyễn Văn A"
                             />
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.label}>Số CCCD *</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={cccdNumber}
+                                onChangeText={setCccdNumber}
+                                placeholder="Nhập 9 hoặc 12 số CCCD/CMND"
+                                keyboardType="numeric"
+                                maxLength={12}
+                            />
+                            <Text style={{ fontSize: 12, color: Colors.text.placeholder, marginTop: 4 }}>
+                                * Dùng để liên kết tự động với hồ sơ Đoàn viên tương ứng.
+                            </Text>
                         </View>
 
                         {user?.role === 'SUPER_ADMIN' && (

@@ -342,6 +342,77 @@ export default function AdminScreen() {
         );
     };
 
+    const renderDashboardHeader = () => (
+        <View style={{ paddingBottom: isDesktop ? 0 : 12 }}>
+            <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
+                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                    <Users color={Colors.primary} size={24} />
+                    <View style={styles.statInfo}>
+                        <Text style={styles.statValue}>{totalUsers}</Text>
+                        <Text style={styles.statLabel}>Tổng số</Text>
+                    </View>
+                </View>
+                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                    <Shield color={Colors.status.success} size={24} />
+                    <View style={styles.statInfo}>
+                        <Text style={styles.statValue}>{activeUsers}</Text>
+                        <Text style={styles.statLabel}>Hoạt động</Text>
+                    </View>
+                </View>
+                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                    <Users color="#f59e0b" size={24} />
+                    <View style={styles.statInfo}>
+                        <Text style={styles.statValue}>{pendingUsers}</Text>
+                        <Text style={styles.statLabel}>Chờ duyệt</Text>
+                    </View>
+                </View>
+                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                    <Unplug color={Colors.status.error} size={24} />
+                    <View style={styles.statInfo}>
+                        <Text style={styles.statValue}>{lockedUsers}</Text>
+                        <Text style={styles.statLabel}>Bị khóa</Text>
+                    </View>
+                </View>
+            </View>
+
+            <View style={[styles.filterBar, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }]}>
+                <View style={[styles.searchContainer, { flex: 1 }]}>
+                    <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder={isDesktop ? "Tìm kiếm tài khoản (Tên, Username)..." : "Tìm kiếm..."}
+                        value={searchText}
+                        onChangeText={setSearchText}
+                    />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {user?.role === 'SUPER_ADMIN' && (
+                        <>
+                            <TouchableOpacity style={[styles.outlineButton, !isDesktop && { paddingHorizontal: 12 }]} onPress={handleExportCSV}>
+                                <Download color={Colors.text.primary} size={18} />
+                                {isDesktop && <Text style={styles.outlineButtonText}>Xuất Excel</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.outlineButton, !isDesktop && { paddingHorizontal: 12 }]} onPress={handleImportCSV}>
+                                <Upload color={Colors.text.primary} size={18} />
+                                {isDesktop && <Text style={styles.outlineButtonText}>Nhập Excel</Text>}
+                            </TouchableOpacity>
+                        </>
+                    )}
+                    <TouchableOpacity
+                        style={[styles.addButton, !isDesktop && { paddingHorizontal: 12 }]}
+                        onPress={() => {
+                            setEditingUser(null);
+                            setModalVisible(true);
+                        }}
+                    >
+                        <Plus color="#ffffff" size={18} />
+                        {isDesktop && <Text style={styles.addButtonText}>Thêm</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
 
@@ -414,78 +485,11 @@ export default function AdminScreen() {
             {activeTab === 'users' ? (
                 <View style={[styles.content, isDesktop && styles.contentDesktop]}>
 
-                    {/* Dashboard Stats */}
-                    <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
-                        <View style={styles.statCard}>
-                            <Users color={Colors.primary} size={24} />
-                            <View style={styles.statInfo}>
-                                <Text style={styles.statValue}>{totalUsers}</Text>
-                                <Text style={styles.statLabel}>Tổng số</Text>
-                            </View>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Shield color={Colors.status.success} size={24} />
-                            <View style={styles.statInfo}>
-                                <Text style={styles.statValue}>{activeUsers}</Text>
-                                <Text style={styles.statLabel}>Hoạt động</Text>
-                            </View>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Users color="#f59e0b" size={24} />
-                            <View style={styles.statInfo}>
-                                <Text style={styles.statValue}>{pendingUsers}</Text>
-                                <Text style={styles.statLabel}>Chờ duyệt</Text>
-                            </View>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Unplug color={Colors.status.error} size={24} />
-                            <View style={styles.statInfo}>
-                                <Text style={styles.statValue}>{lockedUsers}</Text>
-                                <Text style={styles.statLabel}>Bị khóa</Text>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Unified Search & Action Bar */}
-                    <View style={[styles.filterBar, isDesktop ? { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 } : { flexDirection: 'column', gap: 12 }]}>
-                        <View style={[styles.searchContainer, { flex: isDesktop ? 1 : 0 }]}>
-                            <Search color={Colors.text.placeholder} size={20} style={styles.searchIcon} />
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Tìm kiếm tài khoản (Tên, Username)..."
-                                value={searchText}
-                                onChangeText={setSearchText}
-                            />
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 8, alignSelf: isDesktop ? 'auto' : 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            {user?.role === 'SUPER_ADMIN' && (
-                                <>
-                                    <TouchableOpacity style={styles.outlineButton} onPress={handleExportCSV}>
-                                        <Download color={Colors.text.primary} size={18} />
-                                        {isDesktop && <Text style={styles.outlineButtonText}>Xuất Excel</Text>}
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.outlineButton} onPress={handleImportCSV}>
-                                        <Upload color={Colors.text.primary} size={18} />
-                                        {isDesktop && <Text style={styles.outlineButtonText}>Nhập Excel</Text>}
-                                    </TouchableOpacity>
-                                </>
-                            )}
-                            <TouchableOpacity
-                                style={styles.addButton}
-                                onPress={() => {
-                                    setEditingUser(null);
-                                    setModalVisible(true);
-                                }}
-                            >
-                                <Plus color="#ffffff" size={18} />
-                                {isDesktop && <Text style={styles.addButtonText}>Thêm tài khoản</Text>}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
                     {isDesktop ? (
-                        <View style={styles.tableContainer}>
-                            {/* Table Header */}
+                        <>
+                            {renderDashboardHeader()}
+                            <View style={styles.tableContainer}>
+                                {/* Table Header */}
                             <View style={styles.tableHeader}>
                                 <Text style={[styles.tableHeaderText, { flex: 2 }]}>Nhân sự</Text>
                                 <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Vai trò</Text>
@@ -571,12 +575,14 @@ export default function AdminScreen() {
                                 }
                             />
                         </View>
+                        </>
                     ) : (
                         <FlatList
                             data={users}
                             renderItem={renderUser}
                             keyExtractor={(item) => item.id}
                             contentContainerStyle={styles.listContent}
+                            ListHeaderComponent={renderDashboardHeader}
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                             }
@@ -718,7 +724,9 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     statsContainerMobile: {
-        flexDirection: 'column',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8, // Reduced gap
     },
     statCard: {
         flex: 1,
@@ -752,11 +760,10 @@ const styles = StyleSheet.create({
     filterBar: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingTop: 24,
+        paddingTop: 16,
         gap: 12,
     },
     searchContainer: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Colors.surface,
@@ -764,6 +771,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: Colors.divider,
         paddingHorizontal: 12,
+        minHeight: 44,
     },
     searchIcon: {
         marginRight: 8,

@@ -17,6 +17,14 @@ def format_member(member: dict) -> dict:
     member["id"] = str(member["_id"])
     return member
 
+def get_allowed_work_unit(role: str) -> Optional[str]:
+    mapping = {
+        "BCH_VANPHONG": "Văn phòng Cảng",
+        "BCH_CUALO": "XNXD Cửa Lò",
+        "BCH_BENTHUY": "XNXD Bến Thủy",
+    }
+    return mapping.get(role)
+
 @router.post("/", response_model=UnionMemberResponse)
 async def create_union_member(
     member: UnionMemberCreate,
@@ -25,6 +33,14 @@ async def create_union_member(
     require_admin(current_user, "Not authorized")
 
     member_dict = member.dict()
+    allowed_wu = get_allowed_work_unit(current_user["role"])
+    
+    # Enforce workUnit limits if not SUPER_ADMIN
+    if allowed_wu:
+        if member_dict.get("workUnit") and member_dict.get("workUnit") != allowed_wu:
+            raise HTTPException(status_code=403, detail=f"BCH chỉ được thêm thành viên vào đơn vị {allowed_wu}")
+        member_dict["workUnit"] = allowed_wu
+
     # Add timestamps if needed, here just basic insert
     new_member = await db.union_members.insert_one(member_dict)
     
@@ -119,6 +135,11 @@ async def import_union_members(
                     "familyBackground": get_val('Hoàn cảnh gia đình')
                 }
 
+                # Ghi đè/Kiểm tra quyền khi lưu vào DB:
+                allowed_wu = get_allowed_work_unit(current_user["role"])
+                if allowed_wu:
+                    member_data["workUnit"] = allowed_wu
+
                 await db.union_members.insert_one(member_data)
                 imported_count += 1
             except Exception as e:
@@ -153,13 +174,9 @@ async def get_union_members(
         
     # Role-based filtering constraints
     if current_user["role"] != "SUPER_ADMIN":
-        # BCH can only view their own department
-        if current_user["role"] == "BCH_VANPHONG":
-            query["department"] = "Văn phòng Cảng"
-        elif current_user["role"] == "BCH_CUALO":
-            query["department"] = "Xí nghiệp xếp dỡ Cửa Lò"
-        elif current_user["role"] == "BCH_BENTHUY":
-            query["department"] = "Xí nghiệp xếp dỡ Bến Thủy"
+        allowed_wu = get_allowed_work_unit(current_user["role"])
+        if allowed_wu:
+            query["workUnit"] = allowed_wu
 
     cursor = db.union_members.find(query).skip(skip).limit(limit)
     members = await cursor.to_list(length=limit)
@@ -218,6 +235,11 @@ async def get_union_member(member_id: str, current_user: dict = Depends(get_curr
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
         
+    if current_user["role"] != "SUPER_ADMIN":
+        allowed_wu = get_allowed_work_unit(current_user["role"])
+        if allowed_wu and member.get("workUnit") != allowed_wu:
+            raise HTTPException(status_code=403, detail="Not authorized to access this member")
+            
     return format_member(member)
 
 @router.put("/{member_id}", response_model=UnionMemberResponse)
@@ -232,7 +254,21 @@ async def update_union_member(
     if not ObjectId.is_valid(member_id):
         raise HTTPException(status_code=400, detail="Invalid ID format")
 
+    # Row-level check
+    existing_member = await db.union_members.find_one({"_id": ObjectId(member_id)})
+    if not existing_member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    allowed_wu = None
+    if current_user["role"] != "SUPER_ADMIN":
+        allowed_wu = get_allowed_work_unit(current_user["role"])
+        if allowed_wu and existing_member.get("workUnit") != allowed_wu:
+            raise HTTPException(status_code=403, detail="Not authorized to edit this member")
+
     update_data = {k: v for k, v in member_update.dict().items() if v is not None}
+    
+    if allowed_wu and update_data.get("workUnit") and update_data.get("workUnit") != allowed_wu:
+        raise HTTPException(status_code=403, detail="Cannot change member to a different work unit")
     
     if update_data:
         result = await db.union_members.update_one(
@@ -252,6 +288,16 @@ async def delete_union_member(member_id: str, current_user: dict = Depends(get_c
 
     if not ObjectId.is_valid(member_id):
         raise HTTPException(status_code=400, detail="Invalid ID format")
+
+    # Row-level check
+    existing_member = await db.union_members.find_one({"_id": ObjectId(member_id)})
+    if not existing_member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    if current_user["role"] != "SUPER_ADMIN":
+        allowed_wu = get_allowed_work_unit(current_user["role"])
+        if allowed_wu and existing_member.get("workUnit") != allowed_wu:
+            raise HTTPException(status_code=403, detail="Not authorized to delete this member")
 
     result = await db.union_members.delete_one({"_id": ObjectId(member_id)})
     if result.deleted_count == 0:
