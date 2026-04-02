@@ -53,11 +53,20 @@ export default function AdminScreen() {
     // Search & Filter Stats
     const [searchText, setSearchText] = useState('');
     const [totalUsers, setTotalUsers] = useState(0);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'locked'>('all');
 
     // Derived stats from current fetched users
     const activeUsers = users.filter(u => u.status === 'active' || u.status === 'ACTIVE').length;
     const lockedUsers = users.filter(u => u.status !== 'active' && u.status !== 'ACTIVE' && u.status !== 'PENDING').length;
     const pendingUsers = users.filter(u => u.status === 'PENDING').length;
+
+    const displayUsers = users.filter(u => {
+        if (statusFilter === 'all') return true;
+        if (statusFilter === 'active') return u.status === 'active' || u.status === 'ACTIVE';
+        if (statusFilter === 'pending') return u.status === 'PENDING';
+        if (statusFilter === 'locked') return u.status !== 'active' && u.status !== 'ACTIVE' && u.status !== 'PENDING';
+        return true;
+    });
 
     useEffect(() => {
         if (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) {
@@ -345,34 +354,46 @@ export default function AdminScreen() {
     const renderDashboardHeader = () => (
         <View style={{ paddingBottom: isDesktop ? 0 : 12 }}>
             <View style={[styles.statsContainer, !isDesktop && styles.statsContainerMobile]}>
-                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                <TouchableOpacity 
+                    style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }, statusFilter === 'all' && { borderColor: Colors.primary, borderWidth: 2 }]}
+                    onPress={() => setStatusFilter('all')}
+                >
                     <Users color={Colors.primary} size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{totalUsers}</Text>
                         <Text style={styles.statLabel}>Tổng số</Text>
                     </View>
-                </View>
-                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }, statusFilter === 'active' && { borderColor: Colors.status.success, borderWidth: 2 }]}
+                    onPress={() => setStatusFilter('active')}
+                >
                     <Shield color={Colors.status.success} size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{activeUsers}</Text>
                         <Text style={styles.statLabel}>Hoạt động</Text>
                     </View>
-                </View>
-                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }, statusFilter === 'pending' && { borderColor: '#f59e0b', borderWidth: 2 }]}
+                    onPress={() => setStatusFilter('pending')}
+                >
                     <Users color="#f59e0b" size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{pendingUsers}</Text>
                         <Text style={styles.statLabel}>Chờ duyệt</Text>
                     </View>
-                </View>
-                <View style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }]}>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.statCard, !isDesktop && { minWidth: '46%', padding: 12, gap: 12 }, statusFilter === 'locked' && { borderColor: Colors.status.error, borderWidth: 2 }]}
+                    onPress={() => setStatusFilter('locked')}
+                >
                     <Unplug color={Colors.status.error} size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{lockedUsers}</Text>
                         <Text style={styles.statLabel}>Bị khóa</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
             </View>
 
             <View style={[styles.filterBar, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }]}>
@@ -500,7 +521,7 @@ export default function AdminScreen() {
 
                             {/* Table Body */}
                             <FlatList
-                                data={users}
+                                data={displayUsers}
                                 renderItem={({ item }) => (
                                     <View style={styles.tableRow}>
                                         <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
@@ -578,7 +599,7 @@ export default function AdminScreen() {
                         </>
                     ) : (
                         <FlatList
-                            data={users}
+                            data={displayUsers}
                             renderItem={renderUser}
                             keyExtractor={(item) => item.id}
                             contentContainerStyle={styles.listContent}

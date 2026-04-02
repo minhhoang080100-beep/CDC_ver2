@@ -83,14 +83,9 @@ export default function PostDetailScreen() {
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
         try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
+            const { format } = require('date-fns');
+            const safeDateStr = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+            return format(new Date(safeDateStr), 'HH:mm • dd/MM/yyyy');
         } catch {
             return dateString;
         }

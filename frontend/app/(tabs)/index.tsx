@@ -297,7 +297,7 @@ export default function HomeScreen() {
               <View>
                 <Text style={styles.postAuthorName}>{item.authorName}</Text>
                 <View style={styles.postMetaRow}>
-                  <Text style={styles.postDate}>{format(new Date(item.createdAt), 'dd/MM/yyyy')} • </Text>
+                  <Text style={styles.postDate}>{format(new Date(item.createdAt.endsWith('Z') ? item.createdAt : item.createdAt + 'Z'), 'HH:mm • dd/MM/yyyy')} • </Text>
                   <Globe size={12} color={Colors.text.secondary} />
                   <Text style={styles.categoryTag}> • {item.category}</Text>
                 </View>
