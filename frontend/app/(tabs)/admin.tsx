@@ -9,13 +9,15 @@ import {
     Platform,
     Alert,
     TextInput,
-    ScrollView
+    ScrollView,
+    Modal,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
-import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2, BookOpen, ClipboardList, Trophy, GraduationCap } from 'lucide-react-native';
+import { Users, Plus, Edit2, Trash2, Shield, Search, Lock, Download, Upload, MessageSquare, Filter, Unplug, BarChart2, BookOpen, ClipboardList, Trophy, GraduationCap, Eye, EyeOff, X, KeyRound } from 'lucide-react-native';
 import WebHoverCard from '../../components/WebHoverCard';
 import UserModal from '../../components/UserModal';
 import FeedbackManagement from '../../components/admin/FeedbackManagement';
@@ -54,6 +56,15 @@ export default function AdminScreen() {
     const [searchText, setSearchText] = useState('');
     const [totalUsers, setTotalUsers] = useState(0);
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'locked'>('all');
+
+    // Reset Password Modal
+    const [resetPwModalVisible, setResetPwModalVisible] = useState(false);
+    const [resetPwUserId, setResetPwUserId] = useState('');
+    const [resetPwUsername, setResetPwUsername] = useState('');
+    const [resetPwFullName, setResetPwFullName] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [resettingPw, setResettingPw] = useState(false);
 
     // Derived stats from current fetched users
     const activeUsers = users.filter(u => u.status === 'active' || u.status === 'ACTIVE').length;
@@ -131,41 +142,35 @@ export default function AdminScreen() {
         });
     };
 
-    const handleResetPassword = async (id: string, username: string) => {
-        const defaultPassword = '123456';
-        const confirmMessage = `Bạn có chắc muốn cấp lại mật khẩu mặc định (${defaultPassword}) cho người dùng @${username}?`;
+    const openResetPasswordModal = (id: string, username: string, fullName: string) => {
+        setResetPwUserId(id);
+        setResetPwUsername(username);
+        setResetPwFullName(fullName);
+        setNewPassword('');
+        setShowNewPassword(false);
+        setResetPwModalVisible(true);
+    };
 
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            if (window.confirm(confirmMessage)) {
-                try {
-                    await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    showToast({ message: 'Cấp lại mật khẩu thành công! Mật khẩu mới là: ' + defaultPassword, type: 'success' });
-                } catch (error: any) {
-                    console.error('Error resetting password:', error);
-                    showToast({ message: error.response?.data?.detail || 'Không thể cấp lại mật khẩu', type: 'error' });
-                }
-            }
-        } else {
-            Alert.alert('Xác nhận', confirmMessage, [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Cấp lại',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.post(`/api/users/${id}/reset-password`, { newPassword: defaultPassword }, {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-                            showToast({ message: 'Mật khẩu đã được cấp lại về mặc định: ' + defaultPassword, type: 'success' });
-                        } catch (error: any) {
-                            console.error('Error resetting password:', error);
-                            showToast({ message: error.response?.data?.detail || 'Không thể cấp lại mật khẩu', type: 'error' });
-                        }
-                    }
-                }
-            ]);
+    const handleResetPassword = async () => {
+        if (!newPassword.trim()) {
+            showToast({ message: 'Vui lòng nhập mật khẩu mới', type: 'error' });
+            return;
+        }
+        if (newPassword.length < 6) {
+            showToast({ message: 'Mật khẩu phải có ít nhất 6 ký tự', type: 'error' });
+            return;
+        }
+        setResettingPw(true);
+        try {
+            await api.post(`/api/users/${resetPwUserId}/reset-password`, { newPassword }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            showToast({ message: `Đã đổi mật khẩu cho @${resetPwUsername} thành công!`, type: 'success' });
+            setResetPwModalVisible(false);
+        } catch (error: any) {
+            showToast({ message: error.response?.data?.detail || 'Không thể đổi mật khẩu', type: 'error' });
+        } finally {
+            setResettingPw(false);
         }
     };
 
@@ -333,7 +338,7 @@ export default function AdminScreen() {
                     {item.id !== user?.id && (
                         <TouchableOpacity
                             style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}
-                            onPress={() => handleResetPassword(item.id, item.username)}
+                            onPress={() => openResetPasswordModal(item.id, item.username, item.fullName)}
                         >
                             <Lock color="#f59e0b" size={18} />
                         </TouchableOpacity>
@@ -566,7 +571,7 @@ export default function AdminScreen() {
                                             {item.id !== user?.id && (
                                                 <TouchableOpacity
                                                     style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6 }]}
-                                                    onPress={() => handleResetPassword(item.id, item.username)}
+                                                    onPress={() => openResetPasswordModal(item.id, item.username, item.fullName)}
                                                 >
                                                     <Lock color="#f59e0b" size={16} />
                                                 </TouchableOpacity>
@@ -640,6 +645,89 @@ export default function AdminScreen() {
                 }}
                 editUser={editingUser}
             />
+
+            {/* Reset Password Modal */}
+            <Modal visible={resetPwModalVisible} animationType="fade" transparent onRequestClose={() => setResetPwModalVisible(false)}>
+                <View style={rpStyles.overlay}>
+                    <View style={rpStyles.container}>
+                        <View style={rpStyles.header}>
+                            <View style={rpStyles.headerLeft}>
+                                <KeyRound color={Colors.primary} size={22} />
+                                <Text style={rpStyles.title}>Đổi mật khẩu</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setResetPwModalVisible(false)} style={rpStyles.closeBtn}>
+                                <X color="#64748b" size={22} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={rpStyles.body}>
+                            <View style={rpStyles.userInfo}>
+                                <View style={rpStyles.avatar}>
+                                    <Text style={rpStyles.avatarText}>{resetPwFullName?.charAt(0) || 'U'}</Text>
+                                </View>
+                                <View>
+                                    <Text style={rpStyles.userName}>{resetPwFullName}</Text>
+                                    <Text style={rpStyles.userSub}>@{resetPwUsername}</Text>
+                                </View>
+                            </View>
+
+                            <Text style={rpStyles.label}>Mật khẩu mới</Text>
+                            <View style={rpStyles.passwordInputRow}>
+                                <TextInput
+                                    style={rpStyles.passwordInput}
+                                    value={newPassword}
+                                    onChangeText={setNewPassword}
+                                    placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
+                                    placeholderTextColor="#94a3b8"
+                                    secureTextEntry={!showNewPassword}
+                                    autoFocus
+                                />
+                                <TouchableOpacity
+                                    style={rpStyles.eyeBtn}
+                                    onPress={() => setShowNewPassword(!showNewPassword)}
+                                >
+                                    {showNewPassword ? <EyeOff color="#64748b" size={20} /> : <Eye color="#64748b" size={20} />}
+                                </TouchableOpacity>
+                            </View>
+
+                            {newPassword.length > 0 && newPassword.length < 6 && (
+                                <Text style={rpStyles.errorHint}>
+                                    ⚠️ Mật khẩu phải có ít nhất 6 ký tự (hiện {newPassword.length})
+                                </Text>
+                            )}
+
+                            <View style={rpStyles.quickButtons}>
+                                <Text style={rpStyles.quickLabel}>Đặt nhanh:</Text>
+                                {['123456', 'Abc@1234', 'CangNT2026'].map(pw => (
+                                    <TouchableOpacity key={pw} style={rpStyles.quickBtn} onPress={() => setNewPassword(pw)}>
+                                        <Text style={rpStyles.quickBtnText}>{pw}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={rpStyles.footer}>
+                            <TouchableOpacity style={rpStyles.cancelBtn} onPress={() => setResetPwModalVisible(false)}>
+                                <Text style={rpStyles.cancelText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[rpStyles.submitBtn, (resettingPw || newPassword.length < 6) && { opacity: 0.5 }]}
+                                onPress={handleResetPassword}
+                                disabled={resettingPw || newPassword.length < 6}
+                            >
+                                {resettingPw ? (
+                                    <ActivityIndicator color="#ffffff" size="small" />
+                                ) : (
+                                    <>
+                                        <KeyRound color="#ffffff" size={18} />
+                                        <Text style={rpStyles.submitText}>Đổi mật khẩu</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -955,4 +1043,76 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         fontSize: 16,
     },
+});
+
+const rpStyles = StyleSheet.create({
+    overlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center', alignItems: 'center',
+        padding: 20,
+    },
+    container: {
+        backgroundColor: '#ffffff', borderRadius: 16,
+        width: '100%', maxWidth: 480, overflow: 'hidden',
+    },
+    header: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        padding: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    title: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
+    closeBtn: {
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center',
+    },
+    body: { padding: 20 },
+    userInfo: {
+        flexDirection: 'row', alignItems: 'center', gap: 14,
+        backgroundColor: '#f8fafc', padding: 14, borderRadius: 12,
+        marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0',
+    },
+    avatar: {
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+    },
+    avatarText: { color: '#ffffff', fontWeight: 'bold', fontSize: 18 },
+    userName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+    userSub: { fontSize: 14, color: '#64748b', marginTop: 2 },
+    label: { fontSize: 14, fontWeight: '600', color: '#0f172a', marginBottom: 8 },
+    passwordInputRow: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0',
+        borderRadius: 10, overflow: 'hidden',
+    },
+    passwordInput: {
+        flex: 1, paddingHorizontal: 14, paddingVertical: 14,
+        fontSize: 15, color: '#0f172a',
+    },
+    eyeBtn: { padding: 12 },
+    errorHint: { fontSize: 13, color: '#ef4444', marginTop: 6 },
+    quickButtons: {
+        flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap',
+        gap: 8, marginTop: 16,
+    },
+    quickLabel: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+    quickBtn: {
+        backgroundColor: '#E7F3FF', paddingHorizontal: 12, paddingVertical: 6,
+        borderRadius: 20, borderWidth: 1, borderColor: Colors.primary + '30',
+    },
+    quickBtnText: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
+    footer: {
+        flexDirection: 'row', justifyContent: 'flex-end', gap: 10,
+        padding: 20, borderTopWidth: 1, borderTopColor: '#e2e8f0',
+    },
+    cancelBtn: {
+        paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10,
+        backgroundColor: '#f1f5f9',
+    },
+    cancelText: { fontSize: 15, fontWeight: '600', color: '#64748b' },
+    submitBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10,
+        backgroundColor: Colors.primary,
+    },
+    submitText: { fontSize: 15, fontWeight: 'bold', color: '#ffffff' },
 });

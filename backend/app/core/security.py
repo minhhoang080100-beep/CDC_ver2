@@ -76,19 +76,13 @@ def validate_object_id(id_str: str, name: str = "ID") -> ObjectId:
     return ObjectId(id_str)
 
 
-PASSWORD_MIN_LENGTH = 8
-PASSWORD_PATTERN = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$')
+PASSWORD_MIN_LENGTH = 6
 
 
 def validate_password(password: str) -> None:
-    """Validate mật khẩu: >=8 ký tự, có chữ hoa, chữ thường và số."""
+    """Validate mật khẩu: >=6 ký tự."""
     if len(password) < PASSWORD_MIN_LENGTH:
         raise HTTPException(
             status_code=400,
             detail=f"Mật khẩu phải có ít nhất {PASSWORD_MIN_LENGTH} ký tự"
-        )
-    if not PASSWORD_PATTERN.match(password):
-        raise HTTPException(
-            status_code=400,
-            detail="Mật khẩu phải bao gồm chữ hoa, chữ thường và số"
         )
