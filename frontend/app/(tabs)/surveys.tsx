@@ -33,6 +33,7 @@ import {
 import { useFocusEffect } from 'expo-router';
 import SurveyFormModal from '../../components/SurveyFormModal';
 import SurveyCreateModal from '../../components/SurveyCreateModal';
+import SurveyResponsesModal from '../../components/SurveyResponsesModal';
 
 interface Survey {
     id: string;
@@ -60,6 +61,7 @@ export default function SurveysScreen() {
     const [selectedSurvey, setSelectedSurvey] = useState<any>(null);
     const [surveyModalVisible, setSurveyModalVisible] = useState(false);
     const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [responsesModalVisible, setResponsesModalVisible] = useState(false);
 
     const handleCreateSurvey = async (data: any) => {
         try {
@@ -113,6 +115,11 @@ export default function SurveysScreen() {
         } catch (error) {
             showToast({ message: 'Không thể tải khảo sát', type: 'error' });
         }
+    };
+
+    const handleOpenResponses = (survey: Survey) => {
+        setSelectedSurvey(survey);
+        setResponsesModalVisible(true);
     };
 
     const handleSubmitSurvey = async (surveyId: string, answers: any[]) => {
@@ -177,7 +184,9 @@ export default function SurveysScreen() {
 
     const formatDate = (dateStr: string) => {
         try {
+            if (!dateStr) return '';
             const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
             return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
         } catch {
             return dateStr;
@@ -251,6 +260,13 @@ export default function SurveysScreen() {
                         {/* Admin Actions */}
                         {isAdmin && (
                             <View style={styles.adminActions}>
+                                <TouchableOpacity
+                                    style={[styles.adminActionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}
+                                    onPress={(e) => { e.stopPropagation(); handleOpenResponses(item); }}
+                                >
+                                    <BarChart2 color="#3b82f6" size={14} />
+                                    <Text style={[styles.adminActionText, { color: '#3b82f6' }]}>Thống kê</Text>
+                                </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.adminActionBtn, { backgroundColor: item.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)' }]}
                                     onPress={(e) => { e.stopPropagation(); handleToggleStatus(item); }}
@@ -367,6 +383,15 @@ export default function SurveysScreen() {
                 visible={createModalVisible}
                 onClose={() => setCreateModalVisible(false)}
                 onSave={handleCreateSurvey}
+            />
+
+            <SurveyResponsesModal
+                visible={responsesModalVisible}
+                survey={selectedSurvey}
+                onClose={() => {
+                    setResponsesModalVisible(false);
+                    setSelectedSurvey(null);
+                }}
             />
         </SafeAreaView>
     );

@@ -353,12 +353,12 @@ export default function ElearningScreen() {
                                                             src={lesson.url}
                                                             controls
                                                             playsInline
-                                                            style={{ width: '100%', height: 340, borderRadius: 8, backgroundColor: '#000' } as any}
+                                                            style={{ width: '100%', aspectRatio: '16/9', borderRadius: 8, backgroundColor: '#000' } as any}
                                                         />
                                                     ) : (
                                                         <iframe
                                                             src={getEmbedUrl(lesson.url, lesson.type) || ''}
-                                                            style={{ width: '100%', height: lesson.type === 'VIDEO' ? 340 : 500, border: 'none', borderRadius: 8 } as any}
+                                                            style={{ width: '100%', height: lesson.type === 'VIDEO' ? undefined : 600, aspectRatio: lesson.type === 'VIDEO' ? '16/9' : undefined, border: 'none', borderRadius: 8 } as any}
                                                             allowFullScreen
                                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                         />
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         backgroundColor: '#fff', borderRadius: Platform.OS === 'web' ? 16 : 0,
-        width: '100%', maxWidth: 650,
+        width: '100%', maxWidth: 950,
         maxHeight: Platform.OS === 'web' ? '92%' : '100%',
         flex: Platform.OS === 'web' ? undefined : 1, overflow: 'hidden',
     },

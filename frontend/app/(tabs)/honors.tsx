@@ -28,6 +28,13 @@ import {
     X,
     ChevronDown,
     ChevronUp,
+    Calendar,
+    Info,
+    FileText,
+    CheckCircle2,
+    Clock,
+    XCircle,
+    Eye,
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -55,8 +62,36 @@ interface ActiveCampaign {
     description?: string;
     type: string;
     status: string;
+    startDate?: string;
+    endDate?: string;
     nominationCount: number;
     approvedCount: number;
+}
+
+interface CampaignDetail {
+    id: string;
+    title: string;
+    description?: string;
+    type: string;
+    status: string;
+    startDate?: string;
+    endDate?: string;
+    targetDepartments: string[];
+    creatorName?: string;
+    createdAt: string;
+    nominations: {
+        id: string;
+        nomineeName: string;
+        nomineeDepartment: string;
+        reason: string;
+        achievements?: string;
+        status: string;
+        nominatorName?: string;
+        nominatorDepartment?: string;
+        createdAt: string;
+        reviewedAt?: string;
+        reviewNote?: string;
+    }[];
 }
 
 const DEPT_LABELS: Record<string, string> = {
@@ -83,6 +118,11 @@ export default function HonorsScreen() {
     const [reason, setReason] = useState('');
     const [achievements, setAchievements] = useState('');
     const [submitting, setSubmitting] = useState(false);
+
+    // Detail modal
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -111,6 +151,44 @@ export default function HonorsScreen() {
         setReason('');
         setAchievements('');
         setNominateModalVisible(true);
+    };
+
+    const openCampaignDetail = async (campaignId: string) => {
+        setDetailModalVisible(true);
+        setDetailLoading(true);
+        try {
+            const response = await api.get(`/api/honors/${campaignId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setCampaignDetail(response.data);
+        } catch (error) {
+            showToast({ message: 'Không thể tải chi tiết chiến dịch', type: 'error' });
+            setDetailModalVisible(false);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch {
+            return dateStr;
+        }
+    };
+
+    const formatDateTime = (dateStr?: string) => {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return dateStr;
+        }
     };
 
     const handleSubmitNomination = async () => {
@@ -182,7 +260,7 @@ export default function HonorsScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>📣 Chiến dịch đang mở</Text>
                         {activeCampaigns.map(c => (
-                            <View key={c.id} style={styles.campaignCard}>
+                            <TouchableOpacity key={c.id} style={styles.campaignCard} onPress={() => openCampaignDetail(c.id)} activeOpacity={0.7}>
                                 <View style={styles.campaignInfo}>
                                     <View style={styles.campaignTypeIcon}>
                                         {c.type === 'TEAM' ? (
@@ -201,14 +279,23 @@ export default function HonorsScreen() {
                                         </Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity
-                                    style={styles.nominateButton}
-                                    onPress={() => openNominate(c.id)}
-                                >
-                                    <Send color="#ffffff" size={16} />
-                                    <Text style={styles.nominateText}>Đề cử</Text>
-                                </TouchableOpacity>
-                            </View>
+                                <View style={styles.campaignActions}>
+                                    <TouchableOpacity
+                                        style={styles.detailBtn}
+                                        onPress={(e) => { e.stopPropagation(); openCampaignDetail(c.id); }}
+                                    >
+                                        <Eye color={Colors.primary} size={16} />
+                                        <Text style={styles.detailBtnText}>Chi tiết</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.nominateButton}
+                                        onPress={(e) => { e.stopPropagation(); openNominate(c.id); }}
+                                    >
+                                        <Send color="#ffffff" size={16} />
+                                        <Text style={styles.nominateText}>Đề cử</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </TouchableOpacity>
                         ))}
                     </View>
                 )}
@@ -275,6 +362,172 @@ export default function HonorsScreen() {
                     </View>
                 ) : null}
             </ScrollView>
+
+            {/* Campaign Detail Modal */}
+            <Modal visible={detailModalVisible} animationType="fade" transparent onRequestClose={() => { setDetailModalVisible(false); setCampaignDetail(null); }}>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { maxWidth: 650 }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>📋 Chi tiết chiến dịch</Text>
+                            <TouchableOpacity onPress={() => { setDetailModalVisible(false); setCampaignDetail(null); }} style={styles.closeBtn}>
+                                <X color="#64748b" size={24} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {detailLoading ? (
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 }}>
+                                <ActivityIndicator size="large" color={Colors.primary} />
+                            </View>
+                        ) : campaignDetail ? (
+                            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                                {/* Title */}
+                                <Text style={styles.detailTitle}>{campaignDetail.title}</Text>
+
+                                {/* Meta info row */}
+                                <View style={styles.detailMetaRow}>
+                                    <View style={styles.detailMetaChip}>
+                                        {campaignDetail.type === 'TEAM' ? (
+                                            <Users color={Colors.primary} size={14} />
+                                        ) : (
+                                            <User color={Colors.primary} size={14} />
+                                        )}
+                                        <Text style={styles.detailMetaChipText}>
+                                            {campaignDetail.type === 'TEAM' ? 'Tập thể' : 'Cá nhân'}
+                                        </Text>
+                                    </View>
+                                    <View style={[
+                                        styles.detailMetaChip,
+                                        { backgroundColor: campaignDetail.status === 'ACTIVE' ? '#D1FAE5' : '#FEE2E2' }
+                                    ]}>
+                                        <View style={{
+                                            width: 8, height: 8, borderRadius: 4,
+                                            backgroundColor: campaignDetail.status === 'ACTIVE' ? '#10B981' : '#EF4444',
+                                        }} />
+                                        <Text style={[
+                                            styles.detailMetaChipText,
+                                            { color: campaignDetail.status === 'ACTIVE' ? '#047857' : '#DC2626' }
+                                        ]}>
+                                            {campaignDetail.status === 'ACTIVE' ? 'Đang mở' : 'Đã đóng'}
+                                        </Text>
+                                    </View>
+                                    {campaignDetail.creatorName && (
+                                        <View style={styles.detailMetaChip}>
+                                            <User color="#64748b" size={14} />
+                                            <Text style={[styles.detailMetaChipText, { color: '#64748b' }]}>
+                                                {campaignDetail.creatorName}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Date info */}
+                                {(campaignDetail.startDate || campaignDetail.endDate) && (
+                                    <View style={styles.detailDateRow}>
+                                        <Calendar color="#64748b" size={16} />
+                                        <Text style={styles.detailDateText}>
+                                            {campaignDetail.startDate && campaignDetail.endDate
+                                                ? `${formatDate(campaignDetail.startDate)} — ${formatDate(campaignDetail.endDate)}`
+                                                : campaignDetail.startDate
+                                                    ? `Bắt đầu: ${formatDate(campaignDetail.startDate)}`
+                                                    : `Kết thúc: ${formatDate(campaignDetail.endDate)}`
+                                            }
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Full description */}
+                                {campaignDetail.description && (
+                                    <View style={styles.detailDescSection}>
+                                        <View style={styles.detailDescHeader}>
+                                            <FileText color="#0f172a" size={18} />
+                                            <Text style={styles.detailDescLabel}>Nội dung chiến dịch</Text>
+                                        </View>
+                                        <Text style={styles.detailDescText}>{campaignDetail.description}</Text>
+                                    </View>
+                                )}
+
+                                {/* Nominations list */}
+                                {campaignDetail.nominations && campaignDetail.nominations.length > 0 && (
+                                    <View style={styles.detailNominationsSection}>
+                                        <Text style={styles.detailSectionLabel}>
+                                            📝 Danh sách đề cử ({campaignDetail.nominations.length})
+                                        </Text>
+                                        {campaignDetail.nominations.map((nom) => (
+                                            <View key={nom.id} style={styles.detailNomCard}>
+                                                <View style={styles.detailNomHeader}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.detailNomName}>{nom.nomineeName}</Text>
+                                                        <Text style={styles.detailNomDept}>
+                                                            {DEPT_LABELS[nom.nomineeDepartment] || nom.nomineeDepartment}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={[
+                                                        styles.detailNomStatusBadge,
+                                                        nom.status === 'APPROVED' && { backgroundColor: '#D1FAE5' },
+                                                        nom.status === 'REJECTED' && { backgroundColor: '#FEE2E2' },
+                                                        nom.status === 'PENDING' && { backgroundColor: '#FEF3C7' },
+                                                    ]}>
+                                                        {nom.status === 'APPROVED' && <CheckCircle2 color="#047857" size={12} />}
+                                                        {nom.status === 'REJECTED' && <XCircle color="#DC2626" size={12} />}
+                                                        {nom.status === 'PENDING' && <Clock color="#D97706" size={12} />}
+                                                        <Text style={[
+                                                            styles.detailNomStatusText,
+                                                            nom.status === 'APPROVED' && { color: '#047857' },
+                                                            nom.status === 'REJECTED' && { color: '#DC2626' },
+                                                            nom.status === 'PENDING' && { color: '#D97706' },
+                                                        ]}>
+                                                            {nom.status === 'APPROVED' ? 'Đã duyệt' : nom.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Text style={styles.detailNomReason}>{nom.reason}</Text>
+                                                {nom.achievements && (
+                                                    <Text style={styles.detailNomAchieve}>🎯 {nom.achievements}</Text>
+                                                )}
+                                                <View style={styles.detailNomFooter}>
+                                                    {nom.nominatorName && (
+                                                        <Text style={styles.detailNomBy}>Đề cử bởi: {nom.nominatorName}</Text>
+                                                    )}
+                                                    <Text style={styles.detailNomDate}>{formatDateTime(nom.createdAt)}</Text>
+                                                </View>
+                                                {nom.reviewNote && (
+                                                    <View style={styles.detailReviewNote}>
+                                                        <Text style={styles.detailReviewNoteText}>💬 {nom.reviewNote}</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                {campaignDetail.nominations && campaignDetail.nominations.length === 0 && (
+                                    <View style={styles.detailEmptyNom}>
+                                        <Info color="#94a3b8" size={32} />
+                                        <Text style={styles.detailEmptyNomText}>Chưa có ai đề cử</Text>
+                                    </View>
+                                )}
+                            </ScrollView>
+                        ) : null}
+
+                        {/* Footer with Nominate button */}
+                        {campaignDetail && campaignDetail.status === 'ACTIVE' && (
+                            <View style={styles.modalFooter}>
+                                <TouchableOpacity
+                                    style={styles.submitBtn}
+                                    onPress={() => {
+                                        setDetailModalVisible(false);
+                                        setCampaignDetail(null);
+                                        openNominate(campaignDetail.id);
+                                    }}
+                                >
+                                    <Send color="#ffffff" size={18} />
+                                    <Text style={styles.submitText}>Đề cử ngay</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
 
             {/* Nominate Modal */}
             <Modal visible={nominateModalVisible} animationType="fade" transparent onRequestClose={() => setNominateModalVisible(false)}>
@@ -387,6 +640,15 @@ const styles = StyleSheet.create({
     campaignTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
     campaignDesc: { fontSize: 14, color: '#64748b', lineHeight: 20, marginBottom: 6 },
     campaignMeta: { fontSize: 13, color: '#94a3b8' },
+    campaignActions: {
+        flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+    },
+    detailBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#E7F3FF', paddingHorizontal: 14, paddingVertical: 10,
+        borderRadius: 8, minHeight: 44,
+    },
+    detailBtnText: { color: Colors.primary, fontWeight: '600', fontSize: 14 },
     nominateButton: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
         backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 12,
@@ -466,4 +728,59 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary, paddingVertical: 16, borderRadius: 10,
     },
     submitText: { fontSize: 16, fontWeight: 'bold', color: '#ffffff' },
+    // Campaign Detail Modal styles
+    detailTitle: { fontSize: 22, fontWeight: '800', color: '#0f172a', marginBottom: 14, lineHeight: 30 },
+    detailMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    detailMetaChip: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#E7F3FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    },
+    detailMetaChipText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+    detailDateRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 8,
+        backgroundColor: '#f8fafc', padding: 12, borderRadius: 10, marginBottom: 16,
+        borderWidth: 1, borderColor: '#e2e8f0',
+    },
+    detailDateText: { fontSize: 14, color: '#334155', fontWeight: '500' },
+    detailDescSection: {
+        backgroundColor: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 20,
+        borderWidth: 1, borderColor: '#e2e8f0',
+    },
+    detailDescHeader: {
+        flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12,
+    },
+    detailDescLabel: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+    detailDescText: { fontSize: 15, color: '#334155', lineHeight: 24 },
+    detailNominationsSection: { marginBottom: 20, gap: 10 },
+    detailSectionLabel: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
+    detailNomCard: {
+        backgroundColor: '#ffffff', borderRadius: 12, padding: 14,
+        borderWidth: 1, borderColor: '#e2e8f0',
+        borderLeftWidth: 3, borderLeftColor: '#f59e0b',
+    },
+    detailNomHeader: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
+    },
+    detailNomName: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+    detailNomDept: { fontSize: 13, color: Colors.primary, fontWeight: '500', marginTop: 2 },
+    detailNomStatusBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    },
+    detailNomStatusText: { fontSize: 12, fontWeight: '600' },
+    detailNomReason: { fontSize: 14, color: '#334155', lineHeight: 20, marginBottom: 6 },
+    detailNomAchieve: { fontSize: 13, color: '#10b981', fontWeight: '500', marginBottom: 6 },
+    detailNomFooter: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6,
+    },
+    detailNomBy: { fontSize: 12, color: '#94a3b8' },
+    detailNomDate: { fontSize: 12, color: '#94a3b8' },
+    detailReviewNote: {
+        marginTop: 8, backgroundColor: '#f1f5f9', padding: 10, borderRadius: 8,
+    },
+    detailReviewNoteText: { fontSize: 13, color: '#475569', lineHeight: 18 },
+    detailEmptyNom: {
+        alignItems: 'center', paddingVertical: 40, gap: 8,
+    },
+    detailEmptyNomText: { fontSize: 15, color: '#94a3b8' },
 });

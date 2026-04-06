@@ -32,6 +32,7 @@ import {
     User,
     Clock,
     BarChart2,
+    Edit,
 } from 'lucide-react-native';
 
 interface Campaign {
@@ -84,6 +85,7 @@ export default function HonorManagement() {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [saving, setSaving] = useState(false);
+    const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
     // Detail modal
     const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -115,16 +117,25 @@ export default function HonorManagement() {
         }
         setSaving(true);
         try {
-            await api.post('/api/honors', {
+            const payload = {
                 title: title.trim(),
                 description: description.trim() || null,
                 type: campaignType,
                 startDate: startDate || null,
                 endDate: endDate || null,
                 targetDepartments: [],
-            }, { headers: { Authorization: `Bearer ${token}` } });
-            showToast({ message: 'Tạo chiến dịch thành công', type: 'success' });
+            };
+
+            if (editingCampaignId) {
+                await api.put(`/api/honors/${editingCampaignId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+                showToast({ message: 'Cập nhật thành công', type: 'success' });
+            } else {
+                await api.post('/api/honors', payload, { headers: { Authorization: `Bearer ${token}` } });
+                showToast({ message: 'Tạo chiến dịch thành công', type: 'success' });
+            }
+
             setCreateModalVisible(false);
+            setEditingCampaignId(null);
             setTitle(''); setDescription(''); setStartDate(''); setEndDate('');
             fetchCampaigns();
         } catch (error: any) {
@@ -132,6 +143,16 @@ export default function HonorManagement() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const openEdit = (campaign: Campaign) => {
+        setEditingCampaignId(campaign.id);
+        setTitle(campaign.title || '');
+        setDescription(campaign.description || '');
+        setCampaignType(campaign.type as any || 'INDIVIDUAL');
+        setStartDate(campaign.startDate || '');
+        setEndDate(campaign.endDate || '');
+        setCreateModalVisible(true);
     };
 
     const handleDelete = (campaign: Campaign) => {
@@ -239,7 +260,7 @@ export default function HonorManagement() {
                         </TouchableOpacity>
                     ))}
                 </View>
-                <TouchableOpacity style={styles.createBtn} onPress={() => setCreateModalVisible(true)}>
+                <TouchableOpacity style={styles.createBtn} onPress={() => { setEditingCampaignId(null); setTitle(''); setDescription(''); setStartDate(''); setEndDate(''); setCreateModalVisible(true); }}>
                     <Plus color="#fff" size={20} />
                     <Text style={styles.createBtnText}>Tạo chiến dịch</Text>
                 </TouchableOpacity>
@@ -270,6 +291,9 @@ export default function HonorManagement() {
                             </Text>
                         </View>
                         <View style={styles.campaignItemActions}>
+                            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: 'rgba(59,130,246,0.1)' }]} onPress={() => openEdit(item)}>
+                                <Edit color="#3b82f6" size={16} />
+                            </TouchableOpacity>
                             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: 'rgba(124,58,237,0.1)' }]} onPress={() => openDetail(item)}>
                                 <Eye color="#7c3aed" size={18} />
                             </TouchableOpacity>
@@ -287,12 +311,12 @@ export default function HonorManagement() {
                 )}
             />
 
-            {/* Create Modal */}
+            {/* Create / Edit Modal */}
             <Modal visible={createModalVisible} animationType="fade" transparent onRequestClose={() => setCreateModalVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Tạo chiến dịch thi đua</Text>
+                            <Text style={styles.modalTitle}>{editingCampaignId ? 'Chỉnh sửa chiến dịch' : 'Tạo chiến dịch thi đua'}</Text>
                             <TouchableOpacity onPress={() => setCreateModalVisible(false)} style={styles.closeBtn}>
                                 <X color="#64748b" size={24} />
                             </TouchableOpacity>
@@ -301,7 +325,7 @@ export default function HonorManagement() {
                             <Text style={styles.label}>Tiêu đề *</Text>
                             <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="VD: Thi đua Quý 1/2026" placeholderTextColor="#94a3b8" />
                             <Text style={styles.label}>Mô tả</Text>
-                            <TextInput style={[styles.input, { minHeight: 80 }]} value={description} onChangeText={setDescription} placeholder="Mô tả..." placeholderTextColor="#94a3b8" multiline textAlignVertical="top" />
+                            <TextInput style={[styles.input, { minHeight: 140 }]} value={description} onChangeText={setDescription} placeholder="Mô tả..." placeholderTextColor="#94a3b8" multiline textAlignVertical="top" />
                             <Text style={styles.label}>Loại</Text>
                             <View style={styles.typeRow}>
                                 <TouchableOpacity style={[styles.typeChip, campaignType === 'INDIVIDUAL' && styles.typeChipActive]} onPress={() => setCampaignType('INDIVIDUAL')}>
@@ -320,7 +344,7 @@ export default function HonorManagement() {
                         </ScrollView>
                         <View style={styles.modalFooter}>
                             <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={handleCreate} disabled={saving}>
-                                <Text style={styles.saveBtnText}>{saving ? 'Đang tạo...' : 'Tạo chiến dịch'}</Text>
+                                <Text style={styles.saveBtnText}>{saving ? 'Đang lưu...' : (editingCampaignId ? 'Cập nhật' : 'Tạo chiến dịch')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

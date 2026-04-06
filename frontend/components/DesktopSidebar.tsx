@@ -1,10 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
+import { NotificationsPanel } from '../app/(tabs)/notifications';
 import {
     Home,
     Bell,
@@ -87,6 +88,7 @@ function DesktopSidebar({ width }: Props) {
         router.replace('/login');
     };
 
+    const [showNotifPopup, setShowNotifPopup] = useState(false);
     const isNotifActive = pathname.includes('notifications');
 
     return (
@@ -105,8 +107,8 @@ function DesktopSidebar({ width }: Props) {
                 </View>
                 {/* Bell icon — top right */}
                 <TouchableOpacity
-                    style={[styles.bellButton, isNotifActive && styles.bellButtonActive]}
-                    onPress={() => router.push('/(tabs)/notifications' as any)}
+                    style={[styles.bellButton, (isNotifActive || showNotifPopup) && styles.bellButtonActive]}
+                    onPress={() => setShowNotifPopup(!showNotifPopup)}
                     activeOpacity={0.7}
                 >
                     <Bell color={isNotifActive ? Colors.primary : '#65676b'} size={20} />
@@ -119,6 +121,13 @@ function DesktopSidebar({ width }: Props) {
                     )}
                 </TouchableOpacity>
             </View>
+
+            {/* Notifications Popup */}
+            {showNotifPopup && (
+                <View style={[styles.notifPopupWrapper, { left: width - 40 }]}>
+                    <NotificationsPanel isPopup onClose={() => setShowNotifPopup(false)} />
+                </View>
+            )}
 
             {/* Navigation Items */}
             <View style={styles.nav}>
@@ -264,6 +273,18 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
         color: '#ffffff',
+    },
+    notifPopupWrapper: {
+        position: 'absolute',
+        top: 76,
+        zIndex: 9999,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 10,
     },
     userSection: {
         paddingHorizontal: 16,

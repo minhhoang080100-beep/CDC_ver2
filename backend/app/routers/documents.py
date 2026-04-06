@@ -37,7 +37,21 @@ async def get_documents(
             content_filter = search_filter
 
     total = await db.documents.count_documents(content_filter)
-    documents = await db.documents.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+    
+    pipeline = [
+        {"$match": content_filter},
+        {"$sort": {"createdAt": -1}},
+        {"$skip": skip},
+        {"$limit": limit},
+        {"$lookup": {
+            "from": "users",
+            "localField": "uploadedBy",
+            "foreignField": "_id",
+            "as": "uploader"
+        }},
+        {"$unwind": {"path": "$uploader", "preserveNullAndEmptyArrays": True}}
+    ]
+    documents = await db.documents.aggregate(pipeline).to_list(limit)
     
     items = [{
         "id": str(doc["_id"]),
@@ -45,7 +59,7 @@ async def get_documents(
         "category": doc["category"],
         "fileSize": doc["fileSize"],
         "fileUrl": doc.get("fileUrl"),
-        "uploadedBy": doc["uploadedBy"],
+        "uploadedBy": doc.get("uploader", {}).get("fullName") or str(doc.get("uploadedBy", "Liên Đoàn")),
         "targetDepartments": doc.get("targetDepartments", ["ALL"]),
         "createdAt": doc["createdAt"]
     } for doc in documents]

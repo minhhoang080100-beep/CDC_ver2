@@ -35,23 +35,33 @@ interface Notification {
 // Icon + color mapping per notification type
 const getTypeIcon = (type: string) => {
   switch (type) {
+    case 'post':
     case 'new_post': return { Icon: Newspaper, color: '#ffffff', bg: '#3b82f6' };
+    case 'activity':
     case 'new_activity': return { Icon: Calendar, color: '#ffffff', bg: '#10b981' };
+    case 'survey':
     case 'new_survey': return { Icon: ClipboardList, color: '#ffffff', bg: '#f59e0b' };
+    case 'honor':
     case 'new_honor': return { Icon: Trophy, color: '#ffffff', bg: '#eab308' };
+    case 'course':
     case 'new_course': return { Icon: GraduationCap, color: '#ffffff', bg: '#8b5cf6' };
+    case 'feedback':
     case 'new_feedback': return { Icon: MessageSquare, color: '#ffffff', bg: '#06b6d4' };
     default: return { Icon: Megaphone, color: '#ffffff', bg: Colors.primary };
   }
 };
 
-const getRoute = (type: string): string | null => {
-  switch (type) {
-    case 'new_post': return '/(tabs)';
+const getRoute = (notif: Notification): any => {
+  switch (notif.type) {
+    case 'activity':
     case 'new_activity': return '/(tabs)/activities';
+    case 'survey':
     case 'new_survey': return '/(tabs)/surveys';
+    case 'honor':
     case 'new_honor': return '/(tabs)/honors';
+    case 'course':
     case 'new_course': return '/(tabs)/elearning';
+    case 'feedback':
     case 'new_feedback': return '/(tabs)/feedback';
     default: return null;
   }
@@ -97,7 +107,7 @@ const SECTION_LABELS: Record<string, string> = {
   older: 'Trước đó',
 };
 
-export default function NotificationsScreen() {
+export function NotificationsPanel({ isPopup = false, onClose }: { isPopup?: boolean; onClose?: () => void }) {
   const { token } = useAuth();
   const { isDesktop } = useResponsive();
   const queryClient = useQueryClient();
@@ -153,10 +163,45 @@ export default function NotificationsScreen() {
     },
   });
 
-  const handlePress = (notif: Notification) => {
+  const handlePress = async (notif: Notification) => {
     if (!notif.read) markReadMutation.mutate(notif.id);
-    const route = getRoute(notif.type);
-    if (route) router.push(route as any);
+    
+    if (notif.type === 'post' || notif.type === 'new_post') {
+      if (notif.data?.postId) {
+        try {
+          const res = await api.get(`/api/posts/${notif.data.postId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const post = res.data;
+          router.push({
+            pathname: '/(tabs)/post-detail',
+            params: {
+              id: post.id,
+              title: post.title,
+              content: post.content,
+              summary: post.summary,
+              authorName: post.authorName,
+              createdAt: post.createdAt,
+              category: post.category,
+              mediaUrls: JSON.stringify(post.images || post.mediaUrls || []),
+              surveyId: post.surveyId,
+              likes: JSON.stringify(post.likes || []),
+              comments: JSON.stringify(post.comments || [])
+            }
+          });
+        } catch (error) {
+          console.error("Không thể lấy dữ liệu bài viết:", error);
+        }
+      }
+      if (isPopup && onClose) onClose();
+      return;
+    }
+
+    const route = getRoute(notif);
+    if (route) {
+        if (isPopup && onClose) onClose();
+        router.push(route as any);
+    }
   };
 
   // Build flat list with section headers
@@ -206,10 +251,10 @@ export default function NotificationsScreen() {
         {/* Avatar with type icon overlay */}
         <View style={styles.avatarCol}>
           <View style={styles.avatar}>
-            <Bell color="#94a3b8" size={22} />
+            <Bell color="#64748b" size={26} />
           </View>
           <View style={[styles.typeIconBadge, { backgroundColor: bg }]}>
-            <Icon color={color} size={12} />
+            <Icon color={color} size={14} />
           </View>
         </View>
 
@@ -230,12 +275,11 @@ export default function NotificationsScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={[styles.panel, isDesktop && styles.panelDesktop]}>
+    const content = (
+      <View style={[styles.panel, isDesktop && !isPopup && styles.panelDesktop, isPopup && styles.panelPopup]}>
         {/* ─── Header ─── */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Thông báo</Text>
+        <View style={[styles.header, isPopup && styles.headerPopup]}>
+          <Text style={[styles.headerTitle, isPopup && styles.headerTitlePopup]}>Thông báo</Text>
           {unreadCount > 0 && (
             <TouchableOpacity
               style={styles.markAllBtn}
@@ -315,8 +359,14 @@ export default function NotificationsScreen() {
           />
         )}
       </View>
-    </SafeAreaView>
-  );
+    );
+
+    if (isPopup) return content;
+    return <SafeAreaView style={styles.container}>{content}</SafeAreaView>;
+}
+
+export default function NotificationsScreen() {
+    return <NotificationsPanel />;
 }
 
 const styles = StyleSheet.create({
@@ -338,6 +388,19 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: '#e4e6eb',
   },
+  panelPopup: {
+    width: 380,
+    maxHeight: 520,
+    borderWidth: 1,
+    borderColor: '#e4e6eb',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
+    overflow: 'hidden',
+  },
 
   // Header
   header: {
@@ -348,10 +411,17 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 8,
   },
+  headerPopup: {
+    paddingTop: 16,
+    paddingHorizontal: 16,
+  },
   headerTitle: {
     fontSize: 26,
     fontWeight: 'bold',
     color: '#050505',
+  },
+  headerTitlePopup: {
+    fontSize: 20,
   },
   markAllBtn: {
     width: 36,
@@ -410,34 +480,37 @@ const styles = StyleSheet.create({
   // Notification item — Facebook style
   notifItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
+    alignItems: 'flex-start',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   notifItemUnread: {
-    backgroundColor: '#e7f3ff',
+    backgroundColor: '#ebf5ff',
   },
 
   // Avatar with badge
   avatarCol: {
     position: 'relative',
+    paddingTop: 2,
   },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#e4e6eb',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#e1e7ef',
     justifyContent: 'center',
     alignItems: 'center',
   },
   typeIconBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    bottom: -4,
+    right: -4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
