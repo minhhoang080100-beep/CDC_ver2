@@ -30,6 +30,7 @@ async def get_honor_board(current_user=Depends(get_current_user)):
                 "nomineeDepartment": n.get("nomineeDepartment"),
                 "reason": n.get("reason"),
                 "achievements": n.get("achievements"),
+                "images": n.get("images", []),
                 "nominatorName": n.get("nominatorName"),
             })
         if approved:
@@ -68,6 +69,7 @@ async def create_nomination(data: NominationCreate, current_user=Depends(get_cur
         "nomineeDepartment": data.nomineeDepartment,
         "reason": data.reason,
         "achievements": data.achievements,
+        "images": data.images or [],
         "status": "PENDING",
         "nominatorId": str(current_user["_id"]),
         "nominatorName": current_user.get("fullName", ""),
@@ -198,6 +200,7 @@ async def get_campaign(campaign_id: str, current_user=Depends(get_current_user))
             "nomineeDepartment": n.get("nomineeDepartment"),
             "reason": n.get("reason"),
             "achievements": n.get("achievements"),
+            "images": n.get("images", []),
             "status": n.get("status", "PENDING"),
             "nominatorName": n.get("nominatorName"),
             "nominatorDepartment": n.get("nominatorDepartment"),

@@ -44,3 +44,4 @@ class NominationCreate(BaseModel):
     nomineeDepartment: str
     reason: str = Field(..., min_length=1)
     achievements: Optional[str] = None
+    images: Optional[List[str]] = None

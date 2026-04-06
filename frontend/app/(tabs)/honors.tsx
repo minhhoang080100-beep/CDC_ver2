@@ -11,7 +11,9 @@ import {
     ScrollView,
     Platform,
     ActivityIndicator,
+    Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -35,6 +37,7 @@ import {
     Clock,
     XCircle,
     Eye,
+    ImagePlus,
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 
@@ -44,6 +47,7 @@ interface ApprovedNomination {
     nomineeDepartment: string;
     reason: string;
     achievements?: string;
+    images?: string[];
     nominatorName?: string;
 }
 
@@ -85,6 +89,7 @@ interface CampaignDetail {
         nomineeDepartment: string;
         reason: string;
         achievements?: string;
+        images?: string[];
         status: string;
         nominatorName?: string;
         nominatorDepartment?: string;
@@ -117,7 +122,13 @@ export default function HonorsScreen() {
     const [nomineeDept, setNomineeDept] = useState('VAN_PHONG_CANG');
     const [reason, setReason] = useState('');
     const [achievements, setAchievements] = useState('');
+    const [images, setImages] = useState<string[]>([]);
+    const [uploadingImage, setUploadingImage] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Cloudinary Details
+    const CLOUD_NAME = 'dljjearo2';
+    const UPLOAD_PRESET = 'CDCnghetinh';
 
     // Detail modal
     const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -150,6 +161,7 @@ export default function HonorsScreen() {
         setNomineeDept('VAN_PHONG_CANG');
         setReason('');
         setAchievements('');
+        setImages([]);
         setNominateModalVisible(true);
     };
 
@@ -204,6 +216,7 @@ export default function HonorsScreen() {
                 nomineeDepartment: nomineeDept,
                 reason: reason.trim(),
                 achievements: achievements.trim() || null,
+                images: images,
             }, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -214,6 +227,69 @@ export default function HonorsScreen() {
             showToast({ message: error.response?.data?.detail || 'Lỗi đề cử', type: 'error' });
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const pickImage = async () => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') {
+                    showToast({ message: 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên', type: 'error' });
+                    return;
+                }
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsMultipleSelection: true,
+                selectionLimit: 5 - images.length,
+                quality: 0.6,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                setUploadingImage(true);
+                try {
+                    const validUrls: string[] = [];
+                    for (const asset of result.assets) {
+                        const base64Img = `data:image/jpeg;base64,${asset.base64}`;
+                        const url = await uploadSingleToCloudinary(base64Img);
+                        if (url) validUrls.push(url);
+                    }
+                    if (validUrls.length > 0) {
+                        setImages((prev) => [...prev, ...validUrls]);
+                    }
+                } catch (error) {
+                    console.error("Lỗi upload nhiều ảnh:", error);
+                } finally {
+                    setUploadingImage(false);
+                }
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
+            showToast({ message: 'Không thể chọn ảnh', type: 'error' });
+        }
+    };
+
+    const uploadSingleToCloudinary = async (base64Img: string): Promise<string | null> => {
+        try {
+            const formData = new FormData();
+            formData.append('file', base64Img);
+            formData.append('upload_preset', UPLOAD_PRESET);
+            formData.append('folder', 'cong-doan-app');
+
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await response.json();
+            if (response.ok && data.secure_url) return data.secure_url;
+            throw new Error(data.error?.message || 'Upload failed');
+        } catch (error: any) {
+            console.error('Error uploading:', error);
+            showToast({ message: 'Upload ảnh thất bại.', type: 'error' });
+            return null;
         }
     };
 
@@ -344,6 +420,13 @@ export default function HonorsScreen() {
                                                         <Text style={styles.honorAchieve} numberOfLines={2}>
                                                             🎯 {nom.achievements}
                                                         </Text>
+                                                    )}
+                                                    {nom.images && nom.images.length > 0 && (
+                                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                                                            {nom.images.map((url, idx) => (
+                                                                <Image key={idx} source={{ uri: url }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} />
+                                                            ))}
+                                                        </ScrollView>
                                                     )}
                                                 </View>
                                                 <Award color={getMedalColor(i)} size={28} />
@@ -484,6 +567,13 @@ export default function HonorsScreen() {
                                                 {nom.achievements && (
                                                     <Text style={styles.detailNomAchieve}>🎯 {nom.achievements}</Text>
                                                 )}
+                                                {nom.images && nom.images.length > 0 && (
+                                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                                                        {nom.images.map((url, idx) => (
+                                                            <Image key={idx} source={{ uri: url }} style={{ width: 100, height: 100, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} />
+                                                        ))}
+                                                    </ScrollView>
+                                                )}
                                                 <View style={styles.detailNomFooter}>
                                                     {nom.nominatorName && (
                                                         <Text style={styles.detailNomBy}>Đề cử bởi: {nom.nominatorName}</Text>
@@ -586,13 +676,50 @@ export default function HonorsScreen() {
                                 multiline
                                 textAlignVertical="top"
                             />
+
+                            <Text style={styles.label}>Ảnh đính kèm (Tối đa 5 ảnh)</Text>
+                            {images.length > 0 ? (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalImageScroll}>
+                                    {images.map((url, idx) => (
+                                        <View key={idx} style={styles.multiImagePreviewContainer}>
+                                            <Image source={{ uri: url }} style={styles.imagePreview} />
+                                            <TouchableOpacity
+                                                style={styles.removeImageButton}
+                                                onPress={() => setImages(prev => prev.filter((_, i) => i !== idx))}
+                                                disabled={submitting || uploadingImage}
+                                            >
+                                                <X color="#fff" size={20} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                    {images.length < 5 && (
+                                        <TouchableOpacity style={[styles.imageUploadButton, { width: 100, height: 100, padding: 0 }]} onPress={pickImage} disabled={submitting || uploadingImage}>
+                                            {uploadingImage ? <ActivityIndicator color={Colors.primary} /> : <ImagePlus color={Colors.primary} size={28} />}
+                                        </TouchableOpacity>
+                                    )}
+                                </ScrollView>
+                            ) : (
+                                <TouchableOpacity style={styles.imageUploadButton} onPress={pickImage} disabled={submitting || uploadingImage}>
+                                    {uploadingImage ? (
+                                        <>
+                                            <ActivityIndicator color={Colors.primary} style={{ marginBottom: 8 }} />
+                                            <Text style={styles.imageUploadText}>Đang tải ảnh lên...</Text>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ImagePlus color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
+                                            <Text style={styles.imageUploadText}>Thêm ảnh minh chứng (tối đa 5)</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            )}
                         </ScrollView>
 
                         <View style={styles.modalFooter}>
                             <TouchableOpacity
-                                style={[styles.submitBtn, submitting && { opacity: 0.6 }]}
+                                style={[styles.submitBtn, (submitting || uploadingImage) && { opacity: 0.6 }]}
                                 onPress={handleSubmitNomination}
-                                disabled={submitting}
+                                disabled={submitting || uploadingImage}
                             >
                                 <Send color="#ffffff" size={18} />
                                 <Text style={styles.submitText}>
@@ -783,4 +910,52 @@ const styles = StyleSheet.create({
         alignItems: 'center', paddingVertical: 40, gap: 8,
     },
     detailEmptyNomText: { fontSize: 15, color: '#94a3b8' },
+    // Image Upload styles
+    imageUploadButton: {
+        backgroundColor: '#f8fafc',
+        borderWidth: 1.5,
+        borderColor: '#e2e8f0',
+        borderStyle: 'dashed',
+        borderRadius: 10,
+        padding: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+    },
+    imageUploadText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: Colors.primary,
+    },
+    horizontalImageScroll: {
+        marginBottom: 20,
+        flexDirection: 'row',
+    },
+    multiImagePreviewContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 8,
+        overflow: 'hidden',
+        position: 'relative',
+        backgroundColor: '#e2e8f0',
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    imagePreview: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    removeImageButton: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 });

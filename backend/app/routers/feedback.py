@@ -29,19 +29,24 @@ async def get_feedback(
     total = await db.feedback.count_documents(query)
     feedback_list = await db.feedback.find(query).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
 
-    items = [{
-        "id": str(fb["_id"]),
-        "subject": fb["subject"],
-        "content": fb["content"],
-        "senderId": fb.get("senderId"),
-        "senderName": fb.get("senderName"),
-        "senderDepartment": fb.get("senderDepartment"),
-        "isAnonymous": fb["isAnonymous"],
-        "status": fb["status"],
-        "targetRecipients": fb["targetRecipients"],
-        "replies": fb.get("replies", []),
-        "createdAt": fb["createdAt"]
-    } for fb in feedback_list]
+    items = []
+    for fb in feedback_list:
+        is_mine = fb.get("senderId") == current_user["_id"]
+        is_anon = fb.get("isAnonymous", False)
+        
+        items.append({
+            "id": str(fb["_id"]),
+            "subject": fb["subject"],
+            "content": fb["content"],
+            "senderId": fb.get("senderId") if not is_anon or is_mine else None,
+            "senderName": fb.get("senderName") if not is_anon or is_mine else "Người dùng ẩn danh",
+            "senderDepartment": fb.get("senderDepartment") if not is_anon or is_mine else None,
+            "isAnonymous": is_anon,
+            "status": fb.get("status", "PENDING"),
+            "targetRecipients": fb.get("targetRecipients", []),
+            "replies": fb.get("replies", []),
+            "createdAt": fb["createdAt"]
+        })
 
     return {"items": items, "total": total, "hasMore": skip + limit < total}
 
@@ -66,9 +71,9 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
     feedback_data = {
         "subject": feedback.subject,
         "content": feedback.content,
-        "senderId": None if feedback.isAnonymous else current_user["_id"],
-        "senderName": None if feedback.isAnonymous else current_user["fullName"],
-        "senderDepartment": None if feedback.isAnonymous else current_user["department"],
+        "senderId": current_user["_id"],
+        "senderName": current_user["fullName"],
+        "senderDepartment": current_user["department"],
         "isAnonymous": feedback.isAnonymous,
         "status": "PENDING",
         "targetRecipients": target_recipients,
