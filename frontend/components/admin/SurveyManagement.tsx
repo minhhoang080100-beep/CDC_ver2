@@ -35,7 +35,10 @@ import {
     Clock,
     Lock,
     Unlock,
+    Upload,
+    FileText,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 interface Survey {
     id: string;
@@ -91,6 +94,8 @@ export default function SurveyManagement() {
     const [deadline, setDeadline] = useState('');
     const [targetDepartments, setTargetDepartments] = useState<string[]>([]);
     const [questions, setQuestions] = useState<QuestionDraft[]>([]);
+    const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
+    const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
 
     // Stats modal
@@ -122,6 +127,7 @@ export default function SurveyManagement() {
         setDeadline('');
         setTargetDepartments([]);
         setQuestions([]);
+        setAttachments([]);
         setEditingSurvey(null);
     };
 
@@ -143,6 +149,12 @@ export default function SurveyManagement() {
             setDeadline(data.deadline || '');
             setTargetDepartments(data.targetDepartments || []);
             setQuestions(data.questions || []);
+            // Load existing attachments
+            const existingAttachments = (data.attachments || []).map((url: string) => ({
+                name: decodeURIComponent(url.split('/').pop()?.split('?')[0] || 'Tài liệu'),
+                url,
+            }));
+            setAttachments(existingAttachments);
             setModalVisible(true);
         } catch (error) {
             showToast({ message: 'Không thể tải khảo sát', type: 'error' });
@@ -200,6 +212,67 @@ export default function SurveyManagement() {
         setQuestions(updated);
     };
 
+    const handlePickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const file = result.assets[0];
+            setUploading(true);
+
+            const formData = new FormData();
+
+            if (Platform.OS === 'web') {
+                if ((file as any).file) {
+                    formData.append('file', (file as any).file);
+                } else {
+                    try {
+                        const res = await fetch(file.uri);
+                        const blob = await res.blob();
+                        formData.append('file', blob, file.name || 'document.pdf');
+                    } catch {
+                        formData.append('file', file.uri);
+                    }
+                }
+            } else {
+                formData.append('file', {
+                    uri: file.uri,
+                    name: file.name || 'document.pdf',
+                    type: file.mimeType || 'application/pdf',
+                } as any);
+            }
+
+            formData.append('upload_preset', 'CDCnghetinh');
+            formData.append('folder', 'cong-doan-survey-attachments');
+
+            const response = await fetch('https://api.cloudinary.com/v1_1/dljjearo2/auto/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.secure_url) {
+                setAttachments(prev => [...prev, {
+                    name: file.name || 'Tài liệu PDF',
+                    url: data.secure_url,
+                }]);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showToast({ message: 'Lỗi tải tài liệu', type: 'error' });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSave = async () => {
         if (!title.trim()) {
             showToast({ message: 'Vui lòng nhập tiêu đề khảo sát', type: 'error' });
@@ -232,6 +305,7 @@ export default function SurveyManagement() {
                 isAnonymous,
                 deadline: deadline || null,
                 targetDepartments,
+                attachments: attachments.map(a => a.url),
                 questions: questions.map(q => ({
                     ...q,
                     options: q.options.filter(o => o.trim()),
@@ -536,6 +610,32 @@ export default function SurveyManagement() {
                                     </TouchableOpacity>
                                 ))}
                             </View>
+
+                            {/* Attachments */}
+                            <Text style={styles.label}>📎 Tài liệu đính kèm</Text>
+                            {attachments.map((att, i) => (
+                                <View key={i} style={styles.attachmentItem}>
+                                    <FileText color={Colors.primary} size={18} />
+                                    <Text style={styles.attachmentName} numberOfLines={1}>{att.name}</Text>
+                                    <TouchableOpacity onPress={() => removeAttachment(i)} style={styles.removeOptBtn}>
+                                        <X color="#ef4444" size={16} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                            <TouchableOpacity
+                                style={[styles.uploadBtn, uploading && { opacity: 0.6 }]}
+                                onPress={handlePickDocument}
+                                disabled={uploading}
+                            >
+                                {uploading ? (
+                                    <Text style={styles.uploadBtnText}>Đang tải lên...</Text>
+                                ) : (
+                                    <>
+                                        <Upload color={Colors.primary} size={16} />
+                                        <Text style={styles.uploadBtnText}>Chọn tài liệu PDF</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
 
                             {/* Questions */}
                             <View style={styles.questionsHeader}>
@@ -1019,4 +1119,17 @@ const styles = StyleSheet.create({
     },
     textResponseContent: { fontSize: 14, color: '#334155', fontStyle: 'italic', lineHeight: 20 },
     textResponseUser: { fontSize: 12, color: '#94a3b8', marginTop: 6 },
+    attachmentItem: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        backgroundColor: '#f0f9ff', borderRadius: 10, padding: 12,
+        marginBottom: 8, borderWidth: 1, borderColor: '#bfdbfe',
+    },
+    attachmentName: { flex: 1, fontSize: 14, color: '#0f172a', fontWeight: '500' },
+    uploadBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed',
+        borderRadius: 10, paddingVertical: 14, marginTop: 4,
+        backgroundColor: 'rgba(8, 102, 255, 0.03)',
+    },
+    uploadBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
 });
