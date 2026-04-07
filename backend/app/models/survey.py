@@ -30,6 +30,7 @@ class SurveyCreate(BaseModel):
     isAnonymous: bool = False
     deadline: Optional[str] = None
     targetDepartments: List[str] = []
+    attachments: List[str] = []  # URLs of attached documents (PDF, images, etc.)
 
 
 class SurveyUpdate(BaseModel):
@@ -40,6 +41,7 @@ class SurveyUpdate(BaseModel):
     deadline: Optional[str] = None
     targetDepartments: Optional[List[str]] = None
     status: Optional[SurveyStatus] = None
+    attachments: Optional[List[str]] = None
 
 
 class SurveySubmission(BaseModel):

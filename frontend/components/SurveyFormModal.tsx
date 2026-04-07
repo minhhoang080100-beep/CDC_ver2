@@ -11,7 +11,8 @@ import {
     KeyboardAvoidingView,
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { X, Star, CheckCircle2, Circle, Square, CheckSquare } from 'lucide-react-native';
+import { X, Star, CheckCircle2, Circle, Square, CheckSquare, FileText, ExternalLink } from 'lucide-react-native';
+import { Linking } from 'react-native';
 
 interface Question {
     content: string;
@@ -28,6 +29,7 @@ interface Props {
         description?: string;
         questions: Question[];
         isAnonymous: boolean;
+        attachments?: string[];
     } | null;
     onClose: () => void;
     onSubmit: (surveyId: string, answers: any[]) => void;
@@ -234,6 +236,34 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
                                 <Text style={styles.descriptionText}>{survey.description}</Text>
                             </View>
                         )}
+
+                        {/* Attachments */}
+                        {survey.attachments && survey.attachments.length > 0 && (
+                            <View style={styles.attachmentsBox}>
+                                <Text style={styles.attachmentsTitle}>📎 Tài liệu đính kèm</Text>
+                                {survey.attachments.map((url, i) => {
+                                    const fileName = decodeURIComponent(url.split('/').pop()?.split('?')[0] || `Tài liệu ${i + 1}`);
+                                    return (
+                                        <TouchableOpacity
+                                            key={i}
+                                            style={styles.attachmentRow}
+                                            onPress={() => {
+                                                if (Platform.OS === 'web') {
+                                                    window.open(url, '_blank');
+                                                } else {
+                                                    Linking.openURL(url);
+                                                }
+                                            }}
+                                        >
+                                            <FileText color={Colors.primary} size={20} />
+                                            <Text style={styles.attachmentFileName} numberOfLines={1}>{fileName}</Text>
+                                            <ExternalLink color="#94a3b8" size={16} />
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
+
                         {questions.map((q, i) => renderQuestion(q, i))}
                     </ScrollView>
 
@@ -456,5 +486,35 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#ffffff',
+    },
+    attachmentsBox: {
+        backgroundColor: '#fffbeb',
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#fde68a',
+        gap: 10,
+    },
+    attachmentsTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#92400e',
+        marginBottom: 4,
+    },
+    attachmentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    attachmentFileName: {
+        flex: 1,
+        fontSize: 14,
+        color: Colors.primary,
+        fontWeight: '500',
     },
 });

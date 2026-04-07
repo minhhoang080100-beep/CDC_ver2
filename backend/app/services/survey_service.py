@@ -76,6 +76,7 @@ async def get_surveys(skip: int, limit: int, status, current_user: dict):
             "createdAt": s.get("createdAt"),
             "responseCount": s.get("responseCount", 0),
             "hasResponded": s.get("hasResponded", False),
+            "attachments": s.get("attachments", []),
         })
 
     return {"items": result, "total": total, "hasMore": skip + limit < total}
@@ -94,6 +95,7 @@ async def create_survey(survey_data: dict, current_user: dict):
         "isAnonymous": survey_data.get("isAnonymous", False),
         "deadline": survey_data.get("deadline"),
         "targetDepartments": target_departments,
+        "attachments": survey_data.get("attachments", []),
         "status": "ACTIVE" if survey_data.get("questions") else "DRAFT",
         "isDeleted": False,
         "createdBy": current_user["_id"],

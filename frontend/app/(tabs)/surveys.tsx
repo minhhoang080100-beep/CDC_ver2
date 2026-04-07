@@ -29,6 +29,7 @@ import {
     Plus,
     Trash2,
     BarChart2,
+    Paperclip,
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import SurveyFormModal from '../../components/SurveyFormModal';
@@ -47,6 +48,7 @@ interface Survey {
     createdAt: string;
     responseCount: number;
     hasResponded: boolean;
+    attachments?: string[];
 }
 
 export default function SurveysScreen() {
@@ -245,6 +247,12 @@ export default function SurveysScreen() {
                                 <View style={styles.metaItem}>
                                     <Eye color="#94a3b8" size={14} />
                                     <Text style={styles.metaText}>Ẩn danh</Text>
+                                </View>
+                            )}
+                            {item.attachments && item.attachments.length > 0 && (
+                                <View style={styles.metaItem}>
+                                    <Paperclip color="#f59e0b" size={14} />
+                                    <Text style={[styles.metaText, { color: '#f59e0b' }]}>{item.attachments.length} tài liệu</Text>
                                 </View>
                             )}
                             {item.deadline && (

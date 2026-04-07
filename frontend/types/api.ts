@@ -132,6 +132,7 @@ export interface Survey {
     createdBy: string;
     creatorName: string;
     createdAt: string;
+    attachments?: string[];
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -45,6 +45,7 @@ async def create_survey(
         "isAnonymous": survey.isAnonymous,
         "deadline": survey.deadline,
         "targetDepartments": survey.targetDepartments,
+        "attachments": survey.attachments,
     }
     result, survey_status, target_departments, survey_id = await svc_create_survey(survey_dict, current_user)
 
@@ -92,6 +93,7 @@ async def get_survey(survey_id: str, current_user: dict = Depends(get_current_us
         "createdAt": survey.get("createdAt"),
         "responseCount": response_count,
         "hasResponded": has_responded is not None,
+        "attachments": survey.get("attachments", []),
     }
 
 
@@ -129,6 +131,8 @@ async def update_survey(
         )
     if survey.status is not None:
         update_fields["status"] = survey.status.value
+    if survey.attachments is not None:
+        update_fields["attachments"] = survey.attachments
 
     if not update_fields:
         raise HTTPException(status_code=400, detail="Không có trường nào để cập nhật")

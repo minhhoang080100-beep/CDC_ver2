@@ -22,7 +22,11 @@ import {
     MessageSquare,
     Lock,
     Unlock,
+    Paperclip,
+    FileText,
+    Upload,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 interface QuestionDraft {
     content: string;
@@ -58,6 +62,8 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
     const [deadline, setDeadline] = useState('');
     const [targetDepartments, setTargetDepartments] = useState<string[]>([]);
     const [questions, setQuestions] = useState<QuestionDraft[]>([]);
+    const [attachments, setAttachments] = useState<{ name: string; url: string }[]>([]);
+    const [uploading, setUploading] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const resetForm = () => {
@@ -67,6 +73,7 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
         setDeadline('');
         setTargetDepartments([]);
         setQuestions([]);
+        setAttachments([]);
     };
 
     const handleClose = () => {
@@ -124,6 +131,70 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
         setQuestions(updated);
     };
 
+    const handlePickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const file = result.assets[0];
+            setUploading(true);
+
+            // Upload to Cloudinary
+            const formData = new FormData();
+
+            if (Platform.OS === 'web') {
+                if ((file as any).file) {
+                    formData.append('file', (file as any).file);
+                } else {
+                    try {
+                        const res = await fetch(file.uri);
+                        const blob = await res.blob();
+                        formData.append('file', blob, file.name || 'document');
+                    } catch {
+                        formData.append('file', file.uri);
+                    }
+                }
+            } else {
+                formData.append('file', {
+                    uri: file.uri,
+                    name: file.name || 'document',
+                    type: file.mimeType || 'application/octet-stream',
+                } as any);
+            }
+
+            formData.append('upload_preset', 'CDCnghetinh');
+            formData.append('folder', 'cong-doan-survey-attachments');
+
+            const cloudName = 'dljjearo2';
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.secure_url) {
+                setAttachments(prev => [...prev, {
+                    name: file.name || 'Tài liệu',
+                    url: data.secure_url,
+                }]);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeAttachment = (index: number) => {
+        setAttachments(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleSave = async () => {
         if (!title.trim()) return;
         if (questions.length === 0) return;
@@ -142,6 +213,7 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                 isAnonymous,
                 deadline: deadline || null,
                 targetDepartments,
+                attachments: attachments.map(a => a.url),
                 questions: questions.map(q => ({
                     ...q,
                     options: q.options.filter(o => o.trim()),
@@ -236,6 +308,32 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                                 </TouchableOpacity>
                             ))}
                         </View>
+
+                        {/* Attachments */}
+                        <Text style={styles.label}>📎 Tài liệu đính kèm</Text>
+                        {attachments.map((att, i) => (
+                            <View key={i} style={styles.attachmentItem}>
+                                <FileText color={Colors.primary} size={18} />
+                                <Text style={styles.attachmentName} numberOfLines={1}>{att.name}</Text>
+                                <TouchableOpacity onPress={() => removeAttachment(i)} style={styles.removeAttBtn}>
+                                    <X color="#ef4444" size={16} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        <TouchableOpacity
+                            style={[styles.uploadBtn, uploading && { opacity: 0.6 }]}
+                            onPress={handlePickDocument}
+                            disabled={uploading}
+                        >
+                            {uploading ? (
+                                <Text style={styles.uploadBtnText}>Đang tải lên...</Text>
+                            ) : (
+                                <>
+                                    <Upload color={Colors.primary} size={16} />
+                                    <Text style={styles.uploadBtnText}>Chọn tài liệu PDF</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
 
                         {/* Questions */}
                         <View style={styles.questionsHeader}>
@@ -472,4 +570,22 @@ const styles = StyleSheet.create({
         paddingVertical: 16, borderRadius: 10, alignItems: 'center',
     },
     saveButtonText: { fontSize: 16, fontWeight: 'bold', color: '#ffffff' },
+    attachmentItem: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        backgroundColor: '#f0f9ff', borderRadius: 10, padding: 12,
+        marginBottom: 8, borderWidth: 1, borderColor: '#bfdbfe',
+    },
+    attachmentName: { flex: 1, fontSize: 14, color: '#0f172a', fontWeight: '500' },
+    removeAttBtn: {
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    uploadBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderWidth: 1.5, borderColor: Colors.primary, borderStyle: 'dashed',
+        borderRadius: 10, paddingVertical: 14, marginTop: 4,
+        backgroundColor: 'rgba(8, 102, 255, 0.03)',
+    },
+    uploadBtnText: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
 });
