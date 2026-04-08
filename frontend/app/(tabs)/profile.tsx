@@ -50,6 +50,21 @@ interface MemberProfile {
   employeeId: string | null;
 }
 
+const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) => {
+  if (!value) return null;
+  return (
+    <View style={styles.infoRow}>
+      <View style={styles.infoRowLeft}>
+        <View style={styles.infoIconContainer}>
+          {icon}
+        </View>
+        <Text style={styles.infoLabel}>{label}</Text>
+      </View>
+      <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+};
+
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { isDesktop } = useResponsive();
@@ -118,21 +133,6 @@ export default function ProfileScreen() {
   const displayName = profile?.fullName || user.fullName;
   const displayDepartment = profile?.department || profile?.workUnit || getDepartmentName(user.department);
   const displayPosition = profile?.position || getRoleName(user.role);
-
-  const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) => {
-    if (!value) return null;
-    return (
-      <View style={styles.infoRow}>
-        <View style={styles.infoRowLeft}>
-          <View style={styles.infoIconContainer}>
-            {icon}
-          </View>
-          <Text style={styles.infoLabel}>{label}</Text>
-        </View>
-        <Text style={styles.infoValue} numberOfLines={2}>{value}</Text>
-      </View>
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>

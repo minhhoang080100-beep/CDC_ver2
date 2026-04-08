@@ -11,8 +11,8 @@ import {
     KeyboardAvoidingView,
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { X, Star, CheckCircle2, Circle, Square, CheckSquare, FileText, ExternalLink } from 'lucide-react-native';
-import { Linking } from 'react-native';
+import { X, Star, CheckCircle2, Circle, Square, CheckSquare, FileText, Eye } from 'lucide-react-native';
+import DocumentViewerModal from './DocumentViewerModal';
 
 interface Question {
     content: string;
@@ -39,6 +39,8 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
     const [answers, setAnswers] = useState<{ [key: number]: any }>({});
     const [currentPage, setCurrentPage] = useState(0);
     const [submitting, setSubmitting] = useState(false);
+    const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+    const [viewerTitle, setViewerTitle] = useState('');
 
     if (!survey) return null;
 
@@ -248,16 +250,16 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
                                             key={i}
                                             style={styles.attachmentRow}
                                             onPress={() => {
-                                                if (Platform.OS === 'web') {
-                                                    window.open(url, '_blank');
-                                                } else {
-                                                    Linking.openURL(url);
-                                                }
+                                                setViewerTitle(fileName);
+                                                setViewerUrl(url);
                                             }}
                                         >
                                             <FileText color={Colors.primary} size={20} />
                                             <Text style={styles.attachmentFileName} numberOfLines={1}>{fileName}</Text>
-                                            <ExternalLink color="#94a3b8" size={16} />
+                                            <View style={styles.viewBtnInline}>
+                                                <Eye color={Colors.primary} size={14} />
+                                                <Text style={styles.viewBtnText}>Xem</Text>
+                                            </View>
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -281,6 +283,14 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
                     </View>
                 </View>
             </KeyboardAvoidingView>
+
+            {/* PDF Viewer Modal */}
+            <DocumentViewerModal
+                visible={!!viewerUrl}
+                url={viewerUrl}
+                title={viewerTitle}
+                onClose={() => setViewerUrl(null)}
+            />
         </Modal>
     );
 }
@@ -516,5 +526,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: Colors.primary,
         fontWeight: '500',
+    },
+    viewBtnInline: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: 'rgba(8, 102, 255, 0.08)',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    viewBtnText: {
+        fontSize: 12,
+        color: Colors.primary,
+        fontWeight: '600',
     },
 });

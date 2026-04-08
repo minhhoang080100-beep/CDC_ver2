@@ -96,6 +96,26 @@ function initForm(member: UnionMember | null): FormState {
     };
 }
 
+const Field = ({
+    label, value, onChange, multiline = false, placeholder = '',
+}: {
+    label: string; value: string; onChange: (v: string) => void;
+    multiline?: boolean; placeholder?: string;
+}) => (
+    <View style={styles.field}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        <TextInput
+            style={[styles.input, multiline && styles.inputMultiline]}
+            value={value}
+            onChangeText={onChange}
+            placeholder={placeholder || label}
+            multiline={multiline}
+            numberOfLines={multiline ? 3 : 1}
+            placeholderTextColor={Colors.text.placeholder}
+        />
+    </View>
+);
+
 export default function UnionMemberEditModal({ visible, onClose, member, onSaved }: Props) {
     const { isDesktop } = useResponsive();
     const { token } = useAuth();
@@ -168,27 +188,6 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
             setSaving(false);
         }
     };
-
-    const Field = ({
-        label, value, onChange, multiline = false, placeholder = '',
-    }: {
-        label: string; value: string; onChange: (v: string) => void;
-        multiline?: boolean; placeholder?: string;
-    }) => (
-        <View style={styles.field}>
-            <Text style={styles.fieldLabel}>{label}</Text>
-            <TextInput
-                style={[styles.input, multiline && styles.inputMultiline]}
-                value={value}
-                onChangeText={onChange}
-                placeholder={placeholder || label}
-                multiline={multiline}
-                numberOfLines={multiline ? 3 : 1}
-                placeholderTextColor={Colors.text.placeholder}
-            />
-        </View>
-    );
-
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>

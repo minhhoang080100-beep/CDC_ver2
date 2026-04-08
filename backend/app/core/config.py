@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     DB_NAME: str = "cong_doan_db"
     JWT_SECRET_KEY: str = _DEFAULT_JWT_SECRET
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 30   # 30 ngày
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 90                # 90 ngày
 
     model_config = SettingsConfigDict(
         env_file=str(ROOT_DIR / '.env'),
