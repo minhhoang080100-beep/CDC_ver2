@@ -59,6 +59,7 @@ async def update_post(
     post_id: str, 
     post: PostCreate, 
     background_tasks: BackgroundTasks,
+    notify_update: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
     result, images_to_delete = await svc_update_post(post_id, post.model_dump(), current_user)
@@ -66,6 +67,20 @@ async def update_post(
     if images_to_delete:
         for img in images_to_delete:
             background_tasks.add_task(delete_cloudinary_asset, img)
+
+    if notify_update:
+        target_departments = resolve_target_departments(current_user, post.targetDepartments)
+        background_tasks.add_task(
+            notify_new_post,
+            title=f"[Cập nhật] {post.title}",
+            body=post.summary,
+            target_departments=target_departments,
+            post_id=post_id
+        )
+        background_tasks.add_task(
+            manager.broadcast,
+            {"type": "new_post", "title": f"[Cập nhật] {post.title}", "data": {"postId": post_id}}
+        )
 
     return result
 

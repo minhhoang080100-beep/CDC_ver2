@@ -6,6 +6,7 @@ class FeedbackCreate(BaseModel):
     subject: str
     content: str
     isAnonymous: bool = False
+    attachedFiles: Optional[List[str]] = []
 
 class FeedbackReply(BaseModel):
     content: str
@@ -24,4 +25,5 @@ class FeedbackResponse(BaseModel):
     status: str
     targetRecipients: List[str] = []
     replies: List[Dict[str, Any]] = []
+    attachedFiles: List[str] = []
     createdAt: datetime

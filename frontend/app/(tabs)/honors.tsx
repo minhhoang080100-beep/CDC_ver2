@@ -38,8 +38,15 @@ import {
     XCircle,
     Eye,
     ImagePlus,
+    Heart,
+    ThumbsUp,
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
+
+interface Reaction {
+    userId: string;
+    type: string;
+}
 
 interface ApprovedNomination {
     id: string;
@@ -49,6 +56,7 @@ interface ApprovedNomination {
     achievements?: string;
     images?: string[];
     nominatorName?: string;
+    reactions?: Reaction[];
 }
 
 interface HonorCampaign {
@@ -96,6 +104,7 @@ interface CampaignDetail {
         createdAt: string;
         reviewedAt?: string;
         reviewNote?: string;
+        reactions?: Reaction[];
     }[];
 }
 
@@ -307,6 +316,22 @@ export default function HonorsScreen() {
         return '⭐';
     };
 
+    const handleToggleReaction = async (nominationId: string, type: 'HEART' | 'LIKE') => {
+        try {
+            await api.post(`/api/honors/nominations/${nominationId}/react`, { type }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchData();
+            if (detailModalVisible && campaignDetail) {
+                // Background refresh to not block UI completely
+                api.get(`/api/honors/${campaignDetail.id}`, { headers: { Authorization: `Bearer ${token}` } }).then(res => setCampaignDetail(res.data));
+            }
+        } catch (error) {
+            console.error('Error toggling:', error);
+            showToast({ message: 'Lỗi khi tương tác', type: 'error' });
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
@@ -428,6 +453,22 @@ export default function HonorsScreen() {
                                                             ))}
                                                         </ScrollView>
                                                     )}
+                                                    <View style={styles.reactionContainer}>
+                                                        <TouchableOpacity 
+                                                            style={[styles.reactionBtn, nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') && styles.reactionBtnActive]}
+                                                            onPress={(e) => { e.stopPropagation(); handleToggleReaction(nom.id, 'HEART'); }}
+                                                        >
+                                                            <Heart size={16} color={nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') ? '#ef4444' : '#64748b'} fill={nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') ? '#ef4444' : 'none'} />
+                                                            <Text style={[styles.reactionText, nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') && { color: '#ef4444' }]}>{nom.reactions?.filter(r => r.type === 'HEART').length || 0}</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity 
+                                                            style={[styles.reactionBtn, nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') && styles.reactionBtnActive]}
+                                                            onPress={(e) => { e.stopPropagation(); handleToggleReaction(nom.id, 'LIKE'); }}
+                                                        >
+                                                            <ThumbsUp size={16} color={nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') ? Colors.primary : '#64748b'} fill={nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') ? Colors.primary : 'none'} />
+                                                            <Text style={[styles.reactionText, nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') && { color: Colors.primary }]}>{nom.reactions?.filter(r => r.type === 'LIKE').length || 0}</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
                                                 <Award color={getMedalColor(i)} size={28} />
                                             </View>
@@ -585,6 +626,22 @@ export default function HonorsScreen() {
                                                         <Text style={styles.detailReviewNoteText}>💬 {nom.reviewNote}</Text>
                                                     </View>
                                                 )}
+                                                <View style={styles.reactionContainer}>
+                                                    <TouchableOpacity 
+                                                        style={[styles.reactionBtn, nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') && styles.reactionBtnActive]}
+                                                        onPress={(e) => { e.stopPropagation(); handleToggleReaction(nom.id, 'HEART'); }}
+                                                    >
+                                                        <Heart size={16} color={nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') ? '#ef4444' : '#64748b'} fill={nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') ? '#ef4444' : 'none'} />
+                                                        <Text style={[styles.reactionText, nom.reactions?.some(r => r.userId === user?.id && r.type === 'HEART') && { color: '#ef4444' }]}>{nom.reactions?.filter(r => r.type === 'HEART').length || 0}</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity 
+                                                        style={[styles.reactionBtn, nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') && styles.reactionBtnActive]}
+                                                        onPress={(e) => { e.stopPropagation(); handleToggleReaction(nom.id, 'LIKE'); }}
+                                                    >
+                                                        <ThumbsUp size={16} color={nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') ? Colors.primary : '#64748b'} fill={nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') ? Colors.primary : 'none'} />
+                                                        <Text style={[styles.reactionText, nom.reactions?.some(r => r.userId === user?.id && r.type === 'LIKE') && { color: Colors.primary }]}>{nom.reactions?.filter(r => r.type === 'LIKE').length || 0}</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
                                         ))}
                                     </View>
@@ -957,5 +1014,34 @@ const styles = StyleSheet.create({
         height: 24,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    reactionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
+        paddingTop: 10,
+    },
+    reactionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        backgroundColor: '#f8fafc',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    reactionBtnActive: {
+        backgroundColor: '#faf5ff',
+        borderColor: '#e9d5ff',
+    },
+    reactionText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#64748b',
     },
 });

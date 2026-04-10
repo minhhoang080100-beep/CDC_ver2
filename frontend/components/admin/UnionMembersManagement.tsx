@@ -347,6 +347,36 @@ export default function UnionMembersManagement() {
                 </View>
             </View>
 
+            {/* Danh sách chọn nhanh (Mobile) */}
+            {!isDesktop && (
+                <View style={{ marginBottom: 16 }}>
+                    <Text style={[styles.filterLabel, { marginBottom: 8 }]}>Phòng ban / Đơn vị (chọn nhanh):</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        <TouchableOpacity 
+                            style={[styles.filterChip, !selectedDepartment && !selectedWorkUnit ? styles.filterChipActive : null]}
+                            onPress={() => {
+                                setSelectedDepartment(null);
+                                setSelectedWorkUnit(null);
+                            }}
+                        >
+                            <Text style={[styles.filterChipText, !selectedDepartment && !selectedWorkUnit ? styles.filterChipTextActive : null]}>Tất cả</Text>
+                        </TouchableOpacity>
+                        {Array.from(new Set(members.map(m => m.department || 'Chưa phân ban'))).sort().map(dp => (
+                            <TouchableOpacity
+                                key={`quick-dp-${dp}`}
+                                style={[styles.filterChip, selectedDepartment === dp ? styles.filterChipActive : null]}
+                                onPress={() => {
+                                    setSelectedDepartment(selectedDepartment === dp ? null : dp);
+                                    setSelectedWorkUnit(null); // Clear workunit when specific department selected
+                                }}
+                            >
+                                <Text style={[styles.filterChipText, selectedDepartment === dp ? styles.filterChipTextActive : null]}>{dp}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
             {/* Filter Chips */}
             <View style={styles.filterRow}>
                 <Text style={styles.filterLabel}>Lọc nhanh:</Text>

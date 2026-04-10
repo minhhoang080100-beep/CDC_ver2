@@ -31,10 +31,10 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
     { name: 'index', path: '/(tabs)', icon: Home, label: 'Bảng tin' },
-    { name: 'activities', path: '/(tabs)/activities', icon: Calendar, label: 'Hoạt động' },
+    { name: 'activities', path: '/(tabs)/activities', icon: Calendar, label: 'Kế hoạch hoạt động' },
     { name: 'library', path: '/(tabs)/library', icon: BookOpen, label: 'Thư viện' },
     { name: 'profile', path: '/(tabs)/profile', icon: IdCard, label: 'Thẻ Đoàn viên' },
-    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Góp ý & Giải đáp' },
+    { name: 'feedback', path: '/(tabs)/feedback', icon: MessageSquare, label: 'Lắng nghe & Phản hồi' },
     { name: 'surveys', path: '/(tabs)/surveys', icon: ClipboardList, label: 'Khảo sát' },
     { name: 'honors', path: '/(tabs)/honors', icon: Trophy, label: 'Vinh danh' },
     { name: 'elearning', path: '/(tabs)/elearning', icon: GraduationCap, label: 'Đào tạo' },

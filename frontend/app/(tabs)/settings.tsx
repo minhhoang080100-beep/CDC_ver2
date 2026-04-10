@@ -120,7 +120,7 @@ export default function SettingsScreen() {
 
   const handleHelp = () => {
     showToast({
-      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheti.vn\nHoặc gửi ý kiến qua mục "Góp ý & Giải đáp".',
+      message: 'Để được hỗ trợ, vui lòng liên hệ:\n\nEmail: congdoan@ngheti.vn\nHoặc gửi ý kiến qua mục "Lắng nghe & Phản hồi".',
       type: 'info'
     });
   };

@@ -109,7 +109,7 @@ export default function AnalyticsDashboard() {
                     <Calendar color="#f59e0b" size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{summary.totalActivities}</Text>
-                        <Text style={styles.statLabel}>Hoạt động</Text>
+                        <Text style={styles.statLabel}>Kế hoạch hoạt động</Text>
                     </View>
                 </View>
 
@@ -117,7 +117,7 @@ export default function AnalyticsDashboard() {
                     <MessageSquare color="#ef4444" size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{summary.totalFeedbacks}</Text>
-                        <Text style={styles.statLabel}>Góp ý & Giải đáp</Text>
+                        <Text style={styles.statLabel}>Lắng nghe & Phản hồi</Text>
                     </View>
                 </View>
             </View>
@@ -134,7 +134,7 @@ export default function AnalyticsDashboard() {
                 </View>
 
                 <View style={styles.detailedCard}>
-                    <Text style={styles.dCardTitle}>Tương tác Hoạt động</Text>
+                    <Text style={styles.dCardTitle}>Tương tác Kế hoạch hoạt động</Text>
                     <View style={styles.dCardRow}>
                         <Text style={styles.dCardTextBold}>{summary.totalRegistrations}</Text><Text style={styles.dCardText}>Lượt đăng ký tham gia</Text>
                     </View>

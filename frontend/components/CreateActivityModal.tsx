@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -49,6 +50,7 @@ interface CreateActivityModalProps {
 export default function CreateActivityModal({ visible, onClose, onSuccess, editActivity }: CreateActivityModalProps) {
   const { user, token } = useAuth();
   const { showToast } = useToast();
+  const [notifyUpdate, setNotifyUpdate] = useState(false);
 
   const {
     control,
@@ -83,6 +85,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         type: editActivity.type as 'TRAINING' | 'SPORTS' | 'VACATION',
         targetDepartments: editActivity.targetDepartments || ['ALL'],
       });
+      setNotifyUpdate(false);
     } else if (visible) {
       // Reset form fields when opening modal for creating new
       reset({
@@ -128,7 +131,7 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
     try {
       if (editActivity) {
         // Update existing activity
-        await api.put(`/api/activities/${editActivity.id}`, data, {
+        await api.put(`/api/activities/${editActivity.id}?notify_update=${notifyUpdate}`, data, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast({ message: 'Đã cập nhật hoạt động thành công!', type: 'success' });
@@ -297,6 +300,18 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
               </>
             )}
 
+            {editActivity && (
+              <View style={styles.notifySwitchContainer}>
+                <Text style={styles.notifySwitchLabel}>Gửi thông báo cập nhật cho Đoàn viên</Text>
+                <Switch
+                  value={notifyUpdate}
+                  onValueChange={setNotifyUpdate}
+                  trackColor={{ false: '#cbd5e1', true: '#0891b280' }}
+                  thumbColor={notifyUpdate ? '#0891b2' : '#f4f3f4'}
+                />
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
               onPress={handleSubmit(onSubmit)}
@@ -445,5 +460,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  notifySwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginTop: 16,
+  },
+  notifySwitchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
   },
 });

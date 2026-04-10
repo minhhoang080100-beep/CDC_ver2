@@ -29,6 +29,7 @@ import ElearningManagement from '../../components/admin/ElearningManagement';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useQuery } from '@tanstack/react-query';
 
 interface User {
     id: string;
@@ -79,46 +80,45 @@ export default function AdminScreen() {
         return true;
     });
 
-    useEffect(() => {
-        if (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) {
-            fetchUsers();
-        }
-    }, [user]);
+    // ─── Query logic cho Real-time ───
+    const [debouncedSearch, setDebouncedSearch] = useState(searchText);
 
-    const fetchUsers = async () => {
-        try {
-            const response = await api.get(`/api/users?search=${encodeURIComponent(searchText)}&limit=100`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            // Handle both new API format {items, total} and old array format just in case
-            if (response.data && response.data.items) {
-                setUsers(response.data.items);
-                setTotalUsers(response.data.total);
-            } else {
-                setUsers(response.data);
-                setTotalUsers(response.data.length);
-            }
-        } catch (error) {
-            console.error('Error fetching users:', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    // Debounce search
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) {
-                fetchUsers();
-            }
+            setDebouncedSearch(searchText);
         }, 500);
         return () => clearTimeout(timeoutId);
     }, [searchText]);
 
+    const { data: fetchResult, refetch } = useQuery({
+        queryKey: ['users', debouncedSearch],
+        queryFn: async () => {
+            const response = await api.get(`/api/users?search=${encodeURIComponent(debouncedSearch)}&limit=100`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            return response.data;
+        },
+        enabled: !!token && (user?.role === 'SUPER_ADMIN' || !!user?.role?.startsWith('BCH_')),
+    });
+
+    useEffect(() => {
+        if (fetchResult) {
+            if (fetchResult.items) {
+                setUsers(fetchResult.items);
+                setTotalUsers(fetchResult.total);
+            } else {
+                setUsers(fetchResult);
+                setTotalUsers(fetchResult.length);
+            }
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, [fetchResult]);
+
+    const fetchUsers = () => { refetch(); };
     const onRefresh = () => {
         setRefreshing(true);
-        fetchUsers();
+        refetch();
     };
 
     const handleDelete = async (id: string) => {
@@ -376,7 +376,7 @@ export default function AdminScreen() {
                     <Shield color={Colors.status.success} size={24} />
                     <View style={styles.statInfo}>
                         <Text style={styles.statValue}>{activeUsers}</Text>
-                        <Text style={styles.statLabel}>Hoạt động</Text>
+                        <Text style={styles.statLabel}>Kế hoạch hoạt động</Text>
                     </View>
                 </TouchableOpacity>
                 <TouchableOpacity 
@@ -466,7 +466,7 @@ export default function AdminScreen() {
                             onPress={() => setActiveTab('feedbacks')}
                         >
                             <MessageSquare color={activeTab === 'feedbacks' ? Colors.primary : Colors.text.secondary} size={20} />
-                            <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Góp ý & Giải đáp</Text>
+                            <Text style={[styles.tabText, activeTab === 'feedbacks' && styles.tabTextActive]}>Lắng nghe & Phản hồi</Text>
                         </TouchableOpacity>
                     )}
                     {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_')) && (

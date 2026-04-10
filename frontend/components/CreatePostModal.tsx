@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
@@ -54,6 +55,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [notifyUpdate, setNotifyUpdate] = useState(false);
 
   // Cloudinary Details
   const CLOUD_NAME = 'dljjearo2';
@@ -93,6 +95,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         targetDepartments: editPost.targetDepartments || ['ALL'],
         images: editPost.images || [],
       });
+      setNotifyUpdate(false);
     } else if (visible) {
       // Reset form fields without closing the modal
       reset({
@@ -210,7 +213,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       };
 
       if (editPost) {
-        await api.put(`/api/posts/${editPost.id}`, postData, {
+        await api.put(`/api/posts/${editPost.id}?notify_update=${notifyUpdate}`, postData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast({ message: 'Đã cập nhật bài viết thành công!', type: 'success' });
@@ -412,6 +415,18 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                 </View>
                 {errors.targetDepartments && <Text style={styles.errorText}>{errors.targetDepartments.message}</Text>}
               </>
+            )}
+
+            {editPost && (
+              <View style={styles.notifySwitchContainer}>
+                <Text style={styles.notifySwitchLabel}>Gửi thông báo cập nhật cho Đoàn viên</Text>
+                <Switch
+                  value={notifyUpdate}
+                  onValueChange={setNotifyUpdate}
+                  trackColor={{ false: Colors.border, true: Colors.primary + '80' }}
+                  thumbColor={notifyUpdate ? Colors.primary : '#f4f3f4'}
+                />
+              </View>
             )}
 
             <TouchableOpacity
@@ -627,5 +642,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text.light,
+  },
+  notifySwitchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: 16,
+  },
+  notifySwitchLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text.primary,
   },
 });

@@ -14,11 +14,15 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
-import { Send, MessageCircle, ChevronRight } from 'lucide-react-native';
+import { Send, MessageCircle, ChevronRight, Paperclip, ImagePlus, FileText, X, Link as LinkIcon } from 'lucide-react-native';
 import { format } from 'date-fns';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { api } from '../../utils/api';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
@@ -37,6 +41,7 @@ interface Feedback {
     content: string;
     repliedAt: string;
   }>;
+  attachedFiles?: string[];
   createdAt: string;
 }
 
@@ -54,6 +59,125 @@ export default function FeedbackScreen() {
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+
+  const [attachments, setAttachments] = useState<{name: string, url: string, type: 'image' | 'document'}[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const CLOUD_NAME = 'dljjearo2';
+  const UPLOAD_PRESET = 'CDCnghetinh';
+
+  const pickImage = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          showToast({ message: 'Ứng dụng cần quyền truy cập thư viện ảnh để tải ảnh lên', type: 'error' });
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: 5,
+        quality: 0.6,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadingImage(true);
+        try {
+          for (const asset of result.assets) {
+            const base64Img = `data:image/jpeg;base64,${asset.base64}`;
+            const formData = new FormData();
+            formData.append('file', base64Img);
+            formData.append('upload_preset', UPLOAD_PRESET);
+            formData.append('folder', 'cong-doan-feedback');
+
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+              method: 'POST',
+              body: formData,
+            });
+            const data = await response.json();
+            if (data.secure_url) {
+              setAttachments(prev => [...prev, { name: 'Hình ảnh đính kèm', url: data.secure_url, type: 'image' }]);
+            }
+          }
+        } catch (error) {
+          console.error("Lỗi upload nhiều ảnh:", error);
+          showToast({ message: 'Lỗi tải ảnh', type: 'error' });
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      showToast({ message: 'Không thể chọn ảnh', type: 'error' });
+    }
+  };
+
+  const pickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets?.length) return;
+
+            const file = result.assets[0];
+            setUploadingDoc(true);
+
+            const formData = new FormData();
+
+            if (Platform.OS === 'web') {
+                if ((file as any).file) {
+                    formData.append('file', (file as any).file);
+                } else {
+                    try {
+                        const res = await fetch(file.uri);
+                        const blob = await res.blob();
+                        formData.append('file', blob, file.name || 'document.pdf');
+                    } catch {
+                        formData.append('file', file.uri);
+                    }
+                }
+            } else {
+                formData.append('file', {
+                    uri: file.uri,
+                    name: file.name || 'document.pdf',
+                    type: file.mimeType || 'application/pdf',
+                } as any);
+            }
+
+            formData.append('upload_preset', UPLOAD_PRESET);
+            formData.append('folder', 'cong-doan-feedback');
+
+            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (data.secure_url) {
+                setAttachments(prev => [...prev, {
+                    name: file.name || 'Tài liệu đính kèm',
+                    url: data.secure_url,
+                    type: 'document'
+                }]);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showToast({ message: 'Lỗi tải tài liệu', type: 'error' });
+        } finally {
+            setUploadingDoc(false);
+        }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     if (activeTab === 'view') {
@@ -90,6 +214,7 @@ export default function FeedbackScreen() {
           subject,
           content,
           isAnonymous,
+          attachedFiles: attachments.map(a => a.url)
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -98,6 +223,7 @@ export default function FeedbackScreen() {
       setSubject('');
       setContent('');
       setIsAnonymous(false);
+      setAttachments([]);
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
       showToast({ message: error.detail || 'Không thể gửi ý kiến', type: 'error' });
@@ -169,12 +295,20 @@ export default function FeedbackScreen() {
           {format(new Date(item.createdAt), 'dd/MM/yyyy HH:mm')}
         </Text>
       </View>
-      {item.replies.length > 0 && (
-        <View style={styles.replyIndicator}>
-          <MessageCircle color="#0891b2" size={16} />
-          <Text style={styles.replyCount}>{item.replies.length} trả lời</Text>
-        </View>
-      )}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        {item.attachedFiles && item.attachedFiles.length > 0 && (
+          <View style={styles.replyIndicator}>
+            <Paperclip color="#64748b" size={16} />
+            <Text style={[styles.replyCount, { color: '#64748b' }]}>{item.attachedFiles.length} đính kèm</Text>
+          </View>
+        )}
+        {item.replies.length > 0 && (
+          <View style={styles.replyIndicator}>
+            <MessageCircle color="#0891b2" size={16} />
+            <Text style={styles.replyCount}>{item.replies.length} trả lời</Text>
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
@@ -238,10 +372,44 @@ export default function FeedbackScreen() {
               />
             </View>
 
+            <Text style={[styles.label, {marginTop: 16, marginBottom: 12}]}>Đính kèm (Tuỳ chọn)</Text>
+            
+            {attachments.length > 0 && (
+              <ScrollView horizontal style={styles.attachmentsPreviewContainer} showsHorizontalScrollIndicator={false}>
+                {attachments.map((att, index) => (
+                  <View key={index} style={styles.attachmentPreview}>
+                    {att.type === 'image' ? (
+                      <Image source={{ uri: att.url }} style={styles.attachmentImage} />
+                    ) : (
+                      <View style={styles.attachmentDoc}>
+                        <FileText color={Colors.primary} size={24} />
+                        <Text style={styles.attachmentDocText} numberOfLines={2}>{att.name}</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity style={styles.removeAttachmentBtn} onPress={() => removeAttachment(index)}>
+                      <X color="#fff" size={14} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <View style={styles.attachmentsActionRow}>
+              <TouchableOpacity style={styles.attachmentBtn} onPress={pickImage} disabled={uploadingImage || uploadingDoc}>
+                {uploadingImage ? <ActivityIndicator size="small" color={Colors.primary} /> : <ImagePlus color={Colors.primary} size={20} />}
+                <Text style={styles.attachmentBtnText}>Thêm hình ảnh</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.attachmentBtn} onPress={pickDocument} disabled={uploadingImage || uploadingDoc}>
+                {uploadingDoc ? <ActivityIndicator size="small" color={Colors.primary} /> : <FileText color={Colors.primary} size={20} />}
+                <Text style={styles.attachmentBtnText}>Thêm tài liệu</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (loading || uploadingImage || uploadingDoc) && styles.submitButtonDisabled]}
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || uploadingImage || uploadingDoc}
             >
               <Send color="#ffffff" size={20} />
               <Text style={styles.submitButtonText}>
@@ -291,6 +459,30 @@ export default function FeedbackScreen() {
                   <Text style={styles.modalDate}>
                     {format(new Date(selectedFeedback.createdAt), 'dd/MM/yyyy HH:mm')}
                   </Text>
+
+                  {selectedFeedback.attachedFiles && selectedFeedback.attachedFiles.length > 0 && (
+                    <View style={styles.modalAttachments}>
+                      <Text style={styles.modalAttachmentsTitle}>Đính kèm:</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                        {selectedFeedback.attachedFiles.map((url, i) => {
+                          const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) || url.includes('/image/upload');
+                          if (isImage) {
+                            return (
+                              <TouchableOpacity key={i} onPress={() => Linking.openURL(url)} style={styles.modalAttachmentImageContainer}>
+                                <Image source={{uri: url}} style={styles.modalAttachmentImage} />
+                              </TouchableOpacity>
+                            );
+                          }
+                          return (
+                            <TouchableOpacity key={i} style={styles.modalAttachmentDoc} onPress={() => Linking.openURL(url)}>
+                              <LinkIcon color={Colors.primary} size={16} />
+                              <Text style={styles.modalAttachmentDocText} numberOfLines={1}>Tài liệu đính kèm {i+1}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
 
                   {selectedFeedback.replies.length > 0 && (
                     <View style={styles.repliesSection}>
@@ -641,5 +833,111 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  attachmentsPreviewContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  attachmentPreview: {
+    width: 80,
+    height: 80,
+    marginRight: 12,
+    borderRadius: 8,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  attachmentImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  attachmentDoc: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  attachmentDocText: {
+    fontSize: 10,
+    textAlign: 'center',
+    color: '#64748b',
+    marginTop: 4,
+  },
+  removeAttachmentBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 10,
+    padding: 2,
+  },
+  attachmentsActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  attachmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flex: 1,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  attachmentBtnText: {
+    color: Colors.primary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalAttachments: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalAttachmentsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  modalAttachmentImageContainer: {
+    width: 100,
+    height: 100,
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  modalAttachmentImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  modalAttachmentDoc: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginRight: 8,
+    gap: 8,
+    maxWidth: 200,
+  },
+  modalAttachmentDocText: {
+    fontSize: 13,
+    color: Colors.primary,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });

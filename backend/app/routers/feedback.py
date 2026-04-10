@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -6,6 +6,7 @@ from app.core.database import db
 from app.core.security import get_current_user, validate_object_id
 from app.models.feedback import FeedbackCreate, FeedbackReply, FeedbackStatusUpdate
 from app.routers.websocket import manager
+from app.core.push import send_bulk_push_notifications_async
 
 router = APIRouter()
 
@@ -45,10 +46,20 @@ async def get_feedback(
             "status": fb.get("status", "PENDING"),
             "targetRecipients": fb.get("targetRecipients", []),
             "replies": fb.get("replies", []),
+            "attachedFiles": fb.get("attachedFiles", []),
             "createdAt": fb["createdAt"]
         })
 
     return {"items": items, "total": total, "hasMore": skip + limit < total}
+
+@router.get("/dump")
+async def dump_feedbacks():
+    items = await db.feedback.find({}).to_list(100)
+    for i in items:
+        i["_id"] = str(i["_id"])
+        if "createdAt" in i:
+            i["createdAt"] = str(i["createdAt"])
+    return items
 
 @router.post("")
 async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends(get_current_user)):
@@ -78,6 +89,7 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
         "status": "PENDING",
         "targetRecipients": target_recipients,
         "replies": [],
+        "attachedFiles": feedback.attachedFiles or [],
         "createdAt": datetime.now(timezone.utc)
     }
     
@@ -94,7 +106,12 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
     }
 
 @router.post("/{feedback_id}/reply")
-async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: dict = Depends(get_current_user)):
+async def reply_feedback(
+    feedback_id: str, 
+    reply: FeedbackReply, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     if not (current_user["role"] == "SUPER_ADMIN" or current_user["role"].startswith("BCH_")):
         raise HTTPException(status_code=403, detail="You don't have permission to reply")
     
@@ -113,13 +130,51 @@ async def reply_feedback(feedback_id: str, reply: FeedbackReply, current_user: d
         "repliedAt": datetime.now(timezone.utc)
     }
     
+    update_ops = {
+        "$push": {"replies": reply_data}
+    }
+    
+    if feedback_doc.get("status") not in ["RESOLVED", "CLOSED"]:
+        update_ops["$set"] = {"status": "REPLIED"}
+        
     await db.feedback.update_one(
         {"_id": oid},
-        {
-            "$push": {"replies": reply_data},
-            "$set": {"status": "REPLIED"}
-        }
+        update_ops
     )
+    
+    sender_id = feedback_doc.get("senderId")
+    if sender_id:
+        title = f"Phản hồi ý kiến: {feedback_doc.get('subject', '')}"
+        body = reply.content
+        # 1. DB Notification
+        notif_doc = {
+            "userId": str(sender_id),
+            "type": "feedback",
+            "title": title,
+            "body": body,
+            "data": {"feedbackId": feedback_id},
+            "read": False,
+            "createdAt": datetime.now(timezone.utc)
+        }
+        await db.notifications.insert_one(notif_doc)
+
+        # 2. WebSocket
+        background_tasks.add_task(
+            manager.send_to_user,
+            str(sender_id),
+            {"type": "new_feedback", "title": title, "data": {"feedbackId": feedback_id}}
+        )
+
+        # 3. Push Notification
+        sender_user = await db.users.find_one({"_id": ObjectId(sender_id)})
+        if sender_user and sender_user.get("pushToken"):
+            background_tasks.add_task(
+                send_bulk_push_notifications_async,
+                tokens=[sender_user["pushToken"]],
+                title=title,
+                body=body,
+                data={"feedbackId": feedback_id}
+            )
     
     return {"status": "success", "message": "Reply added"}
 

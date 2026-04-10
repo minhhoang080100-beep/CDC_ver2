@@ -322,6 +322,7 @@ async def update_activity(
     activity_id: str, 
     activity: ActivityCreate, 
     background_tasks: BackgroundTasks,
+    notify_update: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
     oid = validate_object_id(activity_id, "Activity ID")
@@ -354,6 +355,19 @@ async def update_activity(
         {"_id": oid},
         {"$set": update_data}
     )
+    
+    if notify_update:
+        background_tasks.add_task(
+            notify_new_activity,
+            title=f"[Cập nhật] {activity.name}",
+            body=activity.description,
+            target_departments=target_departments,
+            activity_id=activity_id
+        )
+        background_tasks.add_task(
+            manager.broadcast,
+            {"type": "new_activity", "title": f"[Cập nhật] {activity.name}", "data": {"activityId": activity_id}}
+        )
     
     return {"status": "success", "message": "Activity updated"}
 

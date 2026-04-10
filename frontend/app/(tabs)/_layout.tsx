@@ -45,6 +45,7 @@ export default function TabsLayout() {
       new_feedback: ['feedback'],
       new_honor: ['honors', 'campaigns'],
       new_course: ['courses'],
+      new_registration: ['users'],
     };
 
     const queries = typeToQuery[msg.type];
@@ -109,9 +110,9 @@ export default function TabsLayout() {
           <Tabs.Screen
             name="activities"
             options={{
-              title: 'Hoạt động',
+              title: 'Kế hoạch hoạt động',
               tabBarIcon: ({ color, size, focused }) => (
-                <TabIcon Icon={Calendar} color={color} size={22} focused={focused} label="Hoạt động" />
+                <TabIcon Icon={Calendar} color={color} size={22} focused={focused} label="Kế hoạch hoạt động" />
               ),
             }}
           />

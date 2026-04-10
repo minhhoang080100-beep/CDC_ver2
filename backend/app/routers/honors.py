@@ -8,6 +8,10 @@ from app.core.permissions import resolve_target_departments, require_admin
 from app.core.push import send_bulk_push_notifications_async
 from app.models.honor import CampaignCreate, CampaignUpdate, NominationCreate
 from app.routers.websocket import manager
+from pydantic import BaseModel
+
+class ReactionToggle(BaseModel):
+    type: str = "HEART"
 
 router = APIRouter()
 
@@ -32,6 +36,7 @@ async def get_honor_board(current_user=Depends(get_current_user)):
                 "achievements": n.get("achievements"),
                 "images": n.get("images", []),
                 "nominatorName": n.get("nominatorName"),
+                "reactions": n.get("reactions", []),
             })
         if approved:
             campaigns.append({
@@ -107,6 +112,43 @@ async def review_nomination(
 
     status_text = "được duyệt" if action == "APPROVED" else "bị từ chối"
     return {"message": f"Đề cử đã {status_text}"}
+
+
+@router.post("/nominations/{nomination_id}/react")
+async def toggle_reaction(
+    nomination_id: str,
+    data: ReactionToggle,
+    current_user=Depends(get_current_user)
+):
+    nomination = await db.nominations.find_one({"_id": ObjectId(nomination_id)})
+    if not nomination:
+        raise HTTPException(404, "Đề cử không tồn tại")
+    
+    user_id_str = str(current_user["_id"])
+    reactions = nomination.get("reactions", [])
+    
+    # Check if user already reacted
+    existing_idx = next((i for i, r in enumerate(reactions) if r["userId"] == user_id_str), None)
+    
+    if existing_idx is not None:
+        if reactions[existing_idx]["type"] == data.type:
+            # Toggle off
+            reactions.pop(existing_idx)
+            msg = "Đã bỏ tương tác"
+        else:
+            # Change type
+            reactions[existing_idx]["type"] = data.type
+            msg = "Đã cập nhật tương tác"
+    else:
+        # Add new
+        reactions.append({"userId": user_id_str, "type": data.type})
+        msg = "Đã thêm tương tác"
+        
+    await db.nominations.update_one(
+        {"_id": ObjectId(nomination_id)},
+        {"$set": {"reactions": reactions}}
+    )
+    return {"message": msg, "reactions": reactions}
 
 
 @router.delete("/nominations/{nomination_id}")
@@ -207,6 +249,7 @@ async def get_campaign(campaign_id: str, current_user=Depends(get_current_user))
             "createdAt": n.get("createdAt"),
             "reviewedAt": n.get("reviewedAt"),
             "reviewNote": n.get("reviewNote"),
+            "reactions": n.get("reactions", []),
         })
 
     return {

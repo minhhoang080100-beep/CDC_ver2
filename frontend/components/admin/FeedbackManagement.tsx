@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Image, ScrollView, Linking } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useResponsive } from '../../hooks/useResponsive';
-import { MessageSquare, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, Send } from 'lucide-react-native';
+import { MessageSquare, CheckCircle, Clock, XCircle, ChevronDown, ChevronUp, Send, Link as LinkIcon, Paperclip } from 'lucide-react-native';
 import WebHoverCard from '../WebHoverCard';
 
 interface Reply {
@@ -24,6 +25,7 @@ interface Feedback {
     isAnonymous: boolean;
     status: string;
     replies: Reply[];
+    attachedFiles?: string[];
     createdAt: string;
 }
 
@@ -38,23 +40,26 @@ export default function FeedbackManagement() {
     const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
     const [replyingId, setReplyingId] = useState<string | null>(null);
 
-    useEffect(() => {
-        fetchFeedbacks();
-    }, []);
-
-    const fetchFeedbacks = async () => {
-        try {
+    const { data: fetchResult, refetch } = useQuery({
+        queryKey: ['feedback'],
+        queryFn: async () => {
             const response = await api.get('/api/feedback?limit=50', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setFeedbacks(response.data?.items || response.data || []);
-        } catch (error) {
-            console.error('Lỗi khi tải phản hồi:', error);
-        } finally {
+            return response.data?.items || response.data || [];
+        },
+        enabled: !!token,
+    });
+
+    useEffect(() => {
+        if (fetchResult) {
+            setFeedbacks(fetchResult);
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [fetchResult]);
+
+    const fetchFeedbacks = () => { refetch(); };
 
     const updateStatus = async (id: string, newStatus: string) => {
         try {
@@ -89,11 +94,13 @@ export default function FeedbackManagement() {
                 content: text,
                 repliedAt: new Date().toISOString(),
             };
-            setFeedbacks(feedbacks.map(f =>
-                f.id === feedbackId
-                    ? { ...f, replies: [...f.replies, newReply], status: 'REPLIED' }
-                    : f
-            ));
+            setFeedbacks(feedbacks.map(f => {
+                if (f.id === feedbackId) {
+                    const nextStatus = (f.status === 'RESOLVED' || f.status === 'CLOSED') ? f.status : 'REPLIED';
+                    return { ...f, replies: [...f.replies, newReply], status: nextStatus };
+                }
+                return f;
+            }));
             setReplyTexts(prev => ({ ...prev, [feedbackId]: '' }));
             showToast({ message: 'Đã gửi trả lời thành công', type: 'success' });
         } catch (error) {
@@ -162,6 +169,30 @@ export default function FeedbackManagement() {
                         <View style={styles.contentBox}>
                             <Text style={styles.content}>{item.content}</Text>
                         </View>
+
+                        {item.attachedFiles && item.attachedFiles.length > 0 && (
+                            <View style={styles.attachmentsSection}>
+                                <Text style={styles.contentLabel}>Tài liệu đính kèm:</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsScroll}>
+                                    {item.attachedFiles.map((url, i) => {
+                                        const isImage = url.match(/\.(jpeg|jpg|gif|png|webp)$/i) || url.includes('/image/upload');
+                                        if (isImage) {
+                                            return (
+                                                <TouchableOpacity key={i} onPress={() => Linking.openURL(url)} style={styles.attachmentImgContainer}>
+                                                    <Image source={{uri: url}} style={styles.attachmentImg} />
+                                                </TouchableOpacity>
+                                            );
+                                        }
+                                        return (
+                                            <TouchableOpacity key={i} onPress={() => Linking.openURL(url)} style={styles.attachmentDoc}>
+                                                <LinkIcon color={Colors.primary} size={16} />
+                                                <Text style={styles.attachmentDocText} numberOfLines={1}>Tài liệu đính kèm {i + 1}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </View>
+                        )}
 
                         {item.replies && item.replies.length > 0 && (
                             <View style={styles.repliesSection}>
@@ -330,4 +361,10 @@ const styles = StyleSheet.create({
     actionBtnText: { fontSize: 13, fontWeight: '600' },
     emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 },
     emptyText: { textAlign: 'center', color: '#64748b', fontSize: 15 },
+    attachmentsSection: { marginTop: 16 },
+    attachmentsScroll: { flexDirection: 'row', marginTop: 8 },
+    attachmentImgContainer: { width: 80, height: 80, borderRadius: 8, marginRight: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+    attachmentImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+    attachmentDoc: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginRight: 12, borderWidth: 1, borderColor: '#bae6fd' },
+    attachmentDocText: { fontSize: 13, color: Colors.primary, fontWeight: '500', marginLeft: 8, textDecorationLine: 'underline' },
 });

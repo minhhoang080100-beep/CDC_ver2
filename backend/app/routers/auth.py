@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Request, status
+from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from bson import ObjectId
@@ -10,6 +10,7 @@ from app.core.security import (
     decode_token, get_current_user, validate_password, validate_object_id
 )
 from app.models.user import UserLogin, ChangePassword, UserCreate
+from app.routers.websocket import manager
 
 router = APIRouter()
 
@@ -126,7 +127,7 @@ async def logout(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/register")
-async def register_user(user_data: UserCreate, request: Request):
+async def register_user(user_data: UserCreate, request: Request, background_tasks: BackgroundTasks):
     # Rate limiting theo IP (MongoDB-backed)
     client_ip = request.client.host if request.client else "unknown"
     await _check_rate_limit(f"register:{client_ip}")
@@ -165,6 +166,12 @@ async def register_user(user_data: UserCreate, request: Request):
     }
 
     result = await db.users.insert_one(new_user)
+
+    # WebSocket broadcast to Admins
+    background_tasks.add_task(
+        manager.broadcast,
+        {"type": "new_registration", "title": f"Tài khoản đăng ký mới: {user_data.fullName}"}
+    )
 
     return {
         "status": "success",
