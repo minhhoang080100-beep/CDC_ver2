@@ -132,6 +132,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=[
         "https://cdc-ver2.vercel.app",
+        "https://congdoan.nghetinhport.vn",
         "http://localhost:8081",
         "http://localhost:19006",
         "http://localhost:3000",
