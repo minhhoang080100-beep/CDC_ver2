@@ -305,7 +305,7 @@ export default function HomeScreen() {
               <View>
                 <Text style={styles.postAuthorName}>{item.authorName}</Text>
                 <View style={styles.postMetaRow}>
-                  <Text style={styles.postDate}>{format(new Date(item.createdAt.endsWith('Z') ? item.createdAt : item.createdAt + 'Z'), 'HH:mm • dd/MM/yyyy')} • </Text>
+                  <Text style={styles.postDate}>{item.createdAt ? format(new Date(item.createdAt.endsWith('Z') ? item.createdAt : item.createdAt + 'Z'), 'HH:mm • dd/MM/yyyy') : ''} • </Text>
                   <Globe size={12} color={Colors.text.secondary} />
                   <Text style={styles.categoryTag}> • {item.category}</Text>
                 </View>
@@ -399,8 +399,8 @@ export default function HomeScreen() {
   };
 
   const filteredPosts = posts.filter(post =>
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.summary.toLowerCase().includes(searchQuery.toLowerCase())
+    (post.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (post.summary || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (isLoading) {

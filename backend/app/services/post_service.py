@@ -91,7 +91,7 @@ async def update_post(post_id: str, post_data: dict, current_user: dict):
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
+    if current_user["role"] != "SUPER_ADMIN" and existing_post.get("authorId") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to edit this post")
 
     target_departments = resolve_target_departments(current_user, post_data.get("targetDepartments", []))
@@ -124,7 +124,7 @@ async def delete_post(post_id: str, current_user: dict):
     if not existing_post:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    if current_user["role"] != "SUPER_ADMIN" and existing_post["authorId"] != current_user["_id"]:
+    if current_user["role"] != "SUPER_ADMIN" and existing_post.get("authorId") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this post")
 
     images = _normalize_images(existing_post)
@@ -156,7 +156,6 @@ async def toggle_like(post_id: str, current_user: dict):
 
 
 async def notify_new_post(title: str, body: str, target_departments: list, post_id: str):
-    from datetime import datetime
     query = {"status": "ACTIVE"}
     if "ALL" not in target_departments and target_departments:
         query["department"] = {"$in": target_departments}
@@ -166,7 +165,7 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
         return
 
     # 1. Create internal notifications
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     notifications = []
     for u in users:
         notifications.append({
