@@ -12,7 +12,6 @@ import {
     Platform,
     TouchableWithoutFeedback,
 } from 'react-native';
-import { WebView } from 'react-native-webview';
 import { X, User, Heart, MessageCircle, Send, Globe } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,6 +69,34 @@ const getEmbedUrl = (url: string) => {
   if (!url) return '';
   const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})/);
   return match && match[1] ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : url;
+};
+
+const VideoPlayer = ({ url, style }: { url: string; style?: any }) => {
+  const embedUrl = getEmbedUrl(url);
+  if (!embedUrl) return null;
+
+  if (Platform.OS === 'web') {
+    return (
+      <iframe
+        src={embedUrl}
+        style={{ width: '100%', height: '100%', border: 'none' } as any}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+
+  // Native (iOS/Android)
+  const WebView = require('react-native-webview').WebView;
+  return (
+    <WebView
+      source={{ uri: embedUrl }}
+      style={style || { flex: 1 }}
+      allowsFullscreenVideo
+      javaScriptEnabled
+      domStorageEnabled
+    />
+  );
 };
 
 interface PostDetailModalProps {
@@ -194,13 +221,7 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
                                 {/* Video */}
                                 {post.videoUrl ? (
                                     <View style={styles.videoContainer}>
-                                        <WebView
-                                            source={{ uri: getEmbedUrl(post.videoUrl) }}
-                                            style={styles.webview}
-                                            allowsFullscreenVideo
-                                            javaScriptEnabled
-                                            domStorageEnabled
-                                        />
+                                        <VideoPlayer url={post.videoUrl} style={styles.webview} />
                                     </View>
                                 ) : null}
 
