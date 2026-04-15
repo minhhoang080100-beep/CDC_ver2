@@ -143,6 +143,7 @@ export default function HonorsScreen() {
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [campaignDetail, setCampaignDetail] = useState<CampaignDetail | null>(null);
     const [detailLoading, setDetailLoading] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -449,7 +450,7 @@ export default function HonorsScreen() {
                                                     {nom.images && nom.images.length > 0 && (
                                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
                                                             {nom.images.map((url, idx) => (
-                                                                <Image key={idx} source={{ uri: url }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} />
+                                                                <TouchableOpacity key={idx} onPress={() => setSelectedImage(url)}><Image source={{ uri: url }} style={{ width: 80, height: 80, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} /></TouchableOpacity>
                                                             ))}
                                                         </ScrollView>
                                                     )}
@@ -611,7 +612,7 @@ export default function HonorsScreen() {
                                                 {nom.images && nom.images.length > 0 && (
                                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
                                                         {nom.images.map((url, idx) => (
-                                                            <Image key={idx} source={{ uri: url }} style={{ width: 100, height: 100, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} />
+                                                            <TouchableOpacity key={idx} onPress={() => setSelectedImage(url)}><Image source={{ uri: url }} style={{ width: 100, height: 100, borderRadius: 8, marginRight: 8, backgroundColor: '#f1f5f9' }} /></TouchableOpacity>
                                                         ))}
                                                     </ScrollView>
                                                 )}
@@ -785,6 +786,15 @@ export default function HonorsScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
+                </View>
+            </Modal>
+            {/* Image Viewer Modal */}
+            <Modal visible={!!selectedImage} transparent={true} animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+                <View style={styles.imageViewerOverlay}>
+                    <TouchableOpacity style={styles.imageViewerClose} onPress={() => setSelectedImage(null)}>
+                        <X color="#fff" size={30} />
+                    </TouchableOpacity>
+                    {selectedImage && <Image source={{ uri: selectedImage }} style={styles.fullScreenImage} resizeMode="contain" />}
                 </View>
             </Modal>
         </SafeAreaView>
@@ -1043,5 +1053,16 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: '#64748b',
+    },
+    imageViewerOverlay: {
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.9)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    imageViewerClose: {
+        position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20,
+        zIndex: 10, padding: 10,
+    },
+    fullScreenImage: {
+        width: '100%', height: '100%',
     },
 });
