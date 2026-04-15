@@ -35,19 +35,20 @@ async def get_posts(skip: int, limit: int, cursor, current_user: dict):
 
     items = [{
         "id": str(post["_id"]),
-        "title": post["title"],
-        "content": post["content"],
-        "summary": post["summary"],
-        "category": post["category"],
+        "title": post.get("title", ""),
+        "content": post.get("content", ""),
+        "summary": post.get("summary", ""),
+        "category": post.get("category", "Thông báo"),
         "images": _normalize_images(post),
-        "authorId": post["authorId"],
-        "authorName": post["authorName"],
-        "authorDepartment": post["authorDepartment"],
-        "targetDepartments": post["targetDepartments"],
+        "videoUrl": post.get("videoUrl"),
+        "authorId": post.get("authorId", ""),
+        "authorName": post.get("authorName", "Ẩn danh"),
+        "authorDepartment": post.get("authorDepartment", ""),
+        "targetDepartments": post.get("targetDepartments", ["ALL"]),
         "likes": post.get("likes", []),
         "comments": post.get("comments", []),
-        "createdAt": post["createdAt"],
-        "updatedAt": post["updatedAt"]
+        "createdAt": post.get("createdAt", datetime.now(timezone.utc)),
+        "updatedAt": post.get("updatedAt", datetime.now(timezone.utc))
     } for post in posts]
 
     return {"items": items, "total": total, "hasMore": skip + limit < total}
@@ -65,6 +66,7 @@ async def create_post(post_data: dict, current_user: dict):
         "summary": post_data["summary"],
         "category": post_data["category"],
         "images": post_data.get("images", []),
+        "videoUrl": post_data.get("videoUrl"),
         "authorId": current_user["_id"],
         "authorName": current_user["fullName"],
         "authorDepartment": current_user["department"],
@@ -105,6 +107,7 @@ async def update_post(post_id: str, post_data: dict, current_user: dict):
         "summary": post_data["summary"],
         "category": post_data["category"],
         "images": post_data.get("images", []),
+        "videoUrl": post_data.get("videoUrl"),
         "targetDepartments": target_departments,
         "updatedAt": datetime.now(timezone.utc)
     }

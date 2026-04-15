@@ -9,6 +9,7 @@ class PostCreate(BaseModel):
     summary: str = Field(..., max_length=500)
     category: str
     images: List[str] = []
+    videoUrl: Optional[str] = None
     targetDepartments: List[str] = []
 
     @field_validator('title', 'content', 'summary', mode='before')
@@ -40,6 +41,7 @@ class PostResponse(BaseModel):
     summary: str
     category: str
     images: List[str] = []
+    videoUrl: Optional[str] = None
     authorId: str
     authorName: str
     authorDepartment: str

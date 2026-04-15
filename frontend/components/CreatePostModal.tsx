@@ -30,6 +30,7 @@ const postSchema = z.object({
   category: z.string(),
   targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
   images: z.array(z.string()).max(10, 'Tối đa 10 ảnh').optional(),
+  videoUrl: z.string().url('Link video không hợp lệ').optional().or(z.literal('')),
 });
 
 type PostFormValues = z.infer<typeof postSchema>;
@@ -42,6 +43,7 @@ interface Post {
   category: string;
   targetDepartments: string[];
   images?: string[];
+  videoUrl?: string;
 }
 
 interface CreatePostModalProps {
@@ -77,6 +79,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       category: 'Thông báo',
       targetDepartments: ['ALL'],
       images: [],
+      videoUrl: '',
     },
   });
 
@@ -94,6 +97,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         category: editPost.category || 'Thông báo',
         targetDepartments: editPost.targetDepartments || ['ALL'],
         images: editPost.images || [],
+        videoUrl: editPost.videoUrl || '',
       });
       setNotifyUpdate(false);
     } else if (visible) {
@@ -105,6 +109,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
         category: 'Thông báo',
         targetDepartments: ['ALL'],
         images: [],
+        videoUrl: '',
       });
     }
   }, [editPost, visible, reset]);
@@ -308,6 +313,26 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
               )}
             />
             {errors.content && <Text style={styles.errorText}>{errors.content.message}</Text>}
+
+            <Text style={styles.label}>Link Video (Tùy chọn)</Text>
+            <Controller
+              control={control}
+              name="videoUrl"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.videoUrl && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="VD: https://youtube.com/watch?v=..."
+                  placeholderTextColor={Colors.text.placeholder}
+                  editable={!isSubmitting}
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+              )}
+            />
+            {errors.videoUrl && <Text style={styles.errorText}>{errors.videoUrl.message}</Text>}
 
             <Text style={styles.label}>Ảnh minh họa (Tối đa 10 ảnh)</Text>
             {watchedImages.length > 0 ? (

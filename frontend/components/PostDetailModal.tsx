@@ -12,6 +12,7 @@ import {
     Platform,
     TouchableWithoutFeedback,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { X, User, Heart, MessageCircle, Send, Globe } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +28,7 @@ interface Post {
   summary: string;
   category: string;
   images?: string[];
+  videoUrl?: string;
   authorId: string;
   authorName: string;
   authorDepartment: string;
@@ -62,6 +64,12 @@ const AutoHeightImage = ({ uri }: { uri: string }) => {
             resizeMode="cover"
         />
     );
+};
+
+const getEmbedUrl = (url: string) => {
+  if (!url) return '';
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})/);
+  return match && match[1] ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : url;
 };
 
 interface PostDetailModalProps {
@@ -182,6 +190,19 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
 
                                 {/* Title */}
                                 <Text style={styles.title}>{post.title}</Text>
+
+                                {/* Video */}
+                                {post.videoUrl ? (
+                                    <View style={styles.videoContainer}>
+                                        <WebView
+                                            source={{ uri: getEmbedUrl(post.videoUrl) }}
+                                            style={styles.webview}
+                                            allowsFullscreenVideo
+                                            javaScriptEnabled
+                                            domStorageEnabled
+                                        />
+                                    </View>
+                                ) : null}
 
                                 {/* Post Images */}
                                 {post.images && post.images.length > 0 && (
@@ -379,6 +400,15 @@ const styles = StyleSheet.create({
         maxHeight: 600,
         backgroundColor: '#f0f2f5',
         resizeMode: 'contain',
+    },
+    videoContainer: {
+        width: '100%',
+        aspectRatio: 16 / 9,
+        backgroundColor: '#000',
+        marginBottom: 12,
+    },
+    webview: {
+        flex: 1,
     },
     summaryBox: {
         backgroundColor: '#f8f9fa',

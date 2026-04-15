@@ -14,6 +14,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -35,6 +36,7 @@ interface Post {
   summary: string;
   category: string;
   images?: string[];
+  videoUrl?: string;
   authorId: string;
   authorName: string;
   authorDepartment: string;
@@ -120,6 +122,12 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
       </View>
     </View>
   );
+};
+
+const getEmbedUrl = (url: string) => {
+  if (!url) return '';
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})/);
+  return match && match[1] ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : url;
 };
 
 const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
@@ -323,7 +331,22 @@ export default function HomeScreen() {
                 <Text style={styles.postSummary} numberOfLines={3}>{item.summary}</Text>
             ) : null}
           </View>
+        </TouchableOpacity>
 
+        {/* Video */}
+        {item.videoUrl ? (
+          <View style={styles.videoContainer}>
+            <WebView
+              source={{ uri: getEmbedUrl(item.videoUrl) }}
+              style={styles.webview}
+              allowsFullscreenVideo
+              javaScriptEnabled
+              domStorageEnabled
+            />
+          </View>
+        ) : null}
+
+        <TouchableOpacity activeOpacity={0.9} onPress={() => navigateToPost(item)}>
           {/* Images */}
           <ImageGrid images={item.images || []} isDesktop={isDesktop} />
         </TouchableOpacity>
@@ -589,6 +612,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#e4e6eb',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#000',
+    marginBottom: 8,
+  },
+  webview: {
+    flex: 1,
   },
   postAuthorName: {
     fontSize: 15,
