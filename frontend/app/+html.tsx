@@ -36,12 +36,13 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="msapplication-TileImage" content="/icons/icon-144x144.png" />
 
         {/* ─── Icons ────────────────────────────────── */}
-        <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96x96.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72x72.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png" />
-        <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-128x128.png" />
+        <link rel="icon" href="/favicon.ico?v=3" sizes="any" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=3" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96x96.png?v=3" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png?v=3" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png?v=3" />
+        <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png?v=3" />
+        <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-128x128.png?v=3" />
 
         {/* ─── PWA Manifest ─────────────────────────── */}
         <link rel="manifest" href="/manifest.json" />
