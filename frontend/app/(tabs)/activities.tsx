@@ -183,10 +183,10 @@ export default function ActivitiesScreen() {
   const renderActivity = ({ item }: { item: Activity }) => {
     const registered = isRegistered(item);
     return (
-      <View style={{ flex: 1, marginBottom: 8, maxWidth: 680, alignSelf: 'center', width: '100%' }}>
+      <View style={styles.activityCardWrapper}>
         <WebHoverCard style={styles.activityCard}>
           <View style={styles.activityHeaderRow}>
-            <View>
+            <View style={styles.activityTextBlock}>
               <Text style={styles.activityName}>{item.name}</Text>
               <Text style={styles.activityDateMeta}>
                 {getTypeName(item.type)} • {item.time}
@@ -202,7 +202,7 @@ export default function ActivitiesScreen() {
           </View>
 
           <TouchableOpacity 
-            style={[styles.infoRow, { paddingVertical: 6, paddingHorizontal: 8, backgroundColor: '#f1f5f9', borderRadius: 6, alignSelf: 'flex-start' }]}
+            style={styles.participantsButton}
             onPress={() => {
               setParticipantsActivity(item);
               setParticipantsVisible(true);
@@ -493,21 +493,39 @@ const styles = StyleSheet.create({
   listContent: {
     padding: Platform.select({ ios: 12, android: 12, default: 16 }), // Small padding on mobile
   },
+  activityCardWrapper: {
+    flex: 1,
+    marginBottom: 8,
+    maxWidth: 680,
+    alignSelf: 'center',
+    width: '100%',
+    minWidth: 0,
+  },
   activityCard: {
     flex: 1,
     backgroundColor: Colors.surface,
     padding: Platform.select({ ios: 14, android: 14, default: 16 }),
     marginBottom: 8,
+    width: '100%',
+    minWidth: 0,
   },
   activityHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
+    width: '100%',
+    minWidth: 0,
+  },
+  activityTextBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   activityDateMeta: {
     fontSize: 13,
     color: '#65676b',
     marginTop: 2,
+    flexShrink: 1,
+    ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
   },
   typeBadge: {
     alignSelf: 'flex-start',
@@ -525,22 +543,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: Colors.text.primary,
+    flexShrink: 1,
+    ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
   },
   activityDescription: {
     fontSize: 14,
     color: '#475569',
     lineHeight: 20,
     marginBottom: 16,
+    flexShrink: 1,
+    ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    maxWidth: '100%',
+    minWidth: 0,
   },
   infoText: {
     fontSize: 14,
     color: Colors.text.secondary,
     marginLeft: 8,
+    flexShrink: 1,
+    minWidth: 0,
+    ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
+  },
+  participantsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    minWidth: 0,
   },
   registerButton: {
     backgroundColor: Colors.primaryLight,
@@ -549,6 +588,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 40,
+    minWidth: 0,
   },
   registeredButton: {
     backgroundColor: '#e4e6eb',
@@ -557,6 +597,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: Colors.primary,
+    textAlign: 'center',
+    flexShrink: 1,
   },
   registeredButtonText: {
     color: '#050505',
@@ -572,6 +614,7 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
     marginTop: 12,
     paddingTop: 12,
@@ -599,9 +642,11 @@ const styles = StyleSheet.create({
   },
   actionButtonsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 12,
     alignItems: 'center',
+    maxWidth: '100%',
   },
   scanButton: {
     backgroundColor: '#e4e6eb',
@@ -643,6 +688,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     height: 40,
+    maxWidth: '100%',
   },
   checkinButtonText: {
     color: '#ffffff',
@@ -651,12 +697,14 @@ const styles = StyleSheet.create({
   },
   bchCheckinRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: Colors.divider,
+    maxWidth: '100%',
   },
   toggleCheckinBtn: {
     flexDirection: 'row',
@@ -666,6 +714,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     backgroundColor: '#f1f5f9',
+    maxWidth: '100%',
+    minWidth: 0,
   },
   toggleCheckinBtnActive: {
     backgroundColor: '#dcfce7',
@@ -674,6 +724,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#94a3b8',
+    flexShrink: 1,
   },
   showQRBtn: {
     flexDirection: 'row',
@@ -683,6 +734,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
+    maxWidth: '100%',
   },
   showQRBtnText: {
     color: '#ffffff',
