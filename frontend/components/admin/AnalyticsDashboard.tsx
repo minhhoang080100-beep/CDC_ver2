@@ -83,7 +83,7 @@ export default function AnalyticsDashboard() {
     return (
         <ScrollView
             style={styles.container}
-            contentContainerStyle={[styles.content, isDesktop && styles.containerDesktop]}
+            contentContainerStyle={[styles.content, isDesktop && styles.containerDesktop, { paddingBottom: isDesktop ? 20 : 100 }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} />}
         >
             <Text style={styles.sectionTitle}>Tổng quan hệ thống</Text>
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 'auto',
         width: '100%',
     },
-    content: { padding: 20, paddingBottom: isDesktop ? 20 : 100 },
+    content: { padding: 20 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, marginTop: 12 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24 },

@@ -565,7 +565,7 @@ export default function SurveyManagement() {
                 data={surveys}
                 renderItem={renderSurveyItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: isDesktop ? 16 : 100 }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchSurveys(); }} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     createButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-    listContent: { padding: 16, gap: 10, paddingBottom: isDesktop ? 16 : 100 },
+    listContent: { padding: 16, gap: 10 },
     surveyItem: {
         backgroundColor: '#ffffff',
         borderRadius: 12,

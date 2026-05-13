@@ -269,7 +269,7 @@ export default function HonorManagement() {
             <FlatList
                 data={campaigns}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, { paddingBottom: isDesktop ? 16 : 100 }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchCampaigns(); }} />}
                 ListEmptyComponent={
                     <View style={styles.empty}><Trophy color="#cbd5e1" size={48} /><Text style={styles.emptyText}>Chưa có chiến dịch</Text></View>
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8,
     },
     createBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-    listContent: { padding: 16, gap: 10, paddingBottom: isDesktop ? 16 : 100 },
+    listContent: { padding: 16, gap: 10 },
     campaignItem: {
         backgroundColor: '#fff', borderRadius: 12, padding: 16,
         flexDirection: 'row', alignItems: 'center', gap: 12,

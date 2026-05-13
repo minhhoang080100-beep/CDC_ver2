@@ -285,7 +285,7 @@ export default function FeedbackManagement() {
                 data={feedbacks}
                 renderItem={renderFeedback}
                 keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
+                contentContainerStyle={[styles.list, { paddingBottom: isDesktop ? 16 : 100 }]}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={fetchFeedbacks} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    list: { padding: 16, paddingBottom: isDesktop ? 16 : 100 },
+    list: { padding: 16 },
     card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden' },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, alignItems: 'center' },
     headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
