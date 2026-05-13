@@ -16,7 +16,7 @@ import DocumentViewerModal from './DocumentViewerModal';
 
 interface Question {
     content: string;
-    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT';
+    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT' | 'GUESS_NUMBER';
     options: string[];
     isRequired: boolean;
 }
@@ -65,7 +65,7 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
         setAnswers(prev => ({ ...prev, [qIndex]: rating }));
     };
 
-    const handleOpenText = (qIndex: number, text: string) => {
+    const handleOpenText = (qIndex: number, text: string | number) => {
         setAnswers(prev => ({ ...prev, [qIndex]: text }));
     };
 
@@ -196,6 +196,23 @@ export default function SurveyFormModal({ visible, survey, onClose, onSubmit }: 
                         numberOfLines={4}
                         textAlignVertical="top"
                     />
+                )}
+
+                {question.type === 'GUESS_NUMBER' && (
+                    <View>
+                        <TextInput
+                            style={[styles.textInput, { minHeight: 60, fontSize: 18, fontWeight: 'bold', color: Colors.primary }]}
+                            value={answers[index] !== undefined ? answers[index].toString() : ''}
+                            onChangeText={(text) => {
+                                const numericValue = text.replace(/[^0-9]/g, '');
+                                handleOpenText(index, numericValue ? parseInt(numericValue, 10) : '');
+                            }}
+                            placeholder="Nhập số dự đoán..."
+                            placeholderTextColor="#94a3b8"
+                            keyboardType="numeric"
+                        />
+                        <Text style={styles.hintText}>Vui lòng nhập một số nguyên</Text>
+                    </View>
                 )}
             </View>
         );

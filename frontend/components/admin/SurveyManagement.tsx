@@ -37,6 +37,7 @@ import {
     Unlock,
     Upload,
     FileText,
+    Trophy,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
@@ -52,13 +53,15 @@ interface Survey {
     createdAt: string;
     responseCount: number;
     targetDepartments: string[];
+    isQuiz?: boolean;
 }
 
 interface QuestionDraft {
     content: string;
-    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT';
+    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT' | 'GUESS_NUMBER';
     options: string[];
     isRequired: boolean;
+    correctAnswer?: string | string[];
 }
 
 const QUESTION_TYPES = [
@@ -66,6 +69,7 @@ const QUESTION_TYPES = [
     { value: 'MULTIPLE_CHOICE', label: 'Trắc nghiệm nhiều đáp án', icon: CheckCircle2 },
     { value: 'STAR_RATING', label: 'Đánh giá sao', icon: Star },
     { value: 'OPEN_TEXT', label: 'Câu hỏi mở', icon: MessageSquare },
+    { value: 'GUESS_NUMBER', label: 'Câu hỏi số (Dự đoán)', icon: FileText },
 ];
 
 const DEPT_OPTIONS = [
@@ -91,6 +95,7 @@ export default function SurveyManagement() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [isAnonymous, setIsAnonymous] = useState(false);
+    const [isQuiz, setIsQuiz] = useState(false);
     const [deadline, setDeadline] = useState('');
     const [targetDepartments, setTargetDepartments] = useState<string[]>([]);
     const [questions, setQuestions] = useState<QuestionDraft[]>([]);
@@ -102,6 +107,11 @@ export default function SurveyManagement() {
     const [statsModalVisible, setStatsModalVisible] = useState(false);
     const [currentStats, setCurrentStats] = useState<any>(null);
     const [loadingStats, setLoadingStats] = useState(false);
+
+    // Quiz Leaderboard
+    const [quizLeaderboardVisible, setQuizLeaderboardVisible] = useState(false);
+    const [quizLeaderboard, setQuizLeaderboard] = useState<any>(null);
+    const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
 
     const fetchSurveys = async () => {
         try {
@@ -124,6 +134,7 @@ export default function SurveyManagement() {
         setTitle('');
         setDescription('');
         setIsAnonymous(false);
+        setIsQuiz(false);
         setDeadline('');
         setTargetDepartments([]);
         setQuestions([]);
@@ -146,6 +157,7 @@ export default function SurveyManagement() {
             setTitle(data.title);
             setDescription(data.description || '');
             setIsAnonymous(data.isAnonymous || false);
+            setIsQuiz(data.isQuiz || false);
             setDeadline(data.deadline || '');
             setTargetDepartments(data.targetDepartments || []);
             setQuestions(data.questions || []);
@@ -173,11 +185,13 @@ export default function SurveyManagement() {
     const updateQuestion = (index: number, field: string, value: any) => {
         const updated = [...questions];
         (updated[index] as any)[field] = value;
-        // Reset options for star/open
-        if (field === 'type' && (value === 'STAR_RATING' || value === 'OPEN_TEXT')) {
+        // Reset options for star/open/guess
+        if (field === 'type' && (value === 'STAR_RATING' || value === 'OPEN_TEXT' || value === 'GUESS_NUMBER')) {
             updated[index].options = [];
+            delete updated[index].correctAnswer;
         } else if (field === 'type' && updated[index].options.length === 0) {
             updated[index].options = ['', ''];
+            delete updated[index].correctAnswer;
         }
         setQuestions(updated);
     };
@@ -303,13 +317,22 @@ export default function SurveyManagement() {
                 title: title.trim(),
                 description: description.trim() || null,
                 isAnonymous,
+                isQuiz,
                 deadline: deadline || null,
                 targetDepartments,
                 attachments: attachments.map(a => a.url),
-                questions: questions.map(q => ({
-                    ...q,
-                    options: q.options.filter(o => o.trim()),
-                })),
+                questions: questions.map(q => {
+                    const cleaned: any = {
+                        content: q.content,
+                        type: q.type,
+                        options: q.options.filter(o => o.trim()),
+                        isRequired: q.isRequired,
+                    };
+                    if (isQuiz && q.correctAnswer !== undefined) {
+                        cleaned.correctAnswer = q.correctAnswer;
+                    }
+                    return cleaned;
+                }),
             };
 
             if (editingSurvey) {
@@ -383,6 +406,22 @@ export default function SurveyManagement() {
         }
     };
 
+    const handleViewQuizLeaderboard = async (survey: Survey) => {
+        setLoadingLeaderboard(true);
+        setQuizLeaderboardVisible(true);
+        try {
+            const response = await api.get(`/api/surveys/${survey.id}/quiz-leaderboard`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setQuizLeaderboard(response.data);
+        } catch (error) {
+            showToast({ message: 'Không thể tải bảng xếp hạng', type: 'error' });
+            setQuizLeaderboardVisible(false);
+        } finally {
+            setLoadingLeaderboard(false);
+        }
+    };
+
     const getDeptName = (dept: string) => {
         switch (dept) {
             case 'VAN_PHONG_CANG': return 'VP Cảng';
@@ -439,6 +478,14 @@ export default function SurveyManagement() {
                 </View>
             </View>
             <View style={styles.surveyItemActions}>
+                {item.isQuiz && (
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}
+                        onPress={() => handleViewQuizLeaderboard(item)}
+                    >
+                        <Trophy color="#f59e0b" size={18} />
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}
                     onPress={() => handleViewStats(item)}
@@ -573,6 +620,15 @@ export default function SurveyManagement() {
                                         {isAnonymous ? 'Ẩn danh' : 'Công khai'}
                                     </Text>
                                 </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.settingToggle, isQuiz && styles.settingToggleActive]}
+                                    onPress={() => setIsQuiz(!isQuiz)}
+                                >
+                                    {isQuiz ? <Trophy color={Colors.primary} size={16} /> : <Trophy color="#94a3b8" size={16} />}
+                                    <Text style={[styles.settingToggleText, isQuiz && { color: Colors.primary }]}>
+                                        {isQuiz ? 'Chế độ Trắc nghiệm' : 'Khảo sát thường'}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
 
                             {/* Deadline */}
@@ -693,7 +749,9 @@ export default function SurveyManagement() {
                                     {/* Options (for choice types) */}
                                     {['SINGLE_CHOICE', 'MULTIPLE_CHOICE'].includes(q.type) && (
                                         <View style={styles.optionsEditor}>
-                                            {q.options.map((opt, optIdx) => (
+                                            {q.options.map((opt, optIdx) => {
+                                                const isCorrect = Array.isArray(q.correctAnswer) ? q.correctAnswer.includes(opt) : q.correctAnswer === opt;
+                                                return (
                                                 <View key={optIdx} style={styles.optionRow}>
                                                     <TextInput
                                                         style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -702,13 +760,32 @@ export default function SurveyManagement() {
                                                         placeholder={`Lựa chọn ${optIdx + 1}`}
                                                         placeholderTextColor="#94a3b8"
                                                     />
+                                                    {isQuiz && opt.trim() !== '' && (
+                                                        <TouchableOpacity 
+                                                            style={[styles.correctAnswerBtn, isCorrect && styles.correctAnswerBtnActive]}
+                                                            onPress={() => {
+                                                                if (q.type === 'SINGLE_CHOICE') {
+                                                                    updateQuestion(qIdx, 'correctAnswer', opt);
+                                                                } else {
+                                                                    const currentArr = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
+                                                                    if (isCorrect) {
+                                                                        updateQuestion(qIdx, 'correctAnswer', currentArr.filter(o => o !== opt));
+                                                                    } else {
+                                                                        updateQuestion(qIdx, 'correctAnswer', [...currentArr, opt]);
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
+                                                            <CheckCircle2 color={isCorrect ? '#10b981' : '#cbd5e1'} size={20} />
+                                                        </TouchableOpacity>
+                                                    )}
                                                     {q.options.length > 2 && (
                                                         <TouchableOpacity onPress={() => removeOption(qIdx, optIdx)} style={styles.removeOptBtn}>
                                                             <X color="#ef4444" size={18} />
                                                         </TouchableOpacity>
                                                     )}
                                                 </View>
-                                            ))}
+                                            )})}
                                             <TouchableOpacity style={styles.addOptionBtn} onPress={() => addOption(qIdx)}>
                                                 <Plus color={Colors.primary} size={16} />
                                                 <Text style={styles.addOptionText}>Thêm lựa chọn</Text>
@@ -730,6 +807,12 @@ export default function SurveyManagement() {
                                     {q.type === 'OPEN_TEXT' && (
                                         <View style={styles.previewBox}>
                                             <Text style={styles.previewLabel}>Người dùng sẽ nhập câu trả lời tự do</Text>
+                                        </View>
+                                    )}
+
+                                    {q.type === 'GUESS_NUMBER' && (
+                                        <View style={styles.previewBox}>
+                                            <Text style={styles.previewLabel}>Người dùng sẽ nhập một số (Dự đoán)</Text>
                                         </View>
                                     )}
                                 </View>
@@ -831,6 +914,54 @@ export default function SurveyManagement() {
                                                 ))}
                                             </View>
                                         )}
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        ) : null}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Quiz Leaderboard Modal */}
+            <Modal visible={quizLeaderboardVisible} animationType="fade" transparent onRequestClose={() => setQuizLeaderboardVisible(false)}>
+                <View style={styles.modalContainer}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>🏆 Bảng xếp hạng</Text>
+                            <TouchableOpacity onPress={() => setQuizLeaderboardVisible(false)} style={styles.closeBtn}>
+                                <X color="#64748b" size={24} />
+                            </TouchableOpacity>
+                        </View>
+                        {loadingLeaderboard ? (
+                            <View style={[styles.centerContainer, { padding: 40 }]}>
+                                <ActivityIndicator size="large" color={Colors.primary} />
+                            </View>
+                        ) : quizLeaderboard ? (
+                            <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 40 }}>
+                                <View style={styles.statsOverview}>
+                                    <Text style={styles.statsTitle}>Điểm tối đa: {quizLeaderboard.maxScore}</Text>
+                                    <Text style={styles.statsTotal}>Số người đạt điểm tối đa: {quizLeaderboard.actualCount}</Text>
+                                </View>
+                                
+                                {quizLeaderboard.leaderboard.map((user: any, index: number) => (
+                                    <View key={index} style={[styles.statsSection, index === 0 && { borderColor: '#f59e0b', borderWidth: 2, backgroundColor: '#fffbeb' }]}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <View>
+                                                <Text style={{ fontSize: 16, fontWeight: 'bold', color: index === 0 ? '#f59e0b' : '#0f172a' }}>
+                                                    #{user.rank} {user.userName}
+                                                </Text>
+                                                <Text style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{getDeptName(user.department)}</Text>
+                                            </View>
+                                            <View style={{ alignItems: 'flex-end' }}>
+                                                <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.primary }}>{user.score} điểm</Text>
+                                                {user.guess !== null && (
+                                                    <Text style={{ fontSize: 13, color: '#10b981', marginTop: 4 }}>Dự đoán: {user.guess}</Text>
+                                                )}
+                                                {user.score === quizLeaderboard.maxScore && user.guess !== null && (
+                                                    <Text style={{ fontSize: 12, color: '#ef4444', marginTop: 2 }}>Lệch: {user.difference}</Text>
+                                                )}
+                                            </View>
+                                        </View>
                                     </View>
                                 ))}
                             </ScrollView>
@@ -1053,6 +1184,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    correctAnswerBtn: { padding: 8, borderRadius: 8, backgroundColor: '#f8fafc' },
+    correctAnswerBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
     addOptionBtn: {
         flexDirection: 'row',
         alignItems: 'center',

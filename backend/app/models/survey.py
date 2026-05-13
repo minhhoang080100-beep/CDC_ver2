@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 from enum import Enum
 
 
@@ -8,6 +8,7 @@ class QuestionType(str, Enum):
     MULTIPLE_CHOICE = "MULTIPLE_CHOICE"
     STAR_RATING = "STAR_RATING"
     OPEN_TEXT = "OPEN_TEXT"
+    GUESS_NUMBER = "GUESS_NUMBER"
 
 
 class SurveyStatus(str, Enum):
@@ -21,6 +22,7 @@ class SurveyQuestionCreate(BaseModel):
     type: QuestionType
     options: List[str] = []
     isRequired: bool = True
+    correctAnswer: Optional[Union[str, List[str]]] = None
 
 
 class SurveyCreate(BaseModel):
@@ -28,6 +30,7 @@ class SurveyCreate(BaseModel):
     description: Optional[str] = None
     questions: List[SurveyQuestionCreate] = []
     isAnonymous: bool = False
+    isQuiz: bool = False
     deadline: Optional[str] = None
     targetDepartments: List[str] = []
     attachments: List[str] = []  # URLs of attached documents (PDF, images, etc.)
@@ -38,6 +41,7 @@ class SurveyUpdate(BaseModel):
     description: Optional[str] = None
     questions: Optional[List[SurveyQuestionCreate]] = None
     isAnonymous: Optional[bool] = None
+    isQuiz: Optional[bool] = None
     deadline: Optional[str] = None
     targetDepartments: Optional[List[str]] = None
     status: Optional[SurveyStatus] = None

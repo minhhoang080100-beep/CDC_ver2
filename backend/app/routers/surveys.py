@@ -43,6 +43,7 @@ async def create_survey(
         "description": survey.description,
         "questions": [q.dict() for q in survey.questions],
         "isAnonymous": survey.isAnonymous,
+        "isQuiz": survey.isQuiz,
         "deadline": survey.deadline,
         "targetDepartments": survey.targetDepartments,
         "attachments": survey.attachments,
@@ -85,6 +86,7 @@ async def get_survey(survey_id: str, current_user: dict = Depends(get_current_us
         "description": survey.get("description"),
         "questions": survey.get("questions", []),
         "isAnonymous": survey.get("isAnonymous", False),
+        "isQuiz": survey.get("isQuiz", False),
         "deadline": survey.get("deadline"),
         "targetDepartments": survey.get("targetDepartments", []),
         "status": survey.get("status", "DRAFT"),
@@ -123,6 +125,8 @@ async def update_survey(
         update_fields["questions"] = [q.dict() for q in survey.questions]
     if survey.isAnonymous is not None:
         update_fields["isAnonymous"] = survey.isAnonymous
+    if survey.isQuiz is not None:
+        update_fields["isQuiz"] = survey.isQuiz
     if survey.deadline is not None:
         update_fields["deadline"] = survey.deadline
     if survey.targetDepartments is not None:
@@ -161,6 +165,97 @@ async def submit_survey(
 ):
     """Submit survey response"""
     return await svc_submit_survey(survey_id, submission.answers, current_user)
+
+
+@router.get("/{survey_id}/quiz-leaderboard")
+async def get_quiz_leaderboard(survey_id: str, current_user: dict = Depends(get_current_user)):
+    """Get quiz leaderboard (Admin/BCH only)"""
+    if current_user["role"] not in ADMIN_ROLES:
+        raise HTTPException(status_code=403, detail="Không có quyền xem kết quả")
+
+    if not ObjectId.is_valid(survey_id):
+        raise HTTPException(status_code=400, detail="Invalid survey ID")
+
+    survey = await db.surveys.find_one({"_id": ObjectId(survey_id), "isDeleted": {"$ne": True}})
+    if not survey:
+        raise HTTPException(status_code=404, detail="Không tìm thấy khảo sát")
+
+    if not survey.get("isQuiz"):
+        raise HTTPException(status_code=400, detail="Đây không phải là bài trắc nghiệm")
+
+    responses = await db.survey_responses.find({"surveyId": survey_id}).to_list(10000)
+    
+    questions = survey.get("questions", [])
+    
+    guess_question_idx = -1
+    for i, q in enumerate(questions):
+        if q.get("type") == "GUESS_NUMBER":
+            guess_question_idx = i
+            break
+            
+    leaderboard = []
+    max_score = 0
+    
+    for r in responses:
+        score = 0
+        guess = None
+        for a in r.get("answers", []):
+            q_idx = a.get("questionIndex")
+            if q_idx is None or q_idx >= len(questions):
+                continue
+            
+            q = questions[q_idx]
+            ans = a.get("answer")
+            
+            if q_idx == guess_question_idx:
+                try:
+                    guess = int(ans)
+                except (ValueError, TypeError):
+                    guess = None
+                continue
+                
+            correct_ans = q.get("correctAnswer")
+            if correct_ans is not None:
+                if isinstance(ans, list) and isinstance(correct_ans, list):
+                    if set(ans) == set(correct_ans):
+                        score += 1
+                elif str(ans).strip().lower() == str(correct_ans).strip().lower():
+                    score += 1
+                    
+        leaderboard.append({
+            "userId": str(r.get("userId")),
+            "userName": r.get("userName"),
+            "department": r.get("department"),
+            "submittedAt": r.get("submittedAt"),
+            "score": score,
+            "guess": guess
+        })
+        if score > max_score:
+            max_score = score
+            
+    max_scorers = [x for x in leaderboard if x["score"] == max_score]
+    actual_count = len(max_scorers)
+    
+    for item in leaderboard:
+        if item["score"] == max_score and item["guess"] is not None:
+            item["difference"] = abs(item["guess"] - actual_count)
+        else:
+            item["difference"] = float('inf')
+            
+    leaderboard.sort(key=lambda x: (-x["score"], x.get("difference", float('inf')), x["submittedAt"]))
+    
+    rank = 1
+    for item in leaderboard:
+        item["rank"] = rank
+        rank += 1
+        
+    return {
+        "surveyId": survey_id,
+        "maxScore": max_score,
+        "actualCount": actual_count,
+        "leaderboard": leaderboard
+    }
+
 
 
 @router.get("/{survey_id}/stats")
@@ -266,7 +361,7 @@ async def get_survey_stats(survey_id: str, current_user: dict = Depends(get_curr
                 distribution[str(d["_id"])] = d["count"]
             q_stat["ratingDistribution"] = distribution
 
-        elif q["type"] == "OPEN_TEXT":
+        elif q["type"] in ["OPEN_TEXT", "GUESS_NUMBER"]:
             text_pipeline = [
                 {"$match": {"surveyId": survey_id}},
                 {"$unwind": "$answers"},

@@ -7,10 +7,12 @@ import ConfirmModal from '../components/ConfirmModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import React from 'react';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import InstallPrompt from '../components/InstallPrompt';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +44,7 @@ export default function RootLayout() {
                 </Stack>
                 <Toast />
                 <ConfirmModal />
+                {Platform.OS === 'web' && <InstallPrompt />}
               </ConfirmProvider>
             </AuthProvider>
           </ToastProvider>
@@ -49,4 +52,4 @@ export default function RootLayout() {
       </ThemeProvider>
     </ErrorBoundary>
   );
-}
+}

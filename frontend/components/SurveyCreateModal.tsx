@@ -25,21 +25,24 @@ import {
     Paperclip,
     FileText,
     Upload,
+    Trophy,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 
 interface QuestionDraft {
     content: string;
-    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT';
+    type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'STAR_RATING' | 'OPEN_TEXT' | 'GUESS_NUMBER';
     options: string[];
     isRequired: boolean;
+    correctAnswer?: string | string[];
 }
 
 const QUESTION_TYPES = [
-    { value: 'SINGLE_CHOICE', label: '1 đáp án' },
-    { value: 'MULTIPLE_CHOICE', label: 'Nhiều đáp án' },
+    { value: 'SINGLE_CHOICE', label: 'Trắc nghiệm 1 đáp án' },
+    { value: 'MULTIPLE_CHOICE', label: 'Trắc nghiệm nhiều đáp án' },
     { value: 'STAR_RATING', label: 'Đánh giá sao' },
     { value: 'OPEN_TEXT', label: 'Câu hỏi mở' },
+    { value: 'GUESS_NUMBER', label: 'Câu hỏi số (Dự đoán)' },
 ];
 
 const DEPT_OPTIONS = [
@@ -59,6 +62,7 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [isAnonymous, setIsAnonymous] = useState(false);
+    const [isQuiz, setIsQuiz] = useState(false);
     const [deadline, setDeadline] = useState('');
     const [targetDepartments, setTargetDepartments] = useState<string[]>([]);
     const [questions, setQuestions] = useState<QuestionDraft[]>([]);
@@ -70,6 +74,7 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
         setTitle('');
         setDescription('');
         setIsAnonymous(false);
+        setIsQuiz(false);
         setDeadline('');
         setTargetDepartments([]);
         setQuestions([]);
@@ -93,10 +98,12 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
     const updateQuestion = (index: number, field: string, value: any) => {
         const updated = [...questions];
         (updated[index] as any)[field] = value;
-        if (field === 'type' && (value === 'STAR_RATING' || value === 'OPEN_TEXT')) {
+        if (field === 'type' && (value === 'STAR_RATING' || value === 'OPEN_TEXT' || value === 'GUESS_NUMBER')) {
             updated[index].options = [];
+            delete updated[index].correctAnswer;
         } else if (field === 'type' && updated[index].options.length === 0) {
             updated[index].options = ['', ''];
+            delete updated[index].correctAnswer;
         }
         setQuestions(updated);
     };
@@ -211,13 +218,22 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                 title: title.trim(),
                 description: description.trim() || null,
                 isAnonymous,
+                isQuiz,
                 deadline: deadline || null,
                 targetDepartments,
                 attachments: attachments.map(a => a.url),
-                questions: questions.map(q => ({
-                    ...q,
-                    options: q.options.filter(o => o.trim()),
-                })),
+                questions: questions.map(q => {
+                    const cleaned: any = {
+                        content: q.content,
+                        type: q.type,
+                        options: q.options.filter(o => o.trim()),
+                        isRequired: q.isRequired,
+                    };
+                    if (isQuiz && q.correctAnswer !== undefined) {
+                        cleaned.correctAnswer = q.correctAnswer;
+                    }
+                    return cleaned;
+                }),
             });
             resetForm();
         } finally {
@@ -260,7 +276,7 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                             textAlignVertical="top"
                         />
 
-                        {/* Anonymous toggle */}
+                        {/* Anonymous + Quiz toggle */}
                         <View style={styles.settingsRow}>
                             <TouchableOpacity
                                 style={[styles.toggle, isAnonymous && styles.toggleActive]}
@@ -269,6 +285,15 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                                 {isAnonymous ? <Lock color={Colors.primary} size={16} /> : <Unlock color="#94a3b8" size={16} />}
                                 <Text style={[styles.toggleText, isAnonymous && { color: Colors.primary }]}>
                                     {isAnonymous ? 'Ẩn danh' : 'Công khai'}
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.toggle, isQuiz && styles.toggleActive]}
+                                onPress={() => setIsQuiz(!isQuiz)}
+                            >
+                                <Trophy color={isQuiz ? Colors.primary : '#94a3b8'} size={16} />
+                                <Text style={[styles.toggleText, isQuiz && { color: Colors.primary }]}>
+                                    {isQuiz ? 'Chế độ Trắc nghiệm' : 'Khảo sát thường'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -391,7 +416,9 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                                 {/* Options */}
                                 {['SINGLE_CHOICE', 'MULTIPLE_CHOICE'].includes(q.type) && (
                                     <View style={styles.optionsEditor}>
-                                        {q.options.map((opt, optIdx) => (
+                                        {q.options.map((opt, optIdx) => {
+                                            const isCorrect = Array.isArray(q.correctAnswer) ? q.correctAnswer.includes(opt) : q.correctAnswer === opt;
+                                            return (
                                             <View key={optIdx} style={styles.optionRow}>
                                                 <TextInput
                                                     style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -400,13 +427,32 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                                                     placeholder={`Lựa chọn ${optIdx + 1}`}
                                                     placeholderTextColor="#94a3b8"
                                                 />
+                                                {isQuiz && opt.trim() !== '' && (
+                                                    <TouchableOpacity
+                                                        style={[styles.correctBtn, isCorrect && styles.correctBtnActive]}
+                                                        onPress={() => {
+                                                            if (q.type === 'SINGLE_CHOICE') {
+                                                                updateQuestion(qIdx, 'correctAnswer', opt);
+                                                            } else {
+                                                                const currentArr = Array.isArray(q.correctAnswer) ? q.correctAnswer : [];
+                                                                if (isCorrect) {
+                                                                    updateQuestion(qIdx, 'correctAnswer', currentArr.filter(o => o !== opt));
+                                                                } else {
+                                                                    updateQuestion(qIdx, 'correctAnswer', [...currentArr, opt]);
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        <CheckCircle2 color={isCorrect ? '#10b981' : '#cbd5e1'} size={20} />
+                                                    </TouchableOpacity>
+                                                )}
                                                 {q.options.length > 2 && (
                                                     <TouchableOpacity onPress={() => removeOption(qIdx, optIdx)} style={styles.removeOptBtn}>
                                                         <X color="#ef4444" size={18} />
                                                     </TouchableOpacity>
                                                 )}
                                             </View>
-                                        ))}
+                                        )})}
                                         <TouchableOpacity style={styles.addOptionBtn} onPress={() => addOption(qIdx)}>
                                             <Plus color={Colors.primary} size={16} />
                                             <Text style={styles.addOptionText}>Thêm lựa chọn</Text>
@@ -428,6 +474,12 @@ export default function SurveyCreateModal({ visible, onClose, onSave }: Props) {
                                 {q.type === 'OPEN_TEXT' && (
                                     <View style={styles.previewBox}>
                                         <Text style={styles.previewLabel}>Người dùng sẽ nhập câu trả lời tự do</Text>
+                                    </View>
+                                )}
+
+                                {q.type === 'GUESS_NUMBER' && (
+                                    <View style={styles.previewBox}>
+                                        <Text style={styles.previewLabel}>Người dùng sẽ nhập một số (Dự đoán)</Text>
                                     </View>
                                 )}
                             </View>
@@ -555,6 +607,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         justifyContent: 'center', alignItems: 'center',
     },
+    correctBtn: { padding: 8, borderRadius: 8, backgroundColor: '#f8fafc' },
+    correctBtnActive: { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
     addOptionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8 },
     addOptionText: { color: Colors.primary, fontSize: 13, fontWeight: '500' },
     previewBox: {

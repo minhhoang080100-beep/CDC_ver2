@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Công Đoàn Cảng Nghệ Tĩnh",
+    "slug": "cong-doan-cang-nghe-tinh",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -21,7 +21,12 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Công Đoàn Cảng Nghệ Tĩnh",
+      "shortName": "Công Đoàn",
+      "description": "Ứng dụng quản lý hoạt động Công Đoàn Cảng Nghệ Tĩnh",
+      "themeColor": "#0866ff",
+      "backgroundColor": "#1e3a8a"
     },
     "plugins": [
       "expo-router",
