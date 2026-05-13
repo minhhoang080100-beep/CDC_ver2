@@ -319,7 +319,7 @@ export default function ElearningManagement() {
     if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={Colors.primary} />;
 
     return (
-        <ScrollView style={[styles.container, isDesktop && styles.containerDesktop]}>
+        <ScrollView style={[styles.container, isDesktop && styles.containerDesktop]} contentContainerStyle={{ paddingBottom: isDesktop ? 20 : 100 }}>
             {/* Top Actions */}
             <View style={styles.topBar}>
                 <Text style={styles.title}>📚 Quản lý E-learning</Text>

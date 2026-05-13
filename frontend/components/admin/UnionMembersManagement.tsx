@@ -487,7 +487,7 @@ export default function UnionMembersManagement() {
                     <FlatList
                         data={filteredMembers}
                         keyExtractor={item => item.id}
-                        contentContainerStyle={{ gap: 12, paddingBottom: 20 }}
+                        contentContainerStyle={{ gap: 12, paddingBottom: isDesktop ? 20 : 100 }}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
                         renderItem={renderItem}
                         ListEmptyComponent={

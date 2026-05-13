@@ -588,7 +588,7 @@ export default function AdminScreen() {
                                     </View>
                                 )}
                                 keyExtractor={(item) => item.id}
-                                contentContainerStyle={{ paddingBottom: 20 }}
+                                contentContainerStyle={{ paddingBottom: isDesktop ? 20 : 100 }}
                                 refreshControl={
                                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                                 }
@@ -607,7 +607,7 @@ export default function AdminScreen() {
                             data={displayUsers}
                             renderItem={renderUser}
                             keyExtractor={(item) => item.id}
-                            contentContainerStyle={styles.listContent}
+                            contentContainerStyle={[styles.listContent, { paddingBottom: isDesktop ? 20 : 100 }]}
                             ListHeaderComponent={renderDashboardHeader}
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

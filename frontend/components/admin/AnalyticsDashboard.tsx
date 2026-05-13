@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
         marginHorizontal: 'auto',
         width: '100%',
     },
-    content: { padding: 20 },
+    content: { padding: 20, paddingBottom: isDesktop ? 20 : 100 },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, marginTop: 12 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 24 },

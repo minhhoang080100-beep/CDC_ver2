@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#7c3aed', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8,
     },
     createBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-    listContent: { padding: 16, gap: 10 },
+    listContent: { padding: 16, gap: 10, paddingBottom: isDesktop ? 16 : 100 },
     campaignItem: {
         backgroundColor: '#fff', borderRadius: 12, padding: 16,
         flexDirection: 'row', alignItems: 'center', gap: 12,

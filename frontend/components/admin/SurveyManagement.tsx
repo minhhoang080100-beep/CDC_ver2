@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     createButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-    listContent: { padding: 16, gap: 10 },
+    listContent: { padding: 16, gap: 10, paddingBottom: isDesktop ? 16 : 100 },
     surveyItem: {
         backgroundColor: '#ffffff',
         borderRadius: 12,
