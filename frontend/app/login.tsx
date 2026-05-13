@@ -75,7 +75,7 @@ export default function LoginScreen() {
           <View style={styles.formWrapper}>
             <View style={styles.header}>
               <Image
-                source={require('../assets/images/logo.png')}
+                source={require('../assets/images/CNTVIEN.png')}
                 style={styles.logo}
               />
               <Text style={styles.title}>CÔNG ĐOÀN</Text>
@@ -168,9 +168,9 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logo: {
-    width: 200,
-    height: 100,
-    marginBottom: 12,
+    width: 260,
+    height: 164,
+    marginBottom: 16,
     resizeMode: 'contain',
   },
   title: {

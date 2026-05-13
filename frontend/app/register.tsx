@@ -103,7 +103,7 @@ export default function RegisterScreen() {
                     <View style={styles.formWrapper}>
                         <View style={styles.header}>
                             <Image
-                                source={require('../assets/images/logo.png')}
+                                source={require('../assets/images/CNTVIEN.png')}
                                 style={styles.logo}
                             />
                             <Text style={styles.title}>ĐĂNG KÝ</Text>
@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     logo: {
-        width: 140,
-        height: 70,
-        marginBottom: 8,
+        width: 220,
+        height: 138,
+        marginBottom: 12,
         resizeMode: 'contain',
     },
     title: {
