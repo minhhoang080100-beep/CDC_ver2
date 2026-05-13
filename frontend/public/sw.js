@@ -7,7 +7,7 @@
  *   API requests (/api/)                  → Network-First (stale fallback)
  */
 
-const CACHE_NAME = 'cdc-pwa-v1';
+const CACHE_NAME = 'cdc-pwa-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to precache on install

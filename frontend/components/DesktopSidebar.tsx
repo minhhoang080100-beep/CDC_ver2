@@ -97,7 +97,7 @@ function DesktopSidebar({ width }: Props) {
             <View style={styles.brand}>
                 <View style={[styles.logoContainer, { backgroundColor: 'transparent' }]}>
                     <Image
-                        source={require('../assets/images/logo.png')}
+                        source={require('../assets/images/icon.png')}
                         style={{ width: 40, height: 40, resizeMode: 'contain' }}
                     />
                 </View>
