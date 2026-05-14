@@ -3,6 +3,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.core.database import db
+import asyncio
 import re
 from app.core.security import get_current_user, hash_password, validate_object_id, validate_password
 from app.models.user import UserCreate, UserUpdate, ResetPasswordRequest, BulkUserCreate, UpdatePushToken
@@ -96,8 +97,9 @@ async def get_users(
             query = add_query_condition(query, {"role": role})
 
     # Filter conditions
-    if search:
-        search_regex = re.compile(search, re.IGNORECASE)
+    search_value = search.strip() if search else ""
+    if search_value:
+        search_regex = re.compile(re.escape(search_value), re.IGNORECASE)
         query = add_query_condition(query, {"$or": [
             {"fullName": search_regex},
             {"username": search_regex},
@@ -106,12 +108,14 @@ async def get_users(
     if status:
         query = add_query_condition(query, {"status": status})
 
-    # Get total count for pagination info
-    total = await db.users.count_documents(query)
-    
-    users = await db.users.find(
+    users_cursor = db.users.find(
         query, {"password": 0}  # Exclude password field
     ).sort("fullName", 1).skip(skip).limit(limit).to_list(limit)
+
+    total, users = await asyncio.gather(
+        db.users.count_documents(query),
+        users_cursor,
+    )
     
     items = [{
         "id": str(user["_id"]),

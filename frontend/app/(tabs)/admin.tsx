@@ -91,15 +91,30 @@ export default function AdminScreen() {
         return () => clearTimeout(timeoutId);
     }, [searchText]);
 
-    const { data: fetchResult, refetch } = useQuery({
+    const {
+        data: fetchResult,
+        refetch,
+        isError: usersQueryIsError,
+        error: usersQueryError,
+    } = useQuery({
         queryKey: ['users', debouncedSearch, user?.role, user?.department],
         queryFn: async () => {
-            const response = await api.get(`/api/users?search=${encodeURIComponent(debouncedSearch)}&limit=100`, {
+            const searchValue = debouncedSearch.trim();
+            const params = ['limit=100'];
+            if (searchValue) {
+                params.push(`search=${encodeURIComponent(searchValue)}`);
+            }
+
+            const response = await api.get(`/api/users?${params.join('&')}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             return response.data;
         },
         enabled: !!token && (user?.role === 'SUPER_ADMIN' || !!user?.role?.startsWith('BCH_')),
+        staleTime: 15000,
+        retry: 1,
+        refetchOnWindowFocus: false,
+        placeholderData: (previousData) => previousData,
     });
 
     useEffect(() => {
@@ -116,11 +131,39 @@ export default function AdminScreen() {
         }
     }, [fetchResult]);
 
+    useEffect(() => {
+        if (!usersQueryIsError) return;
+
+        setLoading(false);
+        setRefreshing(false);
+        const detail = (usersQueryError as any)?.response?.data?.detail
+            || (usersQueryError as any)?.detail
+            || 'Không thể tải danh sách tài khoản. Vui lòng thử lại.';
+        showToast({ message: detail, type: 'error' });
+    }, [usersQueryIsError, usersQueryError, showToast]);
+
     const fetchUsers = () => { refetch(); };
-    const onRefresh = () => {
+    const onRefresh = async () => {
         setRefreshing(true);
-        refetch();
+        try {
+            await refetch();
+        } finally {
+            setRefreshing(false);
+        }
     };
+
+    const renderUsersEmptyState = () => (
+        <View style={styles.emptyContainer}>
+            {loading ? (
+                <>
+                    <ActivityIndicator color={Colors.primary} />
+                    <Text style={styles.emptyText}>Đang tải danh sách tài khoản...</Text>
+                </>
+            ) : (
+                <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
+            )}
+        </View>
+    );
 
     const handleDelete = async (id: string) => {
         showConfirm({
@@ -633,13 +676,7 @@ export default function AdminScreen() {
                                 refreshControl={
                                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                                 }
-                                ListEmptyComponent={
-                                    !loading ? (
-                                        <View style={styles.emptyContainer}>
-                                            <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
-                                        </View>
-                                    ) : null
-                                }
+                                ListEmptyComponent={renderUsersEmptyState}
                             />
                         </View>
                         </>
@@ -653,13 +690,7 @@ export default function AdminScreen() {
                             refreshControl={
                                 <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                             }
-                            ListEmptyComponent={
-                                !loading ? (
-                                    <View style={styles.emptyContainer}>
-                                        <Text style={styles.emptyText}>Chưa có người dùng nào</Text>
-                                    </View>
-                                ) : null
-                            }
+                            ListEmptyComponent={renderUsersEmptyState}
                         />
                     )}
                 </View>

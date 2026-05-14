@@ -11,6 +11,11 @@ async def init_db_indexes():
     # Users indexes
     await db.users.create_index("username", unique=True)
     await db.users.create_index("department")
+    await db.users.create_index("fullName")
+    await db.users.create_index("status")
+    await db.users.create_index([("department", 1), ("fullName", 1)])
+    await db.users.create_index([("department", 1), ("status", 1), ("fullName", 1)])
+    await db.users.create_index([("role", 1), ("department", 1), ("fullName", 1)])
     # Thay thế unionId index bằng cccdNumber index
     try:
         await db.users.drop_index("unionId_1")
