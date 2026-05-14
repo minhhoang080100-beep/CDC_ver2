@@ -39,7 +39,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="icon" href="/favicon.ico?v=3" sizes="any" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png?v=3" />
         <link rel="icon" type="image/png" sizes="96x96" href="/icons/icon-96x96.png?v=3" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192x192.png?v=3" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png?v=4" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.png?v=3" />
         <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144x144.png?v=3" />
         <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-128x128.png?v=3" />
@@ -56,6 +56,43 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
+                  var hostname = window.location.hostname;
+                  var isLocalhost =
+                    hostname === 'localhost' ||
+                    hostname === '127.0.0.1' ||
+                    hostname === '0.0.0.0' ||
+                    hostname.endsWith('.local') ||
+                    /^192\\.168\\./.test(hostname) ||
+                    /^10\\./.test(hostname) ||
+                    /^172\\.(1[6-9]|2[0-9]|3[0-1])\\./.test(hostname);
+
+                  if (isLocalhost) {
+                    var cleanup = Promise.all([
+                      navigator.serviceWorker.getRegistrations()
+                        .then(function(registrations) {
+                          return Promise.all(registrations.map(function(reg) {
+                            return reg.unregister();
+                          }));
+                        }),
+                      window.caches
+                        ? caches.keys().then(function(keys) {
+                            return Promise.all(keys
+                              .filter(function(key) { return key.indexOf('cdc-pwa-') === 0; })
+                              .map(function(key) { return caches.delete(key); }));
+                          })
+                        : Promise.resolve()
+                    ]);
+
+                    cleanup.then(function() {
+                      console.log('[PWA] Service Worker disabled and cache cleared on local dev');
+                      if (navigator.serviceWorker.controller && !sessionStorage.getItem('sw-local-cleaned')) {
+                        sessionStorage.setItem('sw-local-cleaned', '1');
+                        window.location.reload();
+                      }
+                    });
+                    return;
+                  }
+
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(reg) {
                       console.log('[PWA] Service Worker registered:', reg.scope);

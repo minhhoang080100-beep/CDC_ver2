@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import DesktopSidebar from '../../components/DesktopSidebar';
+import FloatingMiniGameButton from '../../components/FloatingMiniGameButton';
 import { usePushNotifications } from '../../hooks/usePushNotifications';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useToast } from '../../contexts/ToastContext';
@@ -168,6 +169,12 @@ export default function TabsLayout() {
             }}
           />
           <Tabs.Screen
+            name="mini-game"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
             name="honors"
             options={{
               href: null,
@@ -193,6 +200,7 @@ export default function TabsLayout() {
           />
         </Tabs>
       </View>
+      <FloatingMiniGameButton />
     </View>
   );
 }
@@ -211,4 +219,4 @@ const tabStyles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: Colors.primary,
   },
-});
+});

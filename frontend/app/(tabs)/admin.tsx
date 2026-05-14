@@ -26,6 +26,7 @@ import UnionMembersManagement from '../../components/admin/UnionMembersManagemen
 import SurveyManagement from '../../components/admin/SurveyManagement';
 import HonorManagement from '../../components/admin/HonorManagement';
 import ElearningManagement from '../../components/admin/ElearningManagement';
+import MiniGameSettings from '../../components/admin/MiniGameSettings';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
@@ -51,7 +52,7 @@ export default function AdminScreen() {
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'union_members' | 'feedbacks' | 'analytics' | 'surveys' | 'honors' | 'elearning'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'union_members' | 'feedbacks' | 'analytics' | 'surveys' | 'honors' | 'elearning' | 'mini_game'>('users');
 
     // Search & Filter Stats
     const [searchText, setSearchText] = useState('');
@@ -496,6 +497,15 @@ export default function AdminScreen() {
                             <Text style={[styles.tabText, activeTab === 'honors' && styles.tabTextActive]}>Vinh danh</Text>
                         </TouchableOpacity>
                     )}
+                    {user?.role === 'SUPER_ADMIN' && (
+                        <TouchableOpacity
+                            style={[styles.tabItem, activeTab === 'mini_game' && styles.tabItemActive]}
+                            onPress={() => setActiveTab('mini_game')}
+                        >
+                            <Trophy color={activeTab === 'mini_game' ? Colors.primary : Colors.text.secondary} size={20} />
+                            <Text style={[styles.tabText, activeTab === 'mini_game' && styles.tabTextActive]}>Mini Game</Text>
+                        </TouchableOpacity>
+                    )}
                     {(user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH')) && (
                         <TouchableOpacity
                             style={[styles.tabItem, activeTab === 'elearning' && styles.tabItemActive]}
@@ -632,6 +642,8 @@ export default function AdminScreen() {
                 <HonorManagement />
             ) : activeTab === 'elearning' ? (
                 <ElearningManagement />
+            ) : activeTab === 'mini_game' ? (
+                <MiniGameSettings />
             ) : (
                 <AnalyticsDashboard />
             )}
@@ -791,9 +803,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     tabContainerDesktop: {
-        marginHorizontal: 'auto',
+        alignSelf: 'center',
         width: '100%',
-        maxWidth: 1000,
+        maxWidth: 1240,
         backgroundColor: 'transparent',
         paddingHorizontal: 16,
     },
@@ -801,7 +813,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 16,
-        marginRight: 24,
+        marginRight: 18,
         borderBottomWidth: 2,
         borderBottomColor: 'transparent',
         gap: 8,

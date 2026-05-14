@@ -1,13 +1,13 @@
 /**
- * Service Worker — Công Đoàn Cảng Nghệ Tĩnh PWA
+ * Service Worker - Cong Doan Cang Nghe Tinh PWA
  *
  * Caching strategies:
- *   Static assets (JS/CSS/images/fonts) → Cache-First
- *   HTML navigation requests             → Network-First (offline fallback)
- *   API requests (/api/)                  → Network-First (stale fallback)
+ *   Static assets (JS/CSS/images/fonts) -> Cache-first
+ *   HTML navigation requests            -> Network-first with offline fallback
+ *   API requests (/api/)                 -> Network-only, no sensitive cache
  */
 
-const CACHE_NAME = 'cdc-pwa-v3';
+const CACHE_NAME = 'cdc-pwa-v5';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to precache on install
@@ -17,6 +17,7 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/favicon.ico',
   '/favicon.png',
+  '/icons/icon-180x180.png',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
 ];
@@ -66,7 +67,7 @@ self.addEventListener('fetch', (event) => {
 
   // ── API requests → Network-First ──
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) {
-    event.respondWith(networkFirst(request));
+    event.respondWith(networkOnly(request));
     return;
   }
 
@@ -75,9 +76,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache a copy of successful navigations
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() =>
@@ -122,15 +124,14 @@ self.addEventListener('fetch', (event) => {
 
 // ─── Helpers ──────────────────────────────────────────────
 
-/** Network-First: try network, fall back to cache */
-function networkFirst(request) {
+/** Network-only: keep authenticated API data out of SW cache. */
+function networkOnly(request) {
   return fetch(request)
-    .then((response) => {
-      if (response.status === 200) {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+    .catch(() => new Response(
+      JSON.stringify({ detail: 'Offline' }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
       }
-      return response;
-    })
-    .catch(() => caches.match(request));
+    ));
 }

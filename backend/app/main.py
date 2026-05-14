@@ -15,7 +15,7 @@ from app.core.database import client, db, init_db_indexes
 from app.routers import (
     auth, posts, activities, feedback, documents, users,
     analytics, union_members, surveys, honors, elearning,
-    comments, notifications, search, export, websocket
+    comments, notifications, search, export, websocket, mini_games
 )
 
 # ─── Structured Logging ─────────────────────────────────────
@@ -157,6 +157,7 @@ app.include_router(users.router,         prefix=f"{_V1}/users",         tags=["u
 app.include_router(analytics.router,     prefix=f"{_V1}/analytics",     tags=["analytics"])
 app.include_router(union_members.router, prefix=f"{_V1}/union-members", tags=["union_members"])
 app.include_router(surveys.router,       prefix=f"{_V1}/surveys",       tags=["surveys"])
+app.include_router(mini_games.router,    prefix=f"{_V1}/mini-games",    tags=["mini_games"])
 app.include_router(honors.router,        prefix=f"{_V1}/honors",        tags=["honors"])
 app.include_router(elearning.router,     prefix=f"{_V1}/elearning",     tags=["elearning"])
 app.include_router(comments.router,      prefix=f"{_V1}/comments",      tags=["comments"])
@@ -176,6 +177,7 @@ app.include_router(users.router,         prefix="/api/users",         tags=["use
 app.include_router(analytics.router,     prefix="/api/analytics",     tags=["analytics"], include_in_schema=False)
 app.include_router(union_members.router, prefix="/api/union-members", tags=["union_members"], include_in_schema=False)
 app.include_router(surveys.router,       prefix="/api/surveys",       tags=["surveys"], include_in_schema=False)
+app.include_router(mini_games.router,    prefix="/api/mini-games",    tags=["mini_games"], include_in_schema=False)
 app.include_router(honors.router,        prefix="/api/honors",        tags=["honors"], include_in_schema=False)
 app.include_router(elearning.router,     prefix="/api/elearning",     tags=["elearning"], include_in_schema=False)
 app.include_router(comments.router,      prefix="/api/comments",      tags=["comments"], include_in_schema=False)

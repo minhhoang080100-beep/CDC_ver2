@@ -13,7 +13,7 @@ const path = require('path');
 const SOURCE_IMAGE = path.resolve(__dirname, '../assets/images/icon.png');
 const OUTPUT_DIR = path.resolve(__dirname, '../public/icons');
 
-const SIZES = [72, 96, 128, 144, 152, 192, 384, 512];
+const SIZES = [72, 96, 128, 144, 152, 180, 192, 384, 512];
 
 async function generateIcons() {
   // Ensure output directory exists

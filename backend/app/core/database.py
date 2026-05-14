@@ -32,6 +32,14 @@ async def init_db_indexes():
         [("surveyId", 1), ("userId", 1)], unique=True
     )
     await db.surveys.create_index("createdAt")
+    # Mini game indexes
+    await db.mini_games.create_index("createdAt")
+    await db.mini_games.create_index("status")
+    await db.mini_games.create_index("targetDepartments")
+    await db.mini_game_answers.create_index(
+        [("gameId", 1), ("userId", 1), ("questionIndex", 1)], unique=True
+    )
+    await db.mini_game_answers.create_index([("gameId", 1), ("score", -1)])
     # Nominations indexes
     await db.nominations.create_index("campaignId")
     await db.campaigns.create_index("createdAt")
@@ -49,6 +57,8 @@ async def init_db_indexes():
     # Notifications indexes
     await db.notifications.create_index([("userId", 1), ("createdAt", -1)])
     await db.notifications.create_index("read")
+    # App settings indexes
+    await db.app_settings.create_index("key", unique=True)
     # Comments indexes (separate collection)
     await db.comments.create_index([("postId", 1), ("createdAt", -1)])
     # Rate limiting (TTL auto-cleanup)
