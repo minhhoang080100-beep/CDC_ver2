@@ -55,6 +55,25 @@ type MiniGameQuestion = {
   points: number;
 };
 
+type MiniGameStats = {
+  gameId: string;
+  participantCount: number;
+  questionCount: number;
+  totalAnswers: number;
+  correctAnswers: number;
+  accuracyRate: number;
+  averageScore: number;
+  maxScore: number;
+  questionStats: Array<{
+    questionIndex: number;
+    prompt: string;
+    answeredCount: number;
+    correctCount: number;
+    accuracyRate: number;
+    optionCounts: number[];
+  }>;
+};
+
 type MiniGameState = {
   game: MiniGameSummary;
   activeQuestion?: MiniGameQuestion | null;
@@ -68,6 +87,7 @@ type MiniGameState = {
     correctCount: number;
     answeredCount: number;
   }>;
+  stats?: MiniGameStats | null;
 };
 
 const statusLabels: Record<MiniGameStatus, string> = {
@@ -156,6 +176,7 @@ export default function MiniGameScreen() {
   const activeQuestion = stateQuery.data?.activeQuestion;
   const myAnswer = stateQuery.data?.myAnswer;
   const leaderboard = stateQuery.data?.leaderboard || [];
+  const stats = stateQuery.data?.stats || null;
 
   const remainingSeconds = useMemo(() => {
     const serverRemaining = stateQuery.data?.remainingSeconds || 0;
@@ -371,7 +392,10 @@ export default function MiniGameScreen() {
     <View style={styles.panel}>
       <View style={styles.panelTitleRow}>
         <Trophy color="#f59e0b" size={20} />
-        <Text style={styles.panelTitle}>Bảng xếp hạng</Text>
+        <View style={styles.panelTitleTextWrap}>
+          <Text style={styles.panelTitle}>Bảng xếp hạng</Text>
+          {!!selectedGame?.title && <Text style={styles.panelSubtitle} numberOfLines={1}>{selectedGame.title}</Text>}
+        </View>
       </View>
       {leaderboard.length === 0 ? (
         <Text style={styles.emptyText}>Chưa có người chơi</Text>
@@ -391,6 +415,56 @@ export default function MiniGameScreen() {
       )}
     </View>
   );
+
+  const renderStats = () => {
+    if (!isAdmin || !stats) return null;
+
+    const statItems = [
+      { label: 'Người chơi', value: stats.participantCount },
+      { label: 'Lượt trả lời', value: stats.totalAnswers },
+      { label: 'Câu đúng', value: stats.correctAnswers },
+      { label: 'Tỷ lệ đúng', value: `${stats.accuracyRate}%` },
+      { label: 'Điểm TB', value: stats.averageScore },
+      { label: 'Điểm cao nhất', value: stats.maxScore },
+    ];
+
+    return (
+      <View style={styles.panel}>
+        <View style={styles.panelTitleRow}>
+          <CheckCircle2 color="#10b981" size={20} />
+          <View style={styles.panelTitleTextWrap}>
+            <Text style={styles.panelTitle}>Thống kê mini game</Text>
+            {!!selectedGame?.title && <Text style={styles.panelSubtitle} numberOfLines={1}>{selectedGame.title}</Text>}
+          </View>
+        </View>
+        <View style={styles.statsGrid}>
+          {statItems.map((item) => (
+            <View key={item.label} style={styles.statBox}>
+              <Text style={styles.statValue}>{item.value}</Text>
+              <Text style={styles.statLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+        {stats.questionStats.length > 0 && (
+          <View style={styles.questionStatsList}>
+            {stats.questionStats.map((question) => (
+              <View key={question.questionIndex} style={styles.questionStatsRow}>
+                <View style={styles.questionStatsTextWrap}>
+                  <Text style={styles.questionStatsTitle} numberOfLines={2}>
+                    Câu {question.questionIndex + 1}: {question.prompt}
+                  </Text>
+                  <Text style={styles.questionStatsMeta}>
+                    {question.correctCount}/{question.answeredCount} đúng · {question.accuracyRate}% chính xác
+                  </Text>
+                </View>
+                <Text style={styles.questionStatsCount}>{question.answeredCount}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderPlayer = () => {
     if (settingsQuery.isLoading || gamesQuery.isLoading || stateQuery.isLoading) {
@@ -618,6 +692,7 @@ export default function MiniGameScreen() {
           <View style={styles.playColumn}>
             {renderPlayer()}
             {renderLeaderboard()}
+            {renderStats()}
           </View>
           {renderAdmin()}
         </View>
@@ -712,7 +787,9 @@ const styles = StyleSheet.create({
   timeUpBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: '#fef2f2' },
   timeUpText: { flex: 1, minWidth: 0, color: '#b91c1c', fontWeight: '700', lineHeight: 20 },
   panelTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  panelTitleTextWrap: { flex: 1, minWidth: 0 },
   panelTitle: { fontSize: 17, fontWeight: '800', color: '#0f172a' },
+  panelSubtitle: { color: '#64748b', fontSize: 13, marginTop: 2, fontWeight: '600' },
   leaderboardRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
   rankBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f1f5f9', alignItems: 'center', justifyContent: 'center' },
   rankBadgeTop: { backgroundColor: '#fef3c7' },
@@ -722,6 +799,16 @@ const styles = StyleSheet.create({
   leaderboardName: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
   leaderboardMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
   scoreText: { color: Colors.primary, fontSize: 16, fontWeight: '800' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  statBox: { flex: 1, minWidth: 120, padding: 12, borderRadius: 10, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+  statValue: { color: '#0f172a', fontSize: 20, fontWeight: '900' },
+  statLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', marginTop: 3 },
+  questionStatsList: { marginTop: 14, borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  questionStatsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#f8fafc' },
+  questionStatsTextWrap: { flex: 1, minWidth: 0 },
+  questionStatsTitle: { color: '#0f172a', fontSize: 13, fontWeight: '800', lineHeight: 18 },
+  questionStatsMeta: { color: '#64748b', fontSize: 12, marginTop: 3, fontWeight: '600' },
+  questionStatsCount: { minWidth: 34, textAlign: 'center', color: Colors.primary, fontSize: 16, fontWeight: '900' },
   adminPanel: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#e2e8f0', gap: 14 },
   adminPanelDesktop: { width: 390 },
   adminPanelMobile: { width: '100%' },

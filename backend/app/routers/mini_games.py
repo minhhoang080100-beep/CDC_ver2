@@ -246,6 +246,59 @@ async def _build_leaderboard(game_id: str, limit: int = 10) -> list:
     return leaderboard[:limit]
 
 
+async def _build_game_stats(game: dict) -> dict:
+    game_id = str(game["_id"])
+    questions = game.get("questions", [])
+    answers = await db.mini_game_answers.find({"gameId": game_id}).to_list(100000)
+    participants = {answer.get("userId") for answer in answers if answer.get("userId")}
+    total_answers = len(answers)
+    correct_answers = sum(1 for answer in answers if answer.get("isCorrect"))
+    scores_by_user: dict[str, int] = {}
+
+    question_stats = []
+    for index, question in enumerate(questions):
+        option_count = len(question.get("options", []))
+        question_answers = [answer for answer in answers if int(answer.get("questionIndex", -1)) == index]
+        question_correct = sum(1 for answer in question_answers if answer.get("isCorrect"))
+        option_counts = [0] * option_count
+
+        for answer in question_answers:
+            option_index = int(answer.get("optionIndex", -1))
+            if 0 <= option_index < option_count:
+                option_counts[option_index] += 1
+
+        answered_count = len(question_answers)
+        question_stats.append({
+            "questionIndex": index,
+            "prompt": question.get("prompt"),
+            "answeredCount": answered_count,
+            "correctCount": question_correct,
+            "accuracyRate": round((question_correct / answered_count) * 100, 1) if answered_count else 0,
+            "optionCounts": option_counts,
+        })
+
+    for answer in answers:
+        user_id = answer.get("userId")
+        if not user_id:
+            continue
+        scores_by_user[user_id] = scores_by_user.get(user_id, 0) + int(answer.get("score", 0))
+
+    total_score = sum(scores_by_user.values())
+    participant_count = len(participants)
+
+    return {
+        "gameId": game_id,
+        "participantCount": participant_count,
+        "questionCount": len(questions),
+        "totalAnswers": total_answers,
+        "correctAnswers": correct_answers,
+        "accuracyRate": round((correct_answers / total_answers) * 100, 1) if total_answers else 0,
+        "averageScore": round(total_score / participant_count, 1) if participant_count else 0,
+        "maxScore": max(scores_by_user.values()) if scores_by_user else 0,
+        "questionStats": question_stats,
+    }
+
+
 @router.get("")
 async def list_mini_games(
     skip: int = Query(0, ge=0),
@@ -517,6 +570,7 @@ async def get_mini_game_state(game_id: str, current_user: dict = Depends(get_cur
         })
 
     leaderboard = await _build_leaderboard(game_id_str, limit=10)
+    stats = await _build_game_stats(game) if _is_admin(current_user) else None
     return {
         "game": await _serialize_game(game, current_user, include_questions=_is_admin(current_user)),
         "serverTime": _serialize_datetime(_now()),
@@ -529,6 +583,7 @@ async def get_mini_game_state(game_id: str, current_user: dict = Depends(get_cur
             "answeredAt": my_answer.get("answeredAt"),
         } if my_answer else None,
         "leaderboard": leaderboard,
+        "stats": stats,
     }
 
 
@@ -619,3 +674,11 @@ async def get_leaderboard(
         "gameId": str(game["_id"]),
         "leaderboard": await _build_leaderboard(str(game["_id"]), limit=limit),
     }
+
+
+@router.get("/{game_id}/stats")
+async def get_mini_game_stats(game_id: str, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    game = await _get_game_or_404(game_id, current_user)
+    _ensure_can_manage_game(game, current_user)
+    return await _build_game_stats(game)
