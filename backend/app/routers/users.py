@@ -12,6 +12,34 @@ from app.core.permissions import VALID_ROLES, VALID_DEPARTMENTS, MANAGER_ROLE_TO
 router = APIRouter()
 
 
+USER_MANAGER_ROLES = ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys())
+
+
+def manager_department(current_user: dict) -> Optional[str]:
+    return MANAGER_ROLE_TO_DEPT.get(current_user.get("role"))
+
+
+def require_user_admin(current_user: dict, action: str = "manage users") -> None:
+    if current_user.get("role") not in USER_MANAGER_ROLES:
+        raise HTTPException(status_code=403, detail=f"Not authorized to {action}")
+
+
+def build_user_visibility_filter(current_user: dict) -> dict:
+    if current_user.get("role") == "SUPER_ADMIN":
+        return {}
+
+    dept = manager_department(current_user)
+    if dept:
+        return {"department": dept}
+
+    raise HTTPException(status_code=403, detail="Not authorized to view users")
+
+
+def add_query_condition(query: dict, condition: dict) -> dict:
+    if not query:
+        return condition
+    return {"$and": [query, condition]}
+
 
 
 def can_manage_department(current_user: dict, target_dept: str) -> bool:
@@ -45,33 +73,38 @@ async def get_users(
     status: Optional[str] = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
-    # Check if user has permission to view any users
-    if current_user["role"] not in ["SUPER_ADMIN"] + list(MANAGER_ROLE_TO_DEPT.keys()):
-        raise HTTPException(status_code=403, detail="Not authorized to manage users")
-    
-    query = {}
-    
-    # If Manager, force filter by their department and only show MEMBERs
-    if current_user["role"] in MANAGER_ROLE_TO_DEPT:
-        query["department"] = MANAGER_ROLE_TO_DEPT[current_user["role"]]
-        query["role"] = "MEMBER"
-    else:
-        # SUPER_ADMIN can apply explicit filters
+    require_user_admin(current_user, "view users")
+
+    query = build_user_visibility_filter(current_user)
+
+    if current_user["role"] == "SUPER_ADMIN":
         if department:
-            query["department"] = department
+            if department not in VALID_DEPARTMENTS:
+                raise HTTPException(status_code=400, detail="Invalid department")
+            query = add_query_condition(query, {"department": department})
         if role:
-            query["role"] = role
+            if role not in VALID_ROLES:
+                raise HTTPException(status_code=400, detail="Invalid role")
+            query = add_query_condition(query, {"role": role})
+    else:
+        own_department = manager_department(current_user)
+        if department and department != own_department:
+            raise HTTPException(status_code=403, detail="Cannot view users outside your department")
+        if role:
+            if role not in VALID_ROLES:
+                raise HTTPException(status_code=400, detail="Invalid role")
+            query = add_query_condition(query, {"role": role})
 
     # Filter conditions
     if search:
         search_regex = re.compile(search, re.IGNORECASE)
-        query["$or"] = [
+        query = add_query_condition(query, {"$or": [
             {"fullName": search_regex},
             {"username": search_regex},
             {"unionId": search_regex}
-        ]
+        ]})
     if status:
-        query["status"] = status
+        query = add_query_condition(query, {"status": status})
 
     # Get total count for pagination info
     total = await db.users.count_documents(query)
@@ -80,7 +113,7 @@ async def get_users(
         query, {"password": 0}  # Exclude password field
     ).sort("fullName", 1).skip(skip).limit(limit).to_list(limit)
     
-    return [{
+    items = [{
         "id": str(user["_id"]),
         "username": user["username"],
         "fullName": user["fullName"],
@@ -92,17 +125,27 @@ async def get_users(
         "createdAt": user.get("createdAt")
     } for user in users]
 
+    return {
+        "items": items,
+        "total": total,
+        "hasMore": skip + limit < total,
+    }
+
 
 @router.post("")
 async def create_user(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "SUPER_ADMIN":
-        raise HTTPException(status_code=403, detail="Only SUPER_ADMIN can create users")
-    
+    require_user_admin(current_user, "create users")
+
     # Validate role and department
     if user_data.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {VALID_ROLES}")
     if user_data.department not in VALID_DEPARTMENTS:
         raise HTTPException(status_code=400, detail=f"Invalid department. Must be one of: {VALID_DEPARTMENTS}")
+
+    if current_user["role"] != "SUPER_ADMIN":
+        own_department = manager_department(current_user)
+        if user_data.role != "MEMBER" or user_data.department != own_department:
+            raise HTTPException(status_code=403, detail="Managers can only create member accounts in their department")
     
     # Check duplicate username
     existing = await db.users.find_one({"username": user_data.username})

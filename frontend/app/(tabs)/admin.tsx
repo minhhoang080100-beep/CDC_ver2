@@ -92,7 +92,7 @@ export default function AdminScreen() {
     }, [searchText]);
 
     const { data: fetchResult, refetch } = useQuery({
-        queryKey: ['users', debouncedSearch],
+        queryKey: ['users', debouncedSearch, user?.role, user?.department],
         queryFn: async () => {
             const response = await api.get(`/api/users?search=${encodeURIComponent(debouncedSearch)}&limit=100`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -295,7 +295,29 @@ export default function AdminScreen() {
         }
     };
 
+    const getManagedDepartment = (role?: string) => {
+        switch (role) {
+            case 'BCH_VANPHONG': return 'VAN_PHONG_CANG';
+            case 'BCH_CUALO': return 'CUA_LO';
+            case 'BCH_BENTHUY': return 'BEN_THUY';
+            default: return null;
+        }
+    };
+
+    const canManageAccount = (target: User) => {
+        if (user?.role === 'SUPER_ADMIN') return true;
+        const managedDepartment = getManagedDepartment(user?.role);
+        return !!managedDepartment && target.department === managedDepartment && target.role === 'MEMBER';
+    };
+
+    const canDeleteAccount = (target: User) => {
+        return target.id !== user?.id && canManageAccount(target);
+    };
+
     const renderUser = ({ item }: { item: User }) => {
+        const canManage = canManageAccount(item);
+        const canDelete = canDeleteAccount(item);
+
         return (
             <WebHoverCard style={styles.userCard}>
                 <View style={styles.userInfo}>
@@ -319,7 +341,7 @@ export default function AdminScreen() {
                 </View>
 
                 <View style={styles.actionButtons}>
-                    {item.status === 'PENDING' && (
+                    {item.status === 'PENDING' && canManage && (
                         <TouchableOpacity
                             style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}
                             onPress={() => handleApprove(item.id, item.fullName)}
@@ -327,16 +349,18 @@ export default function AdminScreen() {
                             <Shield color={Colors.status.success} size={18} />
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity
-                        style={[styles.actionBtn, styles.editBtn]}
-                        onPress={() => {
-                            setEditingUser(item);
-                            setModalVisible(true);
-                        }}
-                    >
-                        <Edit2 color={Colors.primary} size={18} />
-                    </TouchableOpacity>
-                    {item.id !== user?.id && (
+                    {canManage && (
+                        <TouchableOpacity
+                            style={[styles.actionBtn, styles.editBtn]}
+                            onPress={() => {
+                                setEditingUser(item);
+                                setModalVisible(true);
+                            }}
+                        >
+                            <Edit2 color={Colors.primary} size={18} />
+                        </TouchableOpacity>
+                    )}
+                    {item.id !== user?.id && canManage && (
                         <TouchableOpacity
                             style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}
                             onPress={() => openResetPasswordModal(item.id, item.username, item.fullName)}
@@ -344,7 +368,7 @@ export default function AdminScreen() {
                             <Lock color="#f59e0b" size={18} />
                         </TouchableOpacity>
                     )}
-                    {item.id !== user?.id && (
+                    {canDelete && (
                         <TouchableOpacity
                             style={[styles.actionBtn, styles.deleteBtn]}
                             onPress={() => handleDelete(item.id)}
@@ -537,7 +561,11 @@ export default function AdminScreen() {
                             {/* Table Body */}
                             <FlatList
                                 data={displayUsers}
-                                renderItem={({ item }) => (
+                                renderItem={({ item }) => {
+                                    const canManage = canManageAccount(item);
+                                    const canDelete = canDeleteAccount(item);
+
+                                    return (
                                     <View style={styles.tableRow}>
                                         <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
                                             <Text style={styles.userName}>{item.fullName}</Text>
@@ -561,7 +589,7 @@ export default function AdminScreen() {
                                             </View>
                                         </View>
                                         <View style={[styles.tableCell, { width: 120, flexDirection: 'row', justifyContent: 'center', gap: 6 }]}>
-                                            {item.status === 'PENDING' && (
+                                            {item.status === 'PENDING' && canManage && (
                                                 <TouchableOpacity
                                                     style={[styles.actionBtn, { backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 6 }]}
                                                     onPress={() => handleApprove(item.id, item.fullName)}
@@ -569,16 +597,18 @@ export default function AdminScreen() {
                                                     <Shield color={Colors.status.success} size={16} />
                                                 </TouchableOpacity>
                                             )}
-                                            <TouchableOpacity
-                                                style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
-                                                onPress={() => {
-                                                    setEditingUser(item);
-                                                    setModalVisible(true);
-                                                }}
-                                            >
-                                                <Edit2 color={Colors.primary} size={16} />
-                                            </TouchableOpacity>
-                                            {item.id !== user?.id && (
+                                            {canManage && (
+                                                <TouchableOpacity
+                                                    style={[styles.actionBtn, styles.editBtn, { padding: 6 }]}
+                                                    onPress={() => {
+                                                        setEditingUser(item);
+                                                        setModalVisible(true);
+                                                    }}
+                                                >
+                                                    <Edit2 color={Colors.primary} size={16} />
+                                                </TouchableOpacity>
+                                            )}
+                                            {item.id !== user?.id && canManage && (
                                                 <TouchableOpacity
                                                     style={[styles.actionBtn, { backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6 }]}
                                                     onPress={() => openResetPasswordModal(item.id, item.username, item.fullName)}
@@ -586,7 +616,7 @@ export default function AdminScreen() {
                                                     <Lock color="#f59e0b" size={16} />
                                                 </TouchableOpacity>
                                             )}
-                                            {item.id !== user?.id && user?.role === 'SUPER_ADMIN' && (
+                                            {canDelete && (
                                                 <TouchableOpacity
                                                     style={[styles.actionBtn, styles.deleteBtn, { padding: 6 }]}
                                                     onPress={() => handleDelete(item.id)}
@@ -596,7 +626,8 @@ export default function AdminScreen() {
                                             )}
                                         </View>
                                     </View>
-                                )}
+                                    );
+                                }}
                                 keyExtractor={(item) => item.id}
                                 contentContainerStyle={{ paddingBottom: isDesktop ? 20 : 100 }}
                                 refreshControl={
