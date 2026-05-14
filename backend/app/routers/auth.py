@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends, Request, status, BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 import time
 from app.core.database import db
 from app.core.security import (
@@ -48,6 +49,105 @@ class RefreshTokenRequest(BaseModel):
     refreshToken: str
 
 
+class SelfProfileUpdate(BaseModel):
+    fullName: Optional[str] = Field(None, min_length=2, max_length=100)
+    avatar: Optional[str] = None
+    cccdNumber: Optional[str] = None
+    phoneNumber: Optional[str] = Field(None, max_length=30)
+    email: Optional[str] = Field(None, max_length=120)
+    hometown: Optional[str] = Field(None, max_length=255)
+    permanentAddress: Optional[str] = Field(None, max_length=255)
+    familyBackground: Optional[str] = Field(None, max_length=500)
+
+
+def _normalize_blank(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def _normalize_cccd(value: Optional[str]) -> Optional[str]:
+    value = _normalize_blank(value)
+    if not value:
+        return None
+
+    cccd = "".join(ch for ch in value if ch.isdigit())
+    if len(cccd) == 8:
+        cccd = cccd.zfill(9)
+    elif len(cccd) == 11:
+        cccd = cccd.zfill(12)
+
+    if len(cccd) not in (9, 12):
+        raise HTTPException(status_code=400, detail="Số CCCD/CMND phải có 9 hoặc 12 chữ số")
+
+    return cccd
+
+
+def _cccd_variants(value: Optional[str]) -> set[str]:
+    cccd = _normalize_cccd(value)
+    if not cccd:
+        return set()
+
+    variants = {cccd}
+    stripped = cccd.lstrip("0")
+    if stripped:
+        variants.add(stripped)
+        if len(stripped) <= 12:
+            variants.add(stripped.zfill(12))
+        if len(stripped) <= 9:
+            variants.add(stripped.zfill(9))
+    if len(cccd) <= 12:
+        variants.add(cccd.zfill(12))
+    if len(cccd) <= 9:
+        variants.add(cccd.zfill(9))
+    return variants
+
+
+async def _find_union_member_by_cccd(cccd_number: Optional[str]):
+    try:
+        variants = _cccd_variants(cccd_number)
+    except HTTPException:
+        return None
+    if not variants:
+        return None
+    return await db.union_members.find_one({"cccdNumber": {"$in": list(variants)}})
+
+
+def _format_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y")
+    return str(value)
+
+
+def _serialize_profile(member: dict) -> dict:
+    return {
+        "fullName": member.get("fullName"),
+        "workUnit": member.get("workUnit"),
+        "department": member.get("department"),
+        "position": member.get("position"),
+        "birthDate": _format_date(member.get("birthDate")),
+        "phoneNumber": member.get("phoneNumber"),
+        "hometown": member.get("hometown"),
+        "permanentAddress": member.get("permanentAddress"),
+        "email": member.get("email"),
+        "gender": member.get("gender"),
+        "educationLevel": member.get("educationLevel"),
+        "qualification": member.get("qualification"),
+        "professionalQualification": member.get("professionalQualification"),
+        "major": member.get("major"),
+        "isPartyMember": member.get("isPartyMember"),
+        "partyJoinDate": _format_date(member.get("partyJoinDate")),
+        "unionJoinDate": _format_date(member.get("unionJoinDate")),
+        "cccdNumber": member.get("cccdNumber"),
+        "idNumber": member.get("idNumber"),
+        "familyBackground": member.get("familyBackground"),
+        "employeeId": member.get("employeeId"),
+    }
+
+
 @router.post("/login")
 async def login(user_login: UserLogin, request: Request):
     # Rate limiting theo IP (MongoDB-backed)
@@ -86,6 +186,7 @@ async def login(user_login: UserLogin, request: Request):
             "role": user["role"],
             "department": user["department"],
             "avatar": user.get("avatar"),
+            "cccdNumber": user.get("cccdNumber"),
             "status": user["status"]
         }
     }
@@ -190,7 +291,97 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "role": current_user["role"],
         "department": current_user["department"],
         "avatar": current_user.get("avatar"),
+        "cccdNumber": current_user.get("cccdNumber"),
         "status": current_user["status"]
+    }
+
+
+@router.put("/me")
+async def update_me(data: SelfProfileUpdate, current_user: dict = Depends(get_current_user)):
+    user_id = validate_object_id(current_user["_id"])
+    account_updates = {}
+    profile_updates = {}
+
+    if data.fullName is not None:
+        full_name = _normalize_blank(data.fullName)
+        if not full_name:
+            raise HTTPException(status_code=400, detail="Họ tên không được để trống")
+        account_updates["fullName"] = full_name
+
+    if data.avatar is not None:
+        account_updates["avatar"] = _normalize_blank(data.avatar)
+
+    new_cccd = current_user.get("cccdNumber")
+    if data.cccdNumber is not None:
+        new_cccd = _normalize_cccd(data.cccdNumber)
+        if new_cccd:
+            duplicate = await db.users.find_one({
+                "_id": {"$ne": user_id},
+                "cccdNumber": {"$in": list(_cccd_variants(new_cccd))},
+            })
+            if duplicate:
+                raise HTTPException(status_code=400, detail="Số CCCD/CMND đã được sử dụng bởi tài khoản khác")
+            account_updates["cccdNumber"] = new_cccd
+        else:
+            account_updates["cccdNumber"] = None
+
+    for field in ["phoneNumber", "email", "hometown", "permanentAddress", "familyBackground"]:
+        value = getattr(data, field)
+        if value is not None:
+            profile_updates[field] = _normalize_blank(value)
+
+    if profile_updates.get("email"):
+        email = profile_updates["email"]
+        if "@" not in email or "." not in email.split("@")[-1]:
+            raise HTTPException(status_code=400, detail="Email không hợp lệ")
+
+    if not account_updates and not profile_updates:
+        raise HTTPException(status_code=400, detail="Không có thông tin cần cập nhật")
+
+    profile = await _find_union_member_by_cccd(new_cccd)
+
+    if account_updates:
+        update_doc = {}
+        set_fields = {k: v for k, v in account_updates.items() if v is not None}
+        unset_fields = {k: "" for k, v in account_updates.items() if v is None}
+        if set_fields:
+            update_doc["$set"] = {**set_fields, "updatedAt": datetime.now(timezone.utc)}
+        if unset_fields:
+            update_doc["$unset"] = unset_fields
+            update_doc.setdefault("$set", {})["updatedAt"] = datetime.now(timezone.utc)
+        await db.users.update_one({"_id": user_id}, update_doc)
+
+    if profile_updates and profile:
+        await db.union_members.update_one(
+            {"_id": profile["_id"]},
+            {
+                "$set": {
+                    **profile_updates,
+                    "userId": str(user_id),
+                    "updatedAt": datetime.now(timezone.utc),
+                }
+            }
+        )
+        profile = await db.union_members.find_one({"_id": profile["_id"]})
+
+    updated_user = await db.users.find_one({"_id": user_id})
+
+    return {
+        "status": "success",
+        "message": "Cập nhật thông tin cá nhân thành công",
+        "profileFound": profile is not None,
+        "user": {
+            "id": str(updated_user["_id"]),
+            "username": updated_user["username"],
+            "fullName": updated_user["fullName"],
+            "unionId": updated_user.get("unionId"),
+            "role": updated_user["role"],
+            "department": updated_user["department"],
+            "avatar": updated_user.get("avatar"),
+            "cccdNumber": updated_user.get("cccdNumber"),
+            "status": updated_user["status"],
+        },
+        "profile": _serialize_profile(profile) if profile else None,
     }
 
 

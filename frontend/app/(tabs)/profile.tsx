@@ -5,13 +5,15 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   User, ShieldCheck, MapPin, Phone, Calendar,
   Briefcase, Building2, GraduationCap, Heart, Flag,
-  CreditCard, Mail
+  CreditCard, Mail, Edit2, Save, X
 } from 'lucide-react-native';
 import { Platform, TouchableOpacity } from 'react-native';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -19,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../utils/api';
+import { useToast } from '../../contexts/ToastContext';
 
 // QRCode only works on native (uses Node.js modules incompatible with web)
 let QRCode: any = null;
@@ -50,6 +53,16 @@ interface MemberProfile {
   employeeId: string | null;
 }
 
+interface ProfileForm {
+  fullName: string;
+  cccdNumber: string;
+  phoneNumber: string;
+  email: string;
+  hometown: string;
+  permanentAddress: string;
+  familyBackground: string;
+}
+
 const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null | undefined }) => {
   if (!value) return null;
   return (
@@ -66,12 +79,24 @@ const InfoRow = ({ icon, label, value }: { icon: React.ReactNode; label: string;
 };
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { isDesktop } = useResponsive();
   const router = useRouter();
+  const { showToast } = useToast();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [editVisible, setEditVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState<ProfileForm>({
+    fullName: '',
+    cccdNumber: '',
+    phoneNumber: '',
+    email: '',
+    hometown: '',
+    permanentAddress: '',
+    familyBackground: '',
+  });
 
   useEffect(() => {
     fetchProfile();
@@ -94,6 +119,90 @@ export default function ProfileScreen() {
       setProfileLoading(false);
     }
   };
+
+  const openEditProfile = () => {
+    if (!user) return;
+    setProfileForm({
+      fullName: profile?.fullName || user.fullName || '',
+      cccdNumber: profile?.cccdNumber || user.cccdNumber || '',
+      phoneNumber: profile?.phoneNumber || '',
+      email: profile?.email || '',
+      hometown: profile?.hometown || '',
+      permanentAddress: profile?.permanentAddress || '',
+      familyBackground: profile?.familyBackground || '',
+    });
+    setEditVisible(true);
+  };
+
+  const updateProfileForm = (field: keyof ProfileForm, value: string) => {
+    setProfileForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileForm.fullName.trim()) {
+      showToast({ message: 'Họ tên không được để trống', type: 'error' });
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const payload = {
+        fullName: profileForm.fullName.trim(),
+        cccdNumber: profileForm.cccdNumber.trim(),
+        phoneNumber: profileForm.phoneNumber.trim(),
+        email: profileForm.email.trim(),
+        hometown: profileForm.hometown.trim(),
+        permanentAddress: profileForm.permanentAddress.trim(),
+        familyBackground: profileForm.familyBackground.trim(),
+      };
+
+      const response = await api.put('/api/auth/me', payload);
+      if (response.data?.profile) {
+        setProfile(response.data.profile);
+        setProfileError(null);
+      }
+      await refreshUser();
+      await fetchProfile();
+      setEditVisible(false);
+      if (response.data?.profileFound === false) {
+        showToast({
+          message: 'Đã cập nhật tài khoản. Hồ sơ đoàn viên chưa liên kết nên thông tin liên hệ chưa được ghi.',
+          type: 'info',
+          duration: 5000,
+        });
+      } else {
+        showToast({ message: 'Đã cập nhật thông tin cá nhân', type: 'success' });
+      }
+    } catch (error: any) {
+      showToast({
+        message: error.response?.data?.detail || error.detail || 'Không thể cập nhật thông tin cá nhân',
+        type: 'error',
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const renderEditInput = (
+    label: string,
+    field: keyof ProfileForm,
+    placeholder: string,
+    options?: { multiline?: boolean; keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'number-pad' }
+  ) => (
+    <View style={styles.formGroup}>
+      <Text style={styles.formLabel}>{label}</Text>
+      <TextInput
+        style={[styles.formInput, options?.multiline && styles.formTextArea]}
+        value={profileForm[field]}
+        onChangeText={(value) => updateProfileForm(field, value)}
+        placeholder={placeholder}
+        placeholderTextColor="#94a3b8"
+        multiline={options?.multiline}
+        keyboardType={options?.keyboardType || 'default'}
+        textAlignVertical={options?.multiline ? 'top' : 'center'}
+      />
+    </View>
+  );
 
   const getDepartmentName = (dept: string) => {
     switch (dept) {
@@ -204,10 +313,16 @@ export default function ProfileScreen() {
           {/* ═══ THÔNG TIN CÁ NHÂN ═══ */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <View style={styles.sectionIconBg}>
-                <User color="#ffffff" size={18} />
+              <View style={styles.sectionHeaderLeft}>
+                <View style={styles.sectionIconBg}>
+                  <User color="#ffffff" size={18} />
+                </View>
+                <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
               </View>
-              <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+              <TouchableOpacity style={styles.editProfileButton} onPress={openEditProfile}>
+                <Edit2 color={Colors.primary} size={16} />
+                <Text style={styles.editProfileText}>Chỉnh sửa</Text>
+              </TouchableOpacity>
             </View>
 
             {profileLoading ? (
@@ -278,6 +393,11 @@ export default function ProfileScreen() {
                 label="Tên đăng nhập"
                 value={user.username}
               />
+              <InfoRow
+                icon={<CreditCard color="#0ea5e9" size={16} />}
+                label="CCCD/CMND"
+                value={user.cccdNumber || profile?.cccdNumber}
+              />
               <View style={styles.infoRow}>
                 <View style={styles.infoRowLeft}>
                   <View style={styles.infoIconContainer}>
@@ -310,6 +430,59 @@ export default function ProfileScreen() {
           <View style={{ height: 100 }} />
         </View>
       </ScrollView>
+
+      <Modal
+        visible={editVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.editModal, isDesktop && styles.editModalDesktop]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Cập nhật thông tin cá nhân</Text>
+                <Text style={styles.modalSubtitle}>Một số thông tin nghiệp vụ vẫn do BCH quản lý</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setEditVisible(false)} disabled={savingProfile}>
+                <X color="#64748b" size={20} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+              {renderEditInput('Họ và tên', 'fullName', 'Nhập họ và tên')}
+              {renderEditInput('CCCD/CMND', 'cccdNumber', 'Nhập số CCCD hoặc CMND', { keyboardType: 'number-pad' })}
+              {renderEditInput('Số điện thoại', 'phoneNumber', 'Nhập số điện thoại', { keyboardType: 'phone-pad' })}
+              {renderEditInput('Email', 'email', 'Nhập email', { keyboardType: 'email-address' })}
+              {renderEditInput('Quê quán', 'hometown', 'Nhập quê quán')}
+              {renderEditInput('Địa chỉ thường trú', 'permanentAddress', 'Nhập địa chỉ thường trú', { multiline: true })}
+              {renderEditInput('Hoàn cảnh gia đình', 'familyBackground', 'Nhập thông tin nếu cần', { multiline: true })}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setEditVisible(false)}
+                disabled={savingProfile}
+              >
+                <Text style={styles.cancelButtonText}>Hủy</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, savingProfile && styles.saveButtonDisabled]}
+                onPress={handleSaveProfile}
+                disabled={savingProfile}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Save color="#ffffff" size={18} />
+                )}
+                <Text style={styles.saveButtonText}>{savingProfile ? 'Đang lưu...' : 'Lưu thay đổi'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -455,11 +628,34 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
     gap: 12,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  editProfileButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  editProfileText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   sectionIconBg: {
     width: 32,
@@ -602,5 +798,123 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+  },
+
+  // Edit profile modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  editModal: {
+    width: '100%',
+    maxHeight: '90%',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  editModalDesktop: {
+    maxWidth: 620,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBody: {
+    maxHeight: 520,
+  },
+  modalBodyContent: {
+    padding: 20,
+    gap: 14,
+  },
+  formGroup: {
+    gap: 8,
+  },
+  formLabel: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '700',
+  },
+  formInput: {
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  formTextArea: {
+    minHeight: 92,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    gap: 10,
+  },
+  cancelButton: {
+    minHeight: 44,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  cancelButtonText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  saveButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.65,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

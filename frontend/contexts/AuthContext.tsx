@@ -10,6 +10,7 @@ interface User {
   role: string;
   department: string;
   avatar?: string;
+  cccdNumber?: string;
   status: string;
 }
 
@@ -18,6 +19,7 @@ interface AuthContextType {
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -95,6 +97,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUser = async () => {
+    const response = await api.get('/api/auth/me');
+    if (response.data) {
+      setUser(response.data);
+      await AsyncStorage.setItem('user', JSON.stringify(response.data));
+    }
+  };
+
   const logout = async () => {
     console.log('🔴 LOGOUT: Starting logout process...');
     try {
@@ -119,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
