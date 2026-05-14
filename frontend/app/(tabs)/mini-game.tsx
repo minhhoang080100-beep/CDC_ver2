@@ -169,7 +169,31 @@ export default function MiniGameScreen() {
   const invalidateGame = () => {
     queryClient.invalidateQueries({ queryKey: ['mini-games'] });
     queryClient.invalidateQueries({ queryKey: ['mini-game-state', selectedGameId] });
+    queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
   };
+
+  const removeDeletedGameFromCache = (gameId: string) => {
+    queryClient.removeQueries({ queryKey: ['mini-game-state', gameId], exact: true });
+    queryClient.setQueryData(['mini-games'], (current: { items: MiniGameSummary[]; total: number; hasMore?: boolean } | undefined) => {
+      if (!current?.items) return current;
+      const nextItems = current.items.filter((game) => game.id !== gameId);
+      return {
+        ...current,
+        items: nextItems,
+        total: Math.max(0, current.total - (current.items.length - nextItems.length)),
+      };
+    });
+    queryClient.invalidateQueries({ queryKey: ['mini-games'] });
+    queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
+  };
+
+  useEffect(() => {
+    const status = (stateQuery.error as any)?.response?.status;
+    if (stateQuery.isError && status === 404 && selectedGameId) {
+      removeDeletedGameFromCache(selectedGameId);
+      setSelectedGameId(null);
+    }
+  }, [stateQuery.isError, stateQuery.error, selectedGameId]);
 
   const showApiError = (error: any) => {
     showToast({
@@ -215,7 +239,14 @@ export default function MiniGameScreen() {
       });
       invalidateGame();
     },
-    onError: showApiError,
+    onError: (error: any) => {
+      const status = error?.response?.status || error?.status;
+      if (status === 404 && selectedGameId) {
+        removeDeletedGameFromCache(selectedGameId);
+        setSelectedGameId(null);
+      }
+      showApiError(error);
+    },
   });
 
   const controlMutation = useMutation({
@@ -229,10 +260,21 @@ export default function MiniGameScreen() {
     },
     onSuccess: (_, action) => {
       showToast({ message: action === 'delete' ? 'Đã xóa mini game' : 'Đã cập nhật mini game', type: 'success' });
-      if (action === 'delete') setSelectedGameId(null);
+      if (action === 'delete' && selectedGameId) {
+        removeDeletedGameFromCache(selectedGameId);
+        setSelectedGameId(null);
+        return;
+      }
       invalidateGame();
     },
-    onError: showApiError,
+    onError: (error: any) => {
+      const status = error?.response?.status || error?.status;
+      if (status === 404 && selectedGameId) {
+        removeDeletedGameFromCache(selectedGameId);
+        setSelectedGameId(null);
+      }
+      showApiError(error);
+    },
   });
 
   const updateOption = (index: number, value: string) => {

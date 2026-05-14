@@ -473,8 +473,23 @@ async def delete_mini_game(game_id: str, current_user: dict = Depends(get_curren
     await _ensure_feature_available(current_user)
     game = await _get_game_or_404(game_id, current_user)
     _ensure_can_manage_game(game, current_user)
-    await db.mini_games.update_one({"_id": game["_id"]}, {"$set": {"isDeleted": True, "deletedAt": _now()}})
-    return {"status": "success", "message": "Mini game da duoc xoa"}
+    now = _now()
+    answers_result = await db.mini_game_answers.delete_many({"gameId": game_id})
+    await db.mini_games.update_one(
+        {"_id": game["_id"]},
+        {"$set": {
+            "isDeleted": True,
+            "status": "FINISHED",
+            "questionStartedAt": None,
+            "deletedAt": now,
+            "updatedAt": now,
+        }},
+    )
+    return {
+        "status": "success",
+        "message": "Mini game da duoc xoa",
+        "deletedAnswers": answers_result.deleted_count,
+    }
 
 
 @router.get("/{game_id}/state")
