@@ -109,7 +109,6 @@ const emptyQuestion = () => ({
   options: ['', '', '', ''],
   correctOptionIndex: 0,
   timeLimitSeconds: '20',
-  points: '1000',
 });
 
 export default function MiniGameScreen() {
@@ -157,10 +156,17 @@ export default function MiniGameScreen() {
   const games = gamesQuery.data?.items || [];
 
   useEffect(() => {
-    if (!selectedGameId && games.length > 0) {
+    if (games.length === 0) {
+      if (!isAdmin && selectedGameId) {
+        setSelectedGameId(null);
+      }
+      return;
+    }
+
+    if (!selectedGameId || !games.some((game) => game.id === selectedGameId)) {
       setSelectedGameId(games[0].id);
     }
-  }, [games, selectedGameId]);
+  }, [games, isAdmin, selectedGameId]);
 
   const stateQuery = useQuery({
     queryKey: ['mini-game-state', selectedGameId],
@@ -310,8 +316,6 @@ export default function MiniGameScreen() {
     const prompt = draftQuestion.prompt.trim();
     const options = draftQuestion.options.map((option) => option.trim()).filter(Boolean);
     const timeLimitSeconds = Number(draftQuestion.timeLimitSeconds);
-    const points = Number(draftQuestion.points);
-
     if (!prompt || options.length < 2) {
       showToast({ message: 'Câu hỏi cần có nội dung và ít nhất 2 đáp án', type: 'error' });
       return;
@@ -332,7 +336,7 @@ export default function MiniGameScreen() {
         options,
         correctOptionIndex: draftQuestion.correctOptionIndex,
         timeLimitSeconds,
-        points: Number.isFinite(points) && points >= 100 ? points : 1000,
+        points: 1000,
       },
     ]);
     setDraftQuestion(emptyQuestion());
@@ -388,33 +392,37 @@ export default function MiniGameScreen() {
     );
   };
 
-  const renderLeaderboard = () => (
-    <View style={styles.panel}>
-      <View style={styles.panelTitleRow}>
-        <Trophy color="#f59e0b" size={20} />
-        <View style={styles.panelTitleTextWrap}>
-          <Text style={styles.panelTitle}>Bảng xếp hạng</Text>
-          {!!selectedGame?.title && <Text style={styles.panelSubtitle} numberOfLines={1}>{selectedGame.title}</Text>}
-        </View>
-      </View>
-      {leaderboard.length === 0 ? (
-        <Text style={styles.emptyText}>Chưa có người chơi</Text>
-      ) : (
-        leaderboard.map((row) => (
-          <View key={row.userId} style={styles.leaderboardRow}>
-            <View style={[styles.rankBadge, row.rank <= 3 && styles.rankBadgeTop]}>
-              <Text style={[styles.rankText, row.rank <= 3 && styles.rankTextTop]}>{row.rank}</Text>
-            </View>
-            <View style={styles.leaderboardUser}>
-              <Text style={styles.leaderboardName} numberOfLines={1}>{row.userName}</Text>
-              <Text style={styles.leaderboardMeta}>{row.correctCount}/{row.answeredCount} đúng</Text>
-            </View>
-            <Text style={styles.scoreText}>{row.score}</Text>
+  const renderLeaderboard = () => {
+    if (!isAdmin) return null;
+
+    return (
+      <View style={styles.panel}>
+        <View style={styles.panelTitleRow}>
+          <Trophy color="#f59e0b" size={20} />
+          <View style={styles.panelTitleTextWrap}>
+            <Text style={styles.panelTitle}>Bảng xếp hạng</Text>
+            {!!selectedGame?.title && <Text style={styles.panelSubtitle} numberOfLines={1}>{selectedGame.title}</Text>}
           </View>
-        ))
-      )}
-    </View>
-  );
+        </View>
+        {leaderboard.length === 0 ? (
+          <Text style={styles.emptyText}>Chưa có người chơi</Text>
+        ) : (
+          leaderboard.map((row) => (
+            <View key={row.userId} style={styles.leaderboardRow}>
+              <View style={[styles.rankBadge, row.rank <= 3 && styles.rankBadgeTop]}>
+                <Text style={[styles.rankText, row.rank <= 3 && styles.rankTextTop]}>{row.rank}</Text>
+              </View>
+              <View style={styles.leaderboardUser}>
+                <Text style={styles.leaderboardName} numberOfLines={1}>{row.userName}</Text>
+                <Text style={styles.leaderboardMeta}>{row.correctCount}/{row.answeredCount} đúng</Text>
+              </View>
+              <Text style={styles.scoreText}>{row.score}</Text>
+            </View>
+          ))
+        )}
+      </View>
+    );
+  };
 
   const renderStats = () => {
     if (!isAdmin || !stats) return null;
@@ -485,7 +493,7 @@ export default function MiniGameScreen() {
       return (
         <View style={styles.panel}>
           <Text style={styles.emptyTitle}>Chưa có mini game</Text>
-          <Text style={styles.emptyText}>Mini game sẽ hiển thị khi ban tổ chức tạo sự kiện.</Text>
+          <Text style={styles.emptyText}>Mini game sẽ hiển thị khi ban tổ chức bắt đầu sự kiện.</Text>
         </View>
       );
     }
@@ -643,14 +651,10 @@ export default function MiniGameScreen() {
               keyboardType="numeric"
               placeholderTextColor="#94a3b8"
             />
-            <TextInput
-              style={[styles.input, styles.compactInput]}
-              value={draftQuestion.points}
-              onChangeText={(value) => setDraftQuestion((current) => ({ ...current, points: value.replace(/[^0-9]/g, '') }))}
-              placeholder="Điểm câu hỏi"
-              keyboardType="numeric"
-              placeholderTextColor="#94a3b8"
-            />
+            <View style={styles.scoreHintBox}>
+              <Text style={styles.scoreHintLabel}>Điểm tối đa</Text>
+              <Text style={styles.scoreHintValue}>1000</Text>
+            </View>
             <TouchableOpacity style={[styles.addButton, !isDesktop && styles.addButtonMobile]} onPress={addQuestion}>
               <Plus color="#ffffff" size={17} />
               <Text style={styles.addButtonText}>Thêm câu</Text>
@@ -831,6 +835,9 @@ const styles = StyleSheet.create({
   optionInput: { flex: 1 },
   compactRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   compactInput: { flex: 1, minWidth: 82 },
+  scoreHintBox: { minHeight: 44, minWidth: 112, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#f8fafc', justifyContent: 'center' },
+  scoreHintLabel: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  scoreHintValue: { color: '#0f172a', fontSize: 15, fontWeight: '900', marginTop: 1 },
   addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.primary, borderRadius: 9, paddingHorizontal: 12, minHeight: 44 },
   addButtonMobile: { width: '100%' },
   addButtonText: { color: '#ffffff', fontWeight: '800', fontSize: 13 },

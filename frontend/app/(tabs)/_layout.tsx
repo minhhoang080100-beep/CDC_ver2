@@ -38,6 +38,14 @@ export default function TabsLayout() {
       showToast({ message: msg.title, type: 'success' });
     }
 
+    if (msg.type === 'mini_game_event') {
+      queryClient.invalidateQueries({ queryKey: ['mini-games'] });
+      queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
+      queryClient.invalidateQueries({ queryKey: ['mini-game-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['mini-game-state'] });
+      return;
+    }
+
     const typeToQuery: Record<string, string[]> = {
       new_post: ['posts'],
       new_activity: ['activities'],

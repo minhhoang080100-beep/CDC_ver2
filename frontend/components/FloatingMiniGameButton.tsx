@@ -13,6 +13,11 @@ type MiniGameSettings = {
   enabled: boolean;
 };
 
+type ActiveMiniGame = {
+  id: string;
+  status: 'DRAFT' | 'WAITING' | 'LIVE' | 'FINISHED';
+} | null;
+
 export default function FloatingMiniGameButton() {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,6 +33,16 @@ export default function FloatingMiniGameButton() {
     },
     enabled: !!token,
     refetchInterval: 30000,
+  });
+
+  const activeQuery = useQuery({
+    queryKey: ['mini-game-active'],
+    queryFn: async () => {
+      const response = await api.get('/api/mini-games/active');
+      return response.data as ActiveMiniGame;
+    },
+    enabled: !!token && settingsQuery.data?.enabled === true,
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
@@ -49,7 +64,7 @@ export default function FloatingMiniGameButton() {
     return () => animation.stop();
   }, [pulse]);
 
-  if (!settingsQuery.data?.enabled || pathname.includes('mini-game')) {
+  if (!settingsQuery.data?.enabled || activeQuery.data?.status !== 'LIVE' || pathname.includes('mini-game')) {
     return null;
   }
 

@@ -9,6 +9,7 @@ from app.core.database import db
 from app.core.permissions import build_content_filter, can_manage_content, resolve_target_departments
 from app.core.security import get_current_user, validate_object_id
 from app.models.mini_game import MiniGameAnswerCreate, MiniGameCreate, MiniGameSettingsUpdate, MiniGameUpdate
+from app.routers.websocket import manager
 
 
 router = APIRouter()
@@ -16,6 +17,7 @@ router = APIRouter()
 
 ADMIN_ONLY = "Chi co quan tri vien/BCH moi co quyen thuc hien thao tac nay"
 SETTINGS_KEY = "mini_game"
+MAX_QUESTION_SCORE = 1000
 
 
 def _now() -> datetime:
@@ -46,6 +48,24 @@ def _is_admin(user: dict) -> bool:
 
 def _is_super_admin(user: dict) -> bool:
     return user.get("role") == "SUPER_ADMIN"
+
+
+async def _broadcast_mini_game_event(event: str, game: Optional[dict] = None, title: Optional[str] = None) -> None:
+    payload = {
+        "type": "mini_game_event",
+        "data": {
+            "event": event,
+        },
+    }
+    if title:
+        payload["title"] = title
+    if game:
+        payload["data"].update({
+            "gameId": str(game["_id"]),
+            "status": game.get("status"),
+            "activeQuestionIndex": game.get("activeQuestionIndex", -1),
+        })
+    await manager.broadcast(payload)
 
 
 async def _get_settings() -> dict:
@@ -136,6 +156,7 @@ async def _auto_advance_if_expired(game: dict) -> dict:
     )
     if result.modified_count:
         updated = await db.mini_games.find_one({"_id": game["_id"]})
+        await _broadcast_mini_game_event("auto_next", updated or game)
         return updated or game
 
     updated = await db.mini_games.find_one({"_id": game["_id"]})
@@ -148,7 +169,7 @@ def _game_filter_for_user(game_id: Optional[str], current_user: dict) -> dict:
         query["_id"] = validate_object_id(game_id, "Mini game ID")
 
     if not _is_admin(current_user):
-        query["status"] = {"$in": ["WAITING", "LIVE", "FINISHED"]}
+        query["status"] = "LIVE"
         visibility = build_content_filter(current_user)
         if visibility:
             query = {"$and": [query, visibility]}
@@ -207,6 +228,11 @@ def _ensure_can_manage_game(game: dict, current_user: dict) -> None:
         raise HTTPException(status_code=403, detail=ADMIN_ONLY)
     if current_user["role"] != "SUPER_ADMIN" and game.get("createdBy") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="Ban khong co quyen dieu khien mini game nay")
+
+
+def _ensure_can_view_dashboard(current_user: dict) -> None:
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail=ADMIN_ONLY)
 
 
 async def _build_leaderboard(game_id: str, limit: int = 10) -> list:
@@ -324,7 +350,7 @@ async def get_active_mini_game(current_user: dict = Depends(get_current_user)):
     live_query = {**query, "status": "LIVE"}
     waiting_query = {**query, "status": "WAITING"}
     game = await db.mini_games.find_one(live_query, sort=[("createdAt", -1)])
-    if not game:
+    if not game and _is_admin(current_user):
         game = await db.mini_games.find_one(waiting_query, sort=[("createdAt", -1)])
     if not game:
         return None
@@ -359,6 +385,7 @@ async def update_mini_game_settings(
         }},
         upsert=True,
     )
+    await _broadcast_mini_game_event("settings_updated")
     return {
         "enabled": payload.enabled,
         "updatedAt": _serialize_datetime(now),
@@ -392,6 +419,7 @@ async def create_mini_game(payload: MiniGameCreate, current_user: dict = Depends
     }
     result = await db.mini_games.insert_one(data)
     data["_id"] = result.inserted_id
+    await _broadcast_mini_game_event("created", data)
     return await _serialize_game(data, current_user)
 
 
@@ -428,6 +456,7 @@ async def update_mini_game(game_id: str, payload: MiniGameUpdate, current_user: 
     update_data["updatedAt"] = _now()
     await db.mini_games.update_one({"_id": game["_id"]}, {"$set": update_data})
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("updated", updated or game)
     return await _serialize_game(updated, current_user)
 
 
@@ -446,6 +475,7 @@ async def start_mini_game(game_id: str, current_user: dict = Depends(get_current
         {"$set": {"status": "LIVE", "activeQuestionIndex": 0, "questionStartedAt": now, "updatedAt": now}},
     )
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("started", updated or game, title="Mini Game da bat dau")
     return await _serialize_game(updated, current_user)
 
 
@@ -465,6 +495,7 @@ async def next_question(game_id: str, current_user: dict = Depends(get_current_u
 
     await db.mini_games.update_one({"_id": game["_id"]}, {"$set": update})
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("next", updated or game)
     return await _serialize_game(updated, current_user)
 
 
@@ -489,6 +520,7 @@ async def replay_question(game_id: str, current_user: dict = Depends(get_current
         {"$set": {"questionStartedAt": now, "updatedAt": now}},
     )
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("replayed", updated or game)
     return await _serialize_game(updated, current_user)
 
 
@@ -503,6 +535,7 @@ async def finish_mini_game(game_id: str, current_user: dict = Depends(get_curren
         {"$set": {"status": "FINISHED", "questionStartedAt": None, "updatedAt": now}},
     )
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("finished", updated or game)
     return await _serialize_game(updated, current_user)
 
 
@@ -518,6 +551,7 @@ async def reset_mini_game(game_id: str, current_user: dict = Depends(get_current
         {"$set": {"status": "WAITING", "activeQuestionIndex": -1, "questionStartedAt": None, "updatedAt": now}},
     )
     updated = await db.mini_games.find_one({"_id": game["_id"]})
+    await _broadcast_mini_game_event("reset", updated or game)
     return await _serialize_game(updated, current_user)
 
 
@@ -538,6 +572,7 @@ async def delete_mini_game(game_id: str, current_user: dict = Depends(get_curren
             "updatedAt": now,
         }},
     )
+    await _broadcast_mini_game_event("deleted", game)
     return {
         "status": "success",
         "message": "Mini game da duoc xoa",
@@ -569,10 +604,11 @@ async def get_mini_game_state(game_id: str, current_user: dict = Depends(get_cur
             "questionIndex": active_index,
         })
 
-    leaderboard = await _build_leaderboard(game_id_str, limit=10)
-    stats = await _build_game_stats(game) if _is_admin(current_user) else None
+    can_view_dashboard = _is_admin(current_user)
+    leaderboard = await _build_leaderboard(game_id_str, limit=10) if can_view_dashboard else []
+    stats = await _build_game_stats(game) if can_view_dashboard else None
     return {
-        "game": await _serialize_game(game, current_user, include_questions=_is_admin(current_user)),
+        "game": await _serialize_game(game, current_user, include_questions=can_view_dashboard),
         "serverTime": _serialize_datetime(_now()),
         "activeQuestion": active_question,
         "remainingSeconds": remaining_seconds,
@@ -618,10 +654,10 @@ async def answer_question(game_id: str, payload: MiniGameAnswerCreate, current_u
 
     correct_index = int(question.get("correctOptionIndex"))
     is_correct = payload.optionIndex == correct_index
-    base_points = int(question.get("points", 1000))
     if is_correct:
         remaining_ratio = max(0, min(1, (time_limit - elapsed_seconds) / time_limit))
-        score = base_points + int(base_points * 0.5 * remaining_ratio)
+        max_points = min(int(question.get("points", MAX_QUESTION_SCORE)), MAX_QUESTION_SCORE)
+        score = int(round(max_points * remaining_ratio))
     else:
         score = 0
 
@@ -670,6 +706,7 @@ async def get_leaderboard(
 ):
     await _ensure_feature_available(current_user)
     game = await _get_game_or_404(game_id, current_user)
+    _ensure_can_view_dashboard(current_user)
     return {
         "gameId": str(game["_id"]),
         "leaderboard": await _build_leaderboard(str(game["_id"]), limit=limit),
@@ -680,5 +717,5 @@ async def get_leaderboard(
 async def get_mini_game_stats(game_id: str, current_user: dict = Depends(get_current_user)):
     await _ensure_feature_available(current_user)
     game = await _get_game_or_404(game_id, current_user)
-    _ensure_can_manage_game(game, current_user)
+    _ensure_can_view_dashboard(current_user)
     return await _build_game_stats(game)

@@ -16,7 +16,7 @@ class MiniGameQuestion(BaseModel):
     options: List[str] = Field(..., min_length=2, max_length=6)
     correctOptionIndex: int = Field(..., ge=0)
     timeLimitSeconds: int = Field(default=20, ge=5, le=120)
-    points: int = Field(default=1000, ge=100, le=10000)
+    points: int = Field(default=1000, ge=100, le=1000)
 
 
 class MiniGameCreate(BaseModel):
