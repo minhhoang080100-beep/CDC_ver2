@@ -210,7 +210,14 @@ export default function MiniGameScreen() {
     refetchInterval: 1000,
   });
 
-  const selectedGame = stateQuery.data?.game || games.find((game) => game.id === selectedGameId);
+  const stateGame = stateQuery.data?.game;
+  const selectedGame = stateGame || games.find((game) => game.id === selectedGameId);
+  const liveStateReady = Boolean(
+    stateGame &&
+    stateGame.id === selectedGameId &&
+    stateGame.status === 'LIVE' &&
+    stateGame.questionStartedAt
+  );
   const quizQuestions = selectedGame?.questions || [];
   const currentQuestion = quizQuestions[currentQuestionIndex];
   const myAnswers = stateQuery.data?.myAnswers || [];
@@ -226,13 +233,17 @@ export default function MiniGameScreen() {
   }, [myAnswers]);
 
   const remainingSeconds = useMemo(() => {
-    const serverRemaining = stateQuery.data?.remainingSeconds || 0;
-    if (selectedGame?.status !== 'LIVE') {
+    if (!stateQuery.data || stateQuery.data.game?.id !== selectedGameId) {
+      return selectedGame?.status === 'LIVE' ? selectedGame.totalTimeSeconds || 0 : 0;
+    }
+
+    const serverRemaining = stateQuery.data.remainingSeconds || 0;
+    if (stateQuery.data.game?.status !== 'LIVE') {
       return serverRemaining;
     }
     const elapsedSinceFetch = Math.max(0, Math.floor((Date.now() - stateQuery.dataUpdatedAt) / 1000));
     return Math.max(0, serverRemaining - elapsedSinceFetch);
-  }, [selectedGame?.status, stateQuery.data?.remainingSeconds, stateQuery.dataUpdatedAt, tick]);
+  }, [selectedGame?.status, selectedGame?.totalTimeSeconds, selectedGameId, stateQuery.data, stateQuery.dataUpdatedAt, tick]);
 
   useEffect(() => {
     setCurrentQuestionIndex(0);
@@ -374,6 +385,7 @@ export default function MiniGameScreen() {
     if (
       selectedGame?.status === 'LIVE' &&
       selectedGameId &&
+      liveStateReady &&
       remainingSeconds <= 0 &&
       !mySubmission &&
       !answerMutation.isPending &&
@@ -383,7 +395,7 @@ export default function MiniGameScreen() {
       setAutoSubmittedGameId(selectedGameId);
       submitMutation.mutate();
     }
-  }, [answerMutation.isPending, autoSubmittedGameId, mySubmission, remainingSeconds, selectedGame?.status, selectedGameId, submitMutation]);
+  }, [answerMutation.isPending, autoSubmittedGameId, liveStateReady, mySubmission, remainingSeconds, selectedGame?.status, selectedGameId, submitMutation]);
 
   const updateOption = (index: number, value: string) => {
     setDraftQuestion((current) => {
@@ -623,14 +635,19 @@ export default function MiniGameScreen() {
       );
     }
 
+    if (selectedGame.status === 'LIVE' && !liveStateReady) {
+      return <View style={styles.panel}><ActivityIndicator color={Colors.primary} /></View>;
+    }
+
     if (!currentQuestion) {
       return <View style={styles.panel}><Text style={styles.emptyTitle}>Chưa có câu hỏi trong bài thi</Text></View>;
     }
 
-    const isTimeUp = remainingSeconds <= 0;
+    const isTimeUp = liveStateReady && remainingSeconds <= 0;
     const selectedOption = myAnswersMap[currentQuestionIndex];
     const answeredCount = Object.keys(myAnswersMap).length;
     const isLastQuestion = currentQuestionIndex >= quizQuestions.length - 1;
+    const canSubmit = answeredCount > 0 && !answerMutation.isPending && !submitMutation.isPending && !isTimeUp;
 
     if (mySubmission) {
       return (
@@ -704,8 +721,8 @@ export default function MiniGameScreen() {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.submitButton, (answerMutation.isPending || submitMutation.isPending || isTimeUp) && styles.disabled]}
-              disabled={answerMutation.isPending || submitMutation.isPending || isTimeUp}
+              style={[styles.submitButton, !canSubmit && styles.disabled]}
+              disabled={!canSubmit}
               onPress={() => submitMutation.mutate()}
             >
               {(answerMutation.isPending || submitMutation.isPending) ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>Hoàn thành</Text>}

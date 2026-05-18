@@ -775,9 +775,10 @@ async def answer_question(game_id: str, payload: MiniGameAnswerCreate, current_u
 async def submit_mini_game(game_id: str, current_user: dict = Depends(get_current_user)):
     await _ensure_feature_available(current_user)
     game = await _get_game_or_404(game_id, current_user)
+    game_id_str = str(game["_id"])
     if game.get("status") != "LIVE":
         existing = await db.mini_game_submissions.find_one({
-            "gameId": str(game["_id"]),
+            "gameId": game_id_str,
             "userId": current_user["_id"],
         })
         if existing:
@@ -792,6 +793,19 @@ async def submit_mini_game(game_id: str, current_user: dict = Depends(get_curren
                 "elapsedSeconds": existing.get("elapsedSeconds"),
             }
         raise HTTPException(status_code=400, detail="Mini game chua bat dau hoac da ket thuc")
+
+    started_at = game.get("questionStartedAt")
+    if not started_at:
+        raise HTTPException(status_code=400, detail="Bai thi chua duoc bat dau")
+
+    elapsed_seconds = max(0, (_now() - _as_utc(started_at)).total_seconds())
+    total_seconds = _total_time_seconds(game)
+    answer_count = await db.mini_game_answers.count_documents({
+        "gameId": game_id_str,
+        "userId": current_user["_id"],
+    })
+    if answer_count == 0 and elapsed_seconds < total_seconds:
+        raise HTTPException(status_code=400, detail="Vui long tra loi it nhat mot cau truoc khi nop bai")
 
     submission = await _submit_game_for_user(game, current_user)
     await _broadcast_mini_game_event("submitted", game)
