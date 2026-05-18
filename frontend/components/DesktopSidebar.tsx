@@ -160,9 +160,13 @@ function DesktopSidebar({ width }: Props) {
                 <View style={styles.divider} />
                 <View style={styles.userInfo}>
                     <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>
-                            {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                        </Text>
+                        {user?.avatar ? (
+                            <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+                        ) : (
+                            <Text style={styles.avatarText}>
+                                {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                            </Text>
+                        )}
                     </View>
                     <View style={styles.userDetails}>
                         <Text style={styles.userName} numberOfLines={1}>{user?.fullName}</Text>
@@ -308,6 +312,12 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     avatarText: {
         fontSize: 16,

@@ -12,6 +12,7 @@ from app.core.security import (
 )
 from app.models.user import UserLogin, ChangePassword, UserCreate
 from app.routers.websocket import manager
+from app.core.cloudinary_utils import delete_cloudinary_asset
 
 router = APIRouter()
 
@@ -297,7 +298,11 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 
 @router.put("/me")
-async def update_me(data: SelfProfileUpdate, current_user: dict = Depends(get_current_user)):
+async def update_me(
+    data: SelfProfileUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+):
     user_id = validate_object_id(current_user["_id"])
     account_updates = {}
     profile_updates = {}
@@ -309,7 +314,11 @@ async def update_me(data: SelfProfileUpdate, current_user: dict = Depends(get_cu
         account_updates["fullName"] = full_name
 
     if data.avatar is not None:
-        account_updates["avatar"] = _normalize_blank(data.avatar)
+        new_avatar = _normalize_blank(data.avatar)
+        old_avatar = current_user.get("avatar")
+        if old_avatar and old_avatar != new_avatar:
+            background_tasks.add_task(delete_cloudinary_asset, old_avatar)
+        account_updates["avatar"] = new_avatar
 
     new_cccd = current_user.get("cccdNumber")
     if data.cccdNumber is not None:

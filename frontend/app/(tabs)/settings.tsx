@@ -10,6 +10,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -171,7 +172,11 @@ export default function SettingsScreen() {
             <View style={styles.userInfoCard}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
-                  <User color="#ffffff" size={40} />
+                  {user.avatar ? (
+                    <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+                  ) : (
+                    <User color="#ffffff" size={40} />
+                  )}
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{user.fullName}</Text>
@@ -406,6 +411,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   userInfo: {
     flex: 1,

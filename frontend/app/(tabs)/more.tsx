@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     ScrollView,
     Platform,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -123,9 +124,13 @@ export default function MoreScreen() {
                 {/* User Card */}
                 <View style={styles.userCard}>
                     <View style={styles.userAvatar}>
-                        <Text style={styles.userAvatarText}>
-                            {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-                        </Text>
+                        {user?.avatar ? (
+                            <Image source={{ uri: user.avatar }} style={styles.userAvatarImage} />
+                        ) : (
+                            <Text style={styles.userAvatarText}>
+                                {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
+                            </Text>
+                        )}
                     </View>
                     <View style={styles.userInfo}>
                         <Text style={styles.userName}>{user?.fullName}</Text>
@@ -214,6 +219,12 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.primary,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    userAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     userAvatarText: {
         fontSize: 20,

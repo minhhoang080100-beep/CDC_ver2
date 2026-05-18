@@ -7,21 +7,26 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   User, ShieldCheck, MapPin, Phone, Calendar,
   Briefcase, Building2, GraduationCap, Heart, Flag,
-  CreditCard, Mail, Edit2, Save, X
+  CreditCard, Mail, Edit2, Save, X, Camera, Trash2
 } from 'lucide-react-native';
 import { Platform, TouchableOpacity } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
+
+const CLOUD_NAME = 'dljjearo2';
+const UPLOAD_PRESET = 'CDCnghetinh';
 
 // QRCode only works on native (uses Node.js modules incompatible with web)
 let QRCode: any = null;
@@ -88,6 +93,7 @@ export default function ProfileScreen() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [editVisible, setEditVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [profileForm, setProfileForm] = useState<ProfileForm>({
     fullName: '',
     cccdNumber: '',
@@ -117,6 +123,85 @@ export default function ProfileScreen() {
       setProfileError('Lỗi khi tải thông tin cá nhân');
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const uploadAvatarToCloudinary = async (base64Img: string): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', base64Img);
+    formData.append('upload_preset', UPLOAD_PRESET);
+    formData.append('folder', 'cong-doan-avatars');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.secure_url) {
+      throw new Error(data.error?.message || 'Upload failed');
+    }
+
+    return data.secure_url;
+  };
+
+  const handlePickAvatar = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          showToast({ message: 'Ứng dụng cần quyền truy cập thư viện ảnh để đổi ảnh đại diện', type: 'error' });
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.75,
+        base64: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        showToast({ message: 'Không thể đọc dữ liệu ảnh đã chọn', type: 'error' });
+        return;
+      }
+
+      setAvatarUploading(true);
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const avatarUrl = await uploadAvatarToCloudinary(`data:${mimeType};base64,${asset.base64}`);
+      await api.put('/api/auth/me', { avatar: avatarUrl });
+      await refreshUser();
+      showToast({ message: 'Đã cập nhật ảnh đại diện', type: 'success' });
+    } catch (error: any) {
+      showToast({
+        message: error?.response?.data?.detail || error?.detail || error?.message || 'Không thể cập nhật ảnh đại diện',
+        type: 'error',
+      });
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user?.avatar || avatarUploading) return;
+
+    setAvatarUploading(true);
+    try {
+      await api.put('/api/auth/me', { avatar: '' });
+      await refreshUser();
+      showToast({ message: 'Đã gỡ ảnh đại diện', type: 'success' });
+    } catch (error: any) {
+      showToast({
+        message: error?.response?.data?.detail || error?.detail || 'Không thể gỡ ảnh đại diện',
+        type: 'error',
+      });
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -268,9 +353,39 @@ export default function ProfileScreen() {
               <View style={styles.cardBody}>
                 {/* Avatar */}
                 <View style={styles.avatarContainer}>
-                  <View style={styles.avatar}>
-                    <User color="#ffffff" size={36} />
-                  </View>
+                  <TouchableOpacity
+                    style={styles.avatarButton}
+                    onPress={handlePickAvatar}
+                    disabled={avatarUploading}
+                    activeOpacity={0.82}
+                  >
+                    <View style={styles.avatar}>
+                      {user.avatar ? (
+                        <Image source={{ uri: user.avatar }} style={styles.avatarImage} />
+                      ) : (
+                        <User color="#ffffff" size={36} />
+                      )}
+                      {avatarUploading && (
+                        <View style={styles.avatarLoadingOverlay}>
+                          <ActivityIndicator size="small" color="#ffffff" />
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.avatarEditBadge}>
+                      <Camera color="#ffffff" size={14} />
+                    </View>
+                  </TouchableOpacity>
+                  {user.avatar && (
+                    <TouchableOpacity
+                      style={styles.removeAvatarButton}
+                      onPress={handleRemoveAvatar}
+                      disabled={avatarUploading}
+                      activeOpacity={0.8}
+                    >
+                      <Trash2 color="#ef4444" size={13} />
+                      <Text style={styles.removeAvatarText}>Gỡ ảnh</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Center info */}
@@ -555,6 +670,10 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     alignItems: 'center',
+    gap: 8,
+  },
+  avatarButton: {
+    position: 'relative',
   },
   avatar: {
     width: 64,
@@ -565,6 +684,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#e0e7ff',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  avatarLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  removeAvatarButton: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  removeAvatarText: {
+    color: '#ef4444',
+    fontSize: 11,
+    fontWeight: '700',
   },
   cardCenterInfo: {
     flex: 1,
