@@ -7,7 +7,7 @@
  *   API requests (/api/)                 -> Network-only, no sensitive cache
  */
 
-const CACHE_NAME = 'cdc-pwa-v5';
+const CACHE_NAME = 'cdc-pwa-v6';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to precache on install
@@ -90,6 +90,15 @@ self.addEventListener('fetch', (event) => {
   }
 
   // ── Static assets (JS, CSS, images, fonts) → Cache-First ──
+  if (
+    request.destination === 'script' ||
+    request.destination === 'style' ||
+    request.destination === 'worker'
+  ) {
+    event.respondWith(networkFirstWithCache(request));
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -134,4 +143,17 @@ function networkOnly(request) {
         headers: { 'Content-Type': 'application/json' },
       }
     ));
+}
+
+/** Network-first with cache fallback for app shell JS/CSS updates. */
+function networkFirstWithCache(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.status === 200) {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+      }
+      return response;
+    })
+    .catch(() => caches.match(request).then((cached) => cached || new Response('Offline', { status: 503 })));
 }

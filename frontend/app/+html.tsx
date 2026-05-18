@@ -93,9 +93,19 @@ export default function Root({ children }: PropsWithChildren) {
                     return;
                   }
 
+                  var hadController = !!navigator.serviceWorker.controller;
+                  var refreshing = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!hadController || refreshing) return;
+                    refreshing = true;
+                    window.location.reload();
+                  });
+
                   navigator.serviceWorker.register('/sw.js')
                     .then(function(reg) {
                       console.log('[PWA] Service Worker registered:', reg.scope);
+                      reg.update();
+                      setInterval(function() { reg.update(); }, 5 * 60 * 1000);
                       // Listen for updates
                       reg.addEventListener('updatefound', function() {
                         var newWorker = reg.installing;
