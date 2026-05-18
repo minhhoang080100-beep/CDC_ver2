@@ -184,6 +184,7 @@ app.include_router(comments.router,      prefix="/api/comments",      tags=["com
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"], include_in_schema=False)
 app.include_router(search.router,        prefix="/api/search",        tags=["search"], include_in_schema=False)
 app.include_router(export.router,        prefix="/api/export",        tags=["export"], include_in_schema=False)
+app.include_router(websocket.router,     prefix="/api",               tags=["websocket"], include_in_schema=False)
 
 
 # ═══════════════════════════════════════════════════════════════
