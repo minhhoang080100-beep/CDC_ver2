@@ -9,6 +9,7 @@ from app.models.post import PostCreate, PostCommentCreate
 from app.core.cloudinary_utils import delete_cloudinary_asset
 from app.services.post_service import (
     get_posts as svc_get_posts,
+    get_post as svc_get_post,
     create_post as svc_create_post,
     update_post as svc_update_post,
     delete_post as svc_delete_post,
@@ -27,6 +28,10 @@ async def get_posts(
     current_user: dict = Depends(get_current_user)
 ):
     return await svc_get_posts(skip, limit, cursor, current_user)
+
+@router.get("/{post_id}")
+async def get_post(post_id: str, current_user: dict = Depends(get_current_user)):
+    return await svc_get_post(post_id, current_user)
 
 @router.post("")
 async def create_post(post: PostCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
@@ -114,6 +119,7 @@ async def add_comment(post_id: str, comment: PostCommentCreate, current_user: di
         "userId": str(current_user["_id"]),
         "userName": current_user["fullName"],
         "userDepartment": current_user["department"],
+        "userAvatar": current_user.get("avatar", ""),
         "content": comment.content,
         "createdAt": datetime.now(timezone.utc)
     }

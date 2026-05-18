@@ -44,6 +44,7 @@ export interface Post {
     authorId: string;
     authorName: string;
     authorDepartment: string;
+    authorAvatar?: string;
     targetDepartments: string[];
     likes: string[];
     comments: PostComment[];
@@ -56,6 +57,7 @@ export interface PostComment {
     userId: string;
     userName: string;
     userDepartment: string;
+    userAvatar?: string;
     content: string;
     createdAt: string;
 }
@@ -66,6 +68,7 @@ export interface Comment {
     userId: string;
     userName: string;
     userDepartment: string;
+    userAvatar?: string;
     content: string;
     createdAt: string;
 }
@@ -77,12 +80,14 @@ export interface Comment {
 export interface ActivityRegistration {
     userId: string;
     userName: string;
+    userAvatar?: string;
     registeredAt: string;
 }
 
 export interface ActivityAttendance {
     userId: string;
     userName: string;
+    userAvatar?: string;
     unionId: string;
     checkedInAt: string;
     checkedInBy: string;
@@ -228,6 +233,7 @@ export interface Feedback {
     content: string;
     senderId?: string;
     senderName?: string;
+    senderAvatar?: string;
     senderDepartment?: string;
     isAnonymous: boolean;
     status: FeedbackStatus;
@@ -239,6 +245,7 @@ export interface Feedback {
 export interface FeedbackReply {
     userId: string;
     userName: string;
+    userAvatar?: string;
     content: string;
     repliedAt: string;
 }

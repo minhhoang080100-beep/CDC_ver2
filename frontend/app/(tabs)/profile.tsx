@@ -24,6 +24,7 @@ import { Colors } from '../../constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../utils/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const CLOUD_NAME = 'dljjearo2';
 const UPLOAD_PRESET = 'CDCnghetinh';
@@ -88,6 +89,7 @@ export default function ProfileScreen() {
   const { isDesktop } = useResponsive();
   const router = useRouter();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -124,6 +126,16 @@ export default function ProfileScreen() {
     } finally {
       setProfileLoading(false);
     }
+  };
+
+  const invalidateAvatarDependentCaches = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['posts'] }),
+      queryClient.invalidateQueries({ queryKey: ['activities'] }),
+      queryClient.invalidateQueries({ queryKey: ['mini-games'] }),
+      queryClient.invalidateQueries({ queryKey: ['mini-game-state'] }),
+      queryClient.invalidateQueries({ queryKey: ['feedback'] }),
+    ]);
   };
 
   const uploadAvatarToCloudinary = async (base64Img: string): Promise<string> => {
@@ -176,6 +188,7 @@ export default function ProfileScreen() {
       const avatarUrl = await uploadAvatarToCloudinary(`data:${mimeType};base64,${asset.base64}`);
       await api.put('/api/auth/me', { avatar: avatarUrl });
       await refreshUser();
+      await invalidateAvatarDependentCaches();
       showToast({ message: 'Đã cập nhật ảnh đại diện', type: 'success' });
     } catch (error: any) {
       showToast({
@@ -194,6 +207,7 @@ export default function ProfileScreen() {
     try {
       await api.put('/api/auth/me', { avatar: '' });
       await refreshUser();
+      await invalidateAvatarDependentCaches();
       showToast({ message: 'Đã gỡ ảnh đại diện', type: 'success' });
     } catch (error: any) {
       showToast({
@@ -247,6 +261,7 @@ export default function ProfileScreen() {
         setProfileError(null);
       }
       await refreshUser();
+      await invalidateAvatarDependentCaches();
       await fetchProfile();
       setEditVisible(false);
       if (response.data?.profileFound === false) {

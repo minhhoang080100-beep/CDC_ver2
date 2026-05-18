@@ -10,6 +10,29 @@ from app.core.push import send_bulk_push_notifications_async
 
 router = APIRouter()
 
+
+async def _build_user_lookup_for_feedback(feedback_list: list) -> dict:
+    user_ids = set()
+    for fb in feedback_list:
+        sender_id = fb.get("senderId")
+        if sender_id:
+            user_ids.add(str(sender_id))
+        for reply in fb.get("replies", []) or []:
+            user_id = reply.get("userId")
+            if user_id:
+                user_ids.add(str(user_id))
+
+    object_ids = [ObjectId(user_id) for user_id in user_ids if ObjectId.is_valid(user_id)]
+    if not object_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": object_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(object_ids))
+    return {str(user["_id"]): user for user in users}
+
+
 @router.get("")
 async def get_feedback(
     skip: int = Query(0, ge=0),
@@ -29,11 +52,21 @@ async def get_feedback(
 
     total = await db.feedback.count_documents(query)
     feedback_list = await db.feedback.find(query).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+    users_by_id = await _build_user_lookup_for_feedback(feedback_list)
 
     items = []
     for fb in feedback_list:
         is_mine = fb.get("senderId") == current_user["_id"]
         is_anon = fb.get("isAnonymous", False)
+        sender_user = users_by_id.get(str(fb.get("senderId", "")), {})
+        replies = []
+        for reply in fb.get("replies", []) or []:
+            reply_user = users_by_id.get(str(reply.get("userId", "")), {})
+            replies.append({
+                **reply,
+                "userName": reply_user.get("fullName") or reply.get("userName", ""),
+                "userAvatar": reply_user.get("avatar") or reply.get("userAvatar", ""),
+            })
         
         items.append({
             "id": str(fb["_id"]),
@@ -49,6 +82,13 @@ async def get_feedback(
             "attachedFiles": fb.get("attachedFiles", []),
             "createdAt": fb["createdAt"]
         })
+        if not is_anon or is_mine:
+            items[-1]["senderName"] = sender_user.get("fullName") or items[-1].get("senderName")
+            items[-1]["senderAvatar"] = sender_user.get("avatar") or fb.get("senderAvatar")
+            items[-1]["senderDepartment"] = sender_user.get("department") or items[-1].get("senderDepartment")
+        else:
+            items[-1]["senderAvatar"] = None
+        items[-1]["replies"] = replies
 
     return {"items": items, "total": total, "hasMore": skip + limit < total}
 
@@ -84,6 +124,7 @@ async def create_feedback(feedback: FeedbackCreate, current_user: dict = Depends
         "content": feedback.content,
         "senderId": current_user["_id"],
         "senderName": current_user["fullName"],
+        "senderAvatar": current_user.get("avatar"),
         "senderDepartment": current_user["department"],
         "isAnonymous": feedback.isAnonymous,
         "status": "PENDING",
@@ -126,6 +167,7 @@ async def reply_feedback(
     reply_data = {
         "userId": current_user["_id"],
         "userName": current_user["fullName"],
+        "userAvatar": current_user.get("avatar"),
         "content": reply.content,
         "repliedAt": datetime.now(timezone.utc)
     }

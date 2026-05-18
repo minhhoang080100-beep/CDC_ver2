@@ -33,11 +33,13 @@ interface Feedback {
   subject: string;
   content: string;
   senderName?: string;
+  senderAvatar?: string | null;
   senderDepartment?: string;
   isAnonymous: boolean;
   status: string;
   replies: Array<{
     userName: string;
+    userAvatar?: string | null;
     content: string;
     repliedAt: string;
   }>;
@@ -453,9 +455,20 @@ export default function FeedbackScreen() {
                 <>
                   <Text style={styles.modalSubject}>{selectedFeedback.subject}</Text>
                   <Text style={styles.modalText}>{selectedFeedback.content}</Text>
-                  <Text style={styles.modalSender}>
-                    Từ: {selectedFeedback.isAnonymous ? 'Ẩn danh' : selectedFeedback.senderName}
-                  </Text>
+                  <View style={styles.modalSenderRow}>
+                    <View style={styles.modalSenderAvatar}>
+                      {selectedFeedback.senderAvatar ? (
+                        <Image source={{ uri: selectedFeedback.senderAvatar }} style={styles.modalSenderAvatarImage} />
+                      ) : (
+                        <Text style={styles.modalSenderAvatarText}>
+                          {(selectedFeedback.isAnonymous ? 'A' : selectedFeedback.senderName?.charAt(0)?.toUpperCase()) || 'U'}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={styles.modalSender}>
+                      Từ: {selectedFeedback.isAnonymous ? 'Ẩn danh' : selectedFeedback.senderName}
+                    </Text>
+                  </View>
                   <Text style={styles.modalDate}>
                     {format(new Date(selectedFeedback.createdAt), 'dd/MM/yyyy HH:mm')}
                   </Text>
@@ -489,7 +502,16 @@ export default function FeedbackScreen() {
                       <Text style={styles.repliesTitle}>Trả lời:</Text>
                       {selectedFeedback.replies.map((reply, index) => (
                         <View key={index} style={styles.replyItem}>
-                          <Text style={styles.replyAuthor}>{reply.userName}</Text>
+                          <View style={styles.replyHeader}>
+                            <View style={styles.replyAvatar}>
+                              {reply.userAvatar ? (
+                                <Image source={{ uri: reply.userAvatar }} style={styles.replyAvatarImage} />
+                              ) : (
+                                <Text style={styles.replyAvatarText}>{reply.userName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                              )}
+                            </View>
+                            <Text style={styles.replyAuthor}>{reply.userName}</Text>
+                          </View>
                           <Text style={styles.replyContent}>{reply.content}</Text>
                           <Text style={styles.replyDate}>
                             {format(new Date(reply.repliedAt), 'dd/MM/yyyy HH:mm')}
@@ -763,10 +785,35 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 16,
   },
+  modalSenderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  modalSenderAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  modalSenderAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  modalSenderAvatarText: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   modalSender: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 4,
+    flex: 1,
   },
   modalDate: {
     fontSize: 13,
@@ -790,11 +837,36 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
+  replyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  replyAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#e0f2fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  replyAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  replyAvatarText: {
+    color: '#0891b2',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   replyAuthor: {
     fontSize: 14,
     fontWeight: '600',
     color: '#0891b2',
-    marginBottom: 8,
+    flex: 1,
   },
   replyContent: {
     fontSize: 14,

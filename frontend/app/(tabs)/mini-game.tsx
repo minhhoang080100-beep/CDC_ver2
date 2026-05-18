@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -100,6 +101,7 @@ type MiniGameState = {
     rank: number;
     userId: string;
     userName: string;
+    userAvatar?: string | null;
     score: number;
     baseScore?: number | null;
     speedBonus?: number | null;
@@ -500,6 +502,13 @@ export default function MiniGameScreen() {
               <View key={row.userId} style={styles.leaderboardRow}>
                 <View style={[styles.rankBadge, row.rank <= 3 && styles.rankBadgeTop]}>
                   <Text style={[styles.rankText, row.rank <= 3 && styles.rankTextTop]}>{row.rank}</Text>
+                </View>
+                <View style={styles.leaderboardAvatar}>
+                  {row.userAvatar ? (
+                    <Image source={{ uri: row.userAvatar }} style={styles.leaderboardAvatarImage} />
+                  ) : (
+                    <Text style={styles.leaderboardAvatarText}>{row.userName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                  )}
                 </View>
                 <View style={styles.leaderboardUser}>
                   <Text style={styles.leaderboardName} numberOfLines={1}>{row.userName}</Text>
@@ -941,6 +950,9 @@ const styles = StyleSheet.create({
   rankBadgeTop: { backgroundColor: '#fef3c7' },
   rankText: { fontWeight: '800', color: '#64748b' },
   rankTextTop: { color: '#b45309' },
+  leaderboardAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  leaderboardAvatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  leaderboardAvatarText: { color: '#475569', fontSize: 13, fontWeight: '800' },
   leaderboardUser: { flex: 1, minWidth: 0 },
   leaderboardName: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
   leaderboardMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },

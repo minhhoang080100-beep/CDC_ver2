@@ -9,6 +9,7 @@ import {
     ActivityIndicator,
     ScrollView,
     FlatList,
+    Image,
 } from 'react-native';
 import { X, Users, MessageSquare, Briefcase } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
@@ -59,7 +60,11 @@ export default function SurveyResponsesModal({ visible, survey, onClose }: Surve
                 <View style={styles.responseHeader}>
                     <View style={styles.userInfo}>
                         <View style={styles.avatar}>
-                            <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+                            {item.userAvatar ? (
+                                <Image source={{ uri: item.userAvatar }} style={styles.avatarImage} />
+                            ) : (
+                                <Text style={styles.avatarText}>{name.charAt(0).toUpperCase()}</Text>
+                            )}
                         </View>
                         <View>
                             <Text style={styles.userName}>{name}</Text>
@@ -227,6 +232,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(124, 58, 237, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     avatarText: {
         fontSize: 16,

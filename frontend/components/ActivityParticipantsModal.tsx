@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, Platform } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, Platform, Image } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { X, User, CheckCircle } from 'lucide-react-native';
 import { format } from 'date-fns';
@@ -34,7 +34,11 @@ export default function ActivityParticipantsModal({ visible, onClose, activity }
     return (
       <View style={styles.userRow}>
         <View style={styles.avatar}>
-          <User color="#fff" size={20} />
+          {item.userAvatar ? (
+            <Image source={{ uri: item.userAvatar }} style={styles.avatarImage} />
+          ) : (
+            <User color="#fff" size={20} />
+          )}
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.userName}>{item.userName || item.fullName || 'Người dùng'}</Text>
@@ -165,6 +169,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   userName: {
     fontSize: 15,

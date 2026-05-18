@@ -23,6 +23,86 @@ def _normalize_images(post: dict) -> list:
     return []
 
 
+def _to_object_id(value):
+    value_str = str(value or "")
+    if not ObjectId.is_valid(value_str):
+        return None
+    return ObjectId(value_str)
+
+
+def _collect_post_user_ids(posts: list) -> set:
+    user_ids = set()
+    for post in posts:
+        author_id = post.get("authorId")
+        if author_id:
+            user_ids.add(str(author_id))
+
+        for comment in post.get("comments", []) or []:
+            user_id = comment.get("userId")
+            if user_id:
+                user_ids.add(str(user_id))
+
+    return user_ids
+
+
+async def _build_user_lookup(user_ids: set) -> dict:
+    object_ids = []
+    seen = set()
+    for user_id in user_ids:
+        oid = _to_object_id(user_id)
+        if oid and oid not in seen:
+            object_ids.append(oid)
+            seen.add(oid)
+
+    if not object_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": object_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(object_ids))
+
+    return {str(user["_id"]): user for user in users}
+
+
+def _serialize_comment(comment: dict, users_by_id: dict) -> dict:
+    user_id = str(comment.get("userId", ""))
+    user = users_by_id.get(user_id, {})
+
+    return {
+        **comment,
+        "id": str(comment.get("id") or comment.get("_id") or ""),
+        "userId": user_id,
+        "userName": user.get("fullName") or comment.get("userName", ""),
+        "userDepartment": user.get("department") or comment.get("userDepartment", ""),
+        "userAvatar": user.get("avatar") or comment.get("userAvatar", ""),
+    }
+
+
+def _serialize_post(post: dict, users_by_id: dict) -> dict:
+    author_id = str(post.get("authorId", ""))
+    author = users_by_id.get(author_id, {})
+
+    return {
+        "id": str(post["_id"]),
+        "title": post.get("title", ""),
+        "content": post.get("content", ""),
+        "summary": post.get("summary", ""),
+        "category": post.get("category", "Thông báo"),
+        "images": _normalize_images(post),
+        "videoUrl": post.get("videoUrl"),
+        "authorId": author_id,
+        "authorName": author.get("fullName") or post.get("authorName", "Ẩn danh"),
+        "authorDepartment": author.get("department") or post.get("authorDepartment", ""),
+        "authorAvatar": author.get("avatar") or post.get("authorAvatar", ""),
+        "targetDepartments": post.get("targetDepartments", ["ALL"]),
+        "likes": post.get("likes", []),
+        "comments": [_serialize_comment(comment, users_by_id) for comment in post.get("comments", []) or []],
+        "createdAt": post.get("createdAt", datetime.now(timezone.utc)),
+        "updatedAt": post.get("updatedAt", datetime.now(timezone.utc))
+    }
+
+
 async def get_posts(skip: int, limit: int, cursor, current_user: dict):
     content_filter = build_content_filter(current_user)
     content_filter["isDeleted"] = {"$ne": True}
@@ -51,7 +131,26 @@ async def get_posts(skip: int, limit: int, cursor, current_user: dict):
         "updatedAt": post.get("updatedAt", datetime.now(timezone.utc))
     } for post in posts]
 
+    users_by_id = await _build_user_lookup(_collect_post_user_ids(posts))
+    items = [_serialize_post(post, users_by_id) for post in posts]
+
     return {"items": items, "total": total, "hasMore": skip + limit < total}
+
+
+async def get_post(post_id: str, current_user: dict):
+    from app.core.security import validate_object_id
+    oid = validate_object_id(post_id, "Post ID")
+
+    content_filter = build_content_filter(current_user)
+    content_filter["_id"] = oid
+    content_filter["isDeleted"] = {"$ne": True}
+
+    post = await db.posts.find_one(content_filter)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    users_by_id = await _build_user_lookup(_collect_post_user_ids([post]))
+    return _serialize_post(post, users_by_id)
 
 
 async def create_post(post_data: dict, current_user: dict):
@@ -70,6 +169,7 @@ async def create_post(post_data: dict, current_user: dict):
         "authorId": current_user["_id"],
         "authorName": current_user["fullName"],
         "authorDepartment": current_user["department"],
+        "authorAvatar": current_user.get("avatar", ""),
         "targetDepartments": target_departments,
         "likes": [],
         "comments": [],
@@ -190,4 +290,3 @@ async def notify_new_post(title: str, body: str, target_departments: list, post_
             body=body,
             data={"postId": post_id}
         )
-

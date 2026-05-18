@@ -31,6 +31,7 @@ interface Post {
   authorId: string;
   authorName: string;
   authorDepartment: string;
+  authorAvatar?: string | null;
   targetDepartments: string[];
   likes?: string[];
   comments?: any[];
@@ -203,7 +204,11 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
                                 {/* Meta Info */}
                                 <View style={styles.postHeaderLeft}>
                                   <View style={styles.authorAvatar}>
-                                    <User size={24} color="#bac2c9" />
+                                    {post.authorAvatar ? (
+                                      <Image source={{ uri: post.authorAvatar }} style={styles.authorAvatarImage} />
+                                    ) : (
+                                      <User size={24} color="#bac2c9" />
+                                    )}
                                   </View>
                                   <View>
                                     <Text style={styles.postAuthorName}>{post.authorName}</Text>
@@ -268,7 +273,11 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
                                     {comments.map((cmt: any, idx: number) => (
                                         <View key={idx} style={styles.commentBox}>
                                             <View style={styles.commentAvatar}>
-                                                <User size={16} color="#64748b" />
+                                                {cmt.userAvatar ? (
+                                                    <Image source={{ uri: cmt.userAvatar }} style={styles.commentAvatarImage} />
+                                                ) : (
+                                                    <User size={16} color="#64748b" />
+                                                )}
                                             </View>
                                             <View style={styles.commentContent}>
                                                 <View style={styles.commentAuthorRow}>
@@ -383,6 +392,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#e4e6eb',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    authorAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     postAuthorName: {
         fontSize: 15,
@@ -496,6 +511,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#e2e8f0',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    commentAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     commentContent: {
         flex: 1,

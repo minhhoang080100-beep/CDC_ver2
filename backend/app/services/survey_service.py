@@ -171,6 +171,7 @@ async def submit_survey(survey_id: str, answers: list, current_user: dict):
         "surveyId": survey_id,
         "userId": current_user["_id"],
         "userName": current_user["fullName"] if not survey.get("isAnonymous") else None,
+        "userAvatar": current_user.get("avatar") if not survey.get("isAnonymous") else None,
         "department": current_user["department"],
         "answers": answers,
         "submittedAt": datetime.now(timezone.utc),

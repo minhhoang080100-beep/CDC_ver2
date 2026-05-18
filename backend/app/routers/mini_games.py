@@ -67,6 +67,25 @@ def _is_super_admin(user: dict) -> bool:
     return user.get("role") == "SUPER_ADMIN"
 
 
+async def _build_user_lookup_by_ids(user_ids: set[str]) -> dict:
+    object_ids = []
+    seen = set()
+    for user_id in user_ids:
+        user_id_str = str(user_id or "")
+        if ObjectId.is_valid(user_id_str) and user_id_str not in seen:
+            object_ids.append(ObjectId(user_id_str))
+            seen.add(user_id_str)
+
+    if not object_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": object_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(object_ids))
+    return {str(user["_id"]): user for user in users}
+
+
 async def _broadcast_mini_game_event(event: str, game: Optional[dict] = None, title: Optional[str] = None) -> None:
     payload = {
         "type": "mini_game_event",
@@ -222,6 +241,7 @@ async def _build_leaderboard(game_id: str, limit: int = 10) -> list:
                 "userId": user_id,
                 "userName": answer.get("userName"),
                 "department": answer.get("department"),
+                "userAvatar": answer.get("userAvatar"),
                 "score": 0,
                 "baseScore": 0,
                 "speedBonus": 0,
@@ -248,6 +268,7 @@ async def _build_leaderboard(game_id: str, limit: int = 10) -> list:
                 "userId": user_id,
                 "userName": submission.get("userName"),
                 "department": submission.get("department"),
+                "userAvatar": submission.get("userAvatar"),
                 "score": int(submission.get("score", 0)),
                 "baseScore": int(submission.get("baseScore", 0)),
                 "speedBonus": int(submission.get("speedBonus", 0)),
@@ -267,6 +288,13 @@ async def _build_leaderboard(game_id: str, limit: int = 10) -> list:
         row["questionCount"] = int(submission.get("questionCount", row.get("questionCount", 0)))
         row["submittedAt"] = submission.get("submittedAt")
         row["elapsedSeconds"] = submission.get("elapsedSeconds")
+
+    users_by_id = await _build_user_lookup_by_ids(set(grouped.keys()))
+    for user_id, row in grouped.items():
+        user = users_by_id.get(str(user_id), {})
+        row["userName"] = user.get("fullName") or row.get("userName")
+        row["department"] = user.get("department") or row.get("department")
+        row["userAvatar"] = user.get("avatar") or row.get("userAvatar")
 
     leaderboard = [row for row in grouped.values() if row.get("submittedAt")]
     leaderboard.sort(key=lambda row: (-row["correctCount"], -row["score"], _sort_timestamp(row.get("submittedAt") or row.get("lastAnsweredAt"))))
@@ -355,6 +383,7 @@ async def _build_submission(game: dict, current_user: dict, submitted_at: Option
         "userId": current_user["_id"],
         "userName": current_user.get("fullName"),
         "department": current_user.get("department"),
+        "userAvatar": current_user.get("avatar"),
         "score": score,
         "baseScore": base_score,
         "speedBonus": speed_bonus,
@@ -721,6 +750,7 @@ async def answer_question(game_id: str, payload: MiniGameAnswerCreate, current_u
         "userId": current_user["_id"],
         "userName": current_user.get("fullName"),
         "department": current_user.get("department"),
+        "userAvatar": current_user.get("avatar"),
         "optionIndex": payload.optionIndex,
         "isCorrect": is_correct,
         "score": score,

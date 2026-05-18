@@ -32,6 +32,7 @@ export default function PostDetailScreen() {
     const summary = params.summary as string || '';
     const category = params.category as string || '';
     const authorName = params.authorName as string || 'Không rõ';
+    const authorAvatar = params.authorAvatar as string || '';
     const createdAt = params.createdAt as string || '';
     const postId = params.id as string;
 
@@ -116,7 +117,11 @@ export default function PostDetailScreen() {
                 {/* Meta Info */}
                 <View style={styles.postHeaderLeft}>
                   <View style={styles.authorAvatar}>
-                    <User size={24} color="#bac2c9" />
+                    {authorAvatar ? (
+                        <Image source={{ uri: authorAvatar }} style={styles.authorAvatarImage} />
+                    ) : (
+                        <User size={24} color="#bac2c9" />
+                    )}
                   </View>
                   <View>
                     <Text style={styles.postAuthorName}>{authorName}</Text>
@@ -193,7 +198,11 @@ export default function PostDetailScreen() {
                     {comments.map((cmt: any, idx: number) => (
                         <View key={idx} style={styles.commentBox}>
                             <View style={styles.commentAvatar}>
-                                <User size={16} color="#64748b" />
+                                {cmt.userAvatar ? (
+                                    <Image source={{ uri: cmt.userAvatar }} style={styles.commentAvatarImage} />
+                                ) : (
+                                    <User size={16} color="#64748b" />
+                                )}
                             </View>
                             <View style={styles.commentContent}>
                                 <View style={styles.commentAuthorRow}>
@@ -275,6 +284,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#e4e6eb',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    authorAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     postAuthorName: {
         fontSize: 15,
@@ -404,6 +419,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#e4e6eb',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    commentAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
     },
     commentContent: {
         flex: 1,

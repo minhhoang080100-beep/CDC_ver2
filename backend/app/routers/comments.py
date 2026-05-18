@@ -12,6 +12,26 @@ class CommentCreate(BaseModel):
     content: str
 
 
+async def _build_comment_user_lookup(comments: list) -> dict:
+    user_ids = []
+    seen = set()
+    for comment in comments:
+        user_id = str(comment.get("userId", ""))
+        if ObjectId.is_valid(user_id) and user_id not in seen:
+            user_ids.append(ObjectId(user_id))
+            seen.add(user_id)
+
+    if not user_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": user_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(user_ids))
+
+    return {str(user["_id"]): user for user in users}
+
+
 @router.get("/{post_id}")
 async def get_comments(
     post_id: str,
@@ -28,16 +48,22 @@ async def get_comments(
     comments = await db.comments.find({"postId": post_id}).sort(
         "createdAt", -1
     ).skip(skip).limit(limit).to_list(limit)
+    users_by_id = await _build_comment_user_lookup(comments)
 
-    items = [{
-        "id": str(c["_id"]),
-        "postId": c["postId"],
-        "userId": c["userId"],
-        "userName": c["userName"],
-        "userDepartment": c["userDepartment"],
-        "content": c["content"],
-        "createdAt": c["createdAt"]
-    } for c in comments]
+    items = []
+    for c in comments:
+        user_id = str(c.get("userId", ""))
+        user = users_by_id.get(user_id, {})
+        items.append({
+            "id": str(c["_id"]),
+            "postId": c["postId"],
+            "userId": user_id,
+            "userName": user.get("fullName") or c.get("userName", ""),
+            "userDepartment": user.get("department") or c.get("userDepartment", ""),
+            "userAvatar": user.get("avatar") or c.get("userAvatar", ""),
+            "content": c["content"],
+            "createdAt": c["createdAt"]
+        })
 
     return {"items": items, "total": total, "hasMore": skip + limit < total}
 
@@ -58,6 +84,7 @@ async def create_comment(
         "userId": str(current_user["_id"]),
         "userName": current_user["fullName"],
         "userDepartment": current_user["department"],
+        "userAvatar": current_user.get("avatar", ""),
         "content": comment.content,
         "createdAt": datetime.now(timezone.utc)
     }
@@ -70,6 +97,7 @@ async def create_comment(
         "userId": comment_data["userId"],
         "userName": comment_data["userName"],
         "userDepartment": comment_data["userDepartment"],
+        "userAvatar": comment_data["userAvatar"],
         "content": comment_data["content"],
         "createdAt": comment_data["createdAt"]
     }

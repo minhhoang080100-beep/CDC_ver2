@@ -10,6 +10,7 @@ import {
   Linking,
   RefreshControl,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -370,7 +371,11 @@ export default function LibraryScreen() {
                 >
                   <View pointerEvents="none" style={styles.createPostHeader}>
                     <View style={styles.avatarMini}>
-                      <User size={24} color="#bac2c9" />
+                      {user?.avatar ? (
+                        <Image source={{ uri: user.avatar }} style={styles.avatarMiniImage} />
+                      ) : (
+                        <User size={24} color="#bac2c9" />
+                      )}
                     </View>
                     <View style={styles.createPostInput}>
                       <Text style={styles.createPostPlaceholder}>Thêm tài liệu mới...</Text>
@@ -415,7 +420,8 @@ const styles = StyleSheet.create({
   },
   createPostBox: { backgroundColor: '#ffffff', padding: 16, marginBottom: 8 },
   createPostHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatarMini: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e4e6eb', justifyContent: 'center', alignItems: 'center' },
+  avatarMini: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e4e6eb', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarMiniImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   avatarMiniText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
   createPostInput: { flex: 1, backgroundColor: '#f0f2f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'center' },
   createPostPlaceholder: { color: '#65676B', fontSize: 16 },

@@ -12,6 +12,7 @@ import WebHoverCard from '../WebHoverCard';
 interface Reply {
     userId: string;
     userName: string;
+    userAvatar?: string | null;
     content: string;
     repliedAt: string;
 }
@@ -21,6 +22,7 @@ interface Feedback {
     subject: string;
     content: string;
     senderName: string | null;
+    senderAvatar?: string | null;
     senderDepartment: string | null;
     isAnonymous: boolean;
     status: string;
@@ -145,7 +147,13 @@ export default function FeedbackManagement() {
                     activeOpacity={0.7}
                 >
                     <View style={styles.headerLeft}>
-                        <MessageSquare color={Colors.primary} size={24} />
+                        <View style={styles.senderAvatar}>
+                            {item.senderAvatar ? (
+                                <Image source={{ uri: item.senderAvatar }} style={styles.senderAvatarImage} />
+                            ) : (
+                                <MessageSquare color={Colors.primary} size={22} />
+                            )}
+                        </View>
                         <View style={styles.headerTitleGroup}>
                             <Text style={styles.subject}>{item.subject}</Text>
                             <Text style={styles.sender}>
@@ -200,7 +208,16 @@ export default function FeedbackManagement() {
                                 {item.replies.map((reply, index) => (
                                     <View key={index} style={styles.replyBox}>
                                         <View style={styles.replyHeader}>
-                                            <Text style={styles.replyAuthor}>{reply.userName}</Text>
+                                            <View style={styles.replyAuthorWrap}>
+                                                <View style={styles.replyAvatar}>
+                                                    {reply.userAvatar ? (
+                                                        <Image source={{ uri: reply.userAvatar }} style={styles.replyAvatarImage} />
+                                                    ) : (
+                                                        <Text style={styles.replyAvatarText}>{reply.userName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                                                    )}
+                                                </View>
+                                                <Text style={styles.replyAuthor}>{reply.userName}</Text>
+                                            </View>
                                             <Text style={styles.replyTime}>{new Date(reply.repliedAt).toLocaleString()}</Text>
                                         </View>
                                         <Text style={styles.replyContent}>{reply.content}</Text>
@@ -310,6 +327,8 @@ const styles = StyleSheet.create({
     card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden' },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, alignItems: 'center' },
     headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    senderAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    senderAvatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
     headerTitleGroup: { marginLeft: 12, flex: 1 },
     subject: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
     sender: { fontSize: 12, color: '#64748b', marginTop: 4 },
@@ -322,7 +341,11 @@ const styles = StyleSheet.create({
     content: { fontSize: 15, color: '#334155', lineHeight: 22 },
     repliesSection: { marginTop: 20 },
     replyBox: { backgroundColor: '#e0f2fe', padding: 14, borderRadius: 10, marginTop: 8 },
-    replyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    replyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 10 },
+    replyAuthorWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 },
+    replyAvatar: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#bae6fd', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    replyAvatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    replyAvatarText: { color: '#0369a1', fontSize: 12, fontWeight: '800' },
     replyAuthor: { fontSize: 13, fontWeight: 'bold', color: '#0369a1' },
     replyContent: { fontSize: 14, color: '#0f172a', lineHeight: 20 },
     replyTime: { fontSize: 11, color: '#64748b' },

@@ -19,6 +19,24 @@ from app.routers.websocket import manager
 router = APIRouter()
 
 
+async def _build_user_lookup_by_ids(user_ids: set[str]) -> dict:
+    object_ids = []
+    seen = set()
+    for user_id in user_ids:
+        user_id_str = str(user_id or "")
+        if ObjectId.is_valid(user_id_str) and user_id_str not in seen:
+            object_ids.append(ObjectId(user_id_str))
+            seen.add(user_id_str)
+
+    if not object_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": object_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(object_ids))
+    return {str(user["_id"]): user for user in users}
+
 
 @router.get("")
 async def get_surveys(
@@ -195,6 +213,7 @@ async def get_quiz_leaderboard(survey_id: str, current_user: dict = Depends(get_
             
     leaderboard = []
     max_score = 0
+    users_by_id = await _build_user_lookup_by_ids({str(item.get("userId")) for item in responses if item.get("userId")})
     
     for r in responses:
         score = 0
@@ -224,8 +243,9 @@ async def get_quiz_leaderboard(survey_id: str, current_user: dict = Depends(get_
                     
         leaderboard.append({
             "userId": str(r.get("userId")),
-            "userName": r.get("userName"),
-            "department": r.get("department"),
+            "userName": (users_by_id.get(str(r.get("userId")), {}).get("fullName") if r.get("userName") else None) or r.get("userName"),
+            "userAvatar": (users_by_id.get(str(r.get("userId")), {}).get("avatar") if r.get("userName") else None) or r.get("userAvatar"),
+            "department": users_by_id.get(str(r.get("userId")), {}).get("department") or r.get("department"),
             "submittedAt": r.get("submittedAt"),
             "score": score,
             "guess": guess
@@ -368,17 +388,20 @@ async def get_survey_stats(survey_id: str, current_user: dict = Depends(get_curr
                 {"$match": {"answers.questionIndex": i, "answers.answer": {"$ne": None, "$ne": ""}}},
                 {"$project": {
                     "text": "$answers.answer",
+                    "userId": 1,
                     "userName": 1,
                     "department": 1,
                 }},
                 {"$limit": 500},
             ]
             text_results = await db.survey_responses.aggregate(text_pipeline).to_list(500)
+            users_by_id = await _build_user_lookup_by_ids({str(t.get("userId")) for t in text_results if t.get("userId")})
             q_stat["totalAnswers"] = len(text_results)
             q_stat["textResponses"] = [{
                 "text": t.get("text"),
-                "userName": t.get("userName"),
-                "department": t.get("department"),
+                "userName": (users_by_id.get(str(t.get("userId")), {}).get("fullName") if t.get("userName") else None) or t.get("userName"),
+                "userAvatar": (users_by_id.get(str(t.get("userId")), {}).get("avatar") if t.get("userName") else None) or t.get("userAvatar"),
+                "department": users_by_id.get(str(t.get("userId")), {}).get("department") or t.get("department"),
             } for t in text_results]
 
         question_stats.append(q_stat)
@@ -410,13 +433,15 @@ async def get_survey_responses(
     responses = await db.survey_responses.find(
         {"surveyId": survey_id}
     ).sort("submittedAt", -1).skip(skip).limit(limit).to_list(limit)
+    users_by_id = await _build_user_lookup_by_ids({str(r.get("userId")) for r in responses if r.get("userId")})
 
     return {
         "total": total,
         "items": [{
             "id": str(r["_id"]),
-            "userName": r.get("userName"),
-            "department": r.get("department"),
+            "userName": (users_by_id.get(str(r.get("userId")), {}).get("fullName") if r.get("userName") else None) or r.get("userName"),
+            "userAvatar": (users_by_id.get(str(r.get("userId")), {}).get("avatar") if r.get("userName") else None) or r.get("userAvatar"),
+            "department": users_by_id.get(str(r.get("userId")), {}).get("department") or r.get("department"),
             "answers": r.get("answers", []),
             "submittedAt": r.get("submittedAt"),
         } for r in responses]

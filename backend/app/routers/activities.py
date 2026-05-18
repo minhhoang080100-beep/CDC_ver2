@@ -17,6 +17,41 @@ import time as time_mod
 
 router = APIRouter()
 
+
+async def _build_activity_user_lookup(activities: list) -> dict:
+    user_ids = []
+    seen = set()
+    for activity in activities:
+        people = (activity.get("registrations", []) or []) + (activity.get("attendances", []) or [])
+        for person in people:
+            user_id = str(person.get("userId", ""))
+            if ObjectId.is_valid(user_id) and user_id not in seen:
+                user_ids.append(ObjectId(user_id))
+                seen.add(user_id)
+
+    if not user_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": user_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1, "unionId": 1}
+    ).to_list(len(user_ids))
+    return {str(user["_id"]): user for user in users}
+
+
+def _enrich_activity_person(person: dict, users_by_id: dict) -> dict:
+    user_id = str(person.get("userId", ""))
+    user = users_by_id.get(user_id, {})
+    return {
+        **person,
+        "userId": user_id,
+        "userName": user.get("fullName") or person.get("userName", ""),
+        "userAvatar": user.get("avatar") or person.get("userAvatar", ""),
+        "department": user.get("department") or person.get("department", ""),
+        "unionId": user.get("unionId") or person.get("unionId", ""),
+    }
+
+
 @router.get("")
 async def get_activities(
     skip: int = Query(0, ge=0),
@@ -27,6 +62,7 @@ async def get_activities(
     content_filter["isDeleted"] = {"$ne": True}
     total = await db.activities.count_documents(content_filter)
     activities = await db.activities.find(content_filter).sort("createdAt", -1).skip(skip).limit(limit).to_list(limit)
+    users_by_id = await _build_activity_user_lookup(activities)
     
     items = [{
         "id": str(activity["_id"]),
@@ -38,8 +74,8 @@ async def get_activities(
         "image": activity.get("image"),
         "createdBy": activity["createdBy"],
         "targetDepartments": activity.get("targetDepartments", ["ALL"]),
-        "registrations": activity.get("registrations", []),
-        "attendances": activity.get("attendances", []),
+        "registrations": [_enrich_activity_person(reg, users_by_id) for reg in activity.get("registrations", []) or []],
+        "attendances": [_enrich_activity_person(att, users_by_id) for att in activity.get("attendances", []) or []],
         "checkinEnabled": activity.get("checkinEnabled", False),
         "createdAt": activity["createdAt"]
     } for activity in activities]
@@ -63,6 +99,7 @@ async def register_activity(activity_id: str, current_user: dict = Depends(get_c
         registrations.append({
             "userId": current_user["_id"],
             "userName": current_user["fullName"],
+            "userAvatar": current_user.get("avatar", ""),
             "registeredAt": datetime.now(timezone.utc)
         })
         action = "registered"
@@ -112,6 +149,7 @@ async def checkin_activity(activity_id: str, request: CheckInRequest, current_us
     attendances.append({
         "userId": user_id,
         "userName": attendee["fullName"],
+        "userAvatar": attendee.get("avatar", ""),
         "unionId": union_id,
         "checkedInAt": datetime.now(timezone.utc),
         "checkedInBy": current_user["_id"] # Admin who scanned it
@@ -223,6 +261,7 @@ async def self_checkin(activity_id: str, request: SelfCheckinRequest, current_us
     attendances.append({
         "userId": current_user["_id"],
         "userName": current_user["fullName"],
+        "userAvatar": current_user.get("avatar", ""),
         "unionId": current_user.get("unionId", ""),
         "checkedInAt": datetime.now(timezone.utc),
         "checkedInBy": "self"

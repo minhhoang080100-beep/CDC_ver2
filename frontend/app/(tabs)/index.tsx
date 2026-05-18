@@ -40,6 +40,7 @@ interface Post {
   authorId: string;
   authorName: string;
   authorDepartment: string;
+  authorAvatar?: string | null;
   targetDepartments: string[];
   likes?: string[];
   comments?: any[];
@@ -327,7 +328,11 @@ export default function HomeScreen() {
           <View style={styles.postHeader}>
             <View style={styles.postHeaderLeft}>
               <View style={styles.authorAvatar}>
-                <User size={24} color="#bac2c9" />
+                {item.authorAvatar ? (
+                  <Image source={{ uri: item.authorAvatar }} style={styles.authorAvatarImage} />
+                ) : (
+                  <User size={24} color="#bac2c9" />
+                )}
               </View>
               <View>
                 <Text style={styles.postAuthorName}>{item.authorName}</Text>
@@ -476,7 +481,11 @@ export default function HomeScreen() {
                 >
                   <View style={styles.createPostTop}>
                     <View style={styles.authorAvatar}>
-                       <User size={24} color="#bac2c9" />
+                       {user?.avatar ? (
+                         <Image source={{ uri: user.avatar }} style={styles.authorAvatarImage} />
+                       ) : (
+                         <User size={24} color="#bac2c9" />
+                       )}
                     </View>
                     <View style={styles.createPostInput}>
                       <Text style={styles.createPostInputText}>Bạn đang nghĩ gì vậy?</Text>
@@ -633,6 +642,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#e4e6eb',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  authorAvatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   videoContainer: {
     width: '100%',

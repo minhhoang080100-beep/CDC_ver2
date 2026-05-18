@@ -15,6 +15,25 @@ from app.routers.websocket import manager
 router = APIRouter()
 
 
+async def _build_user_lookup_by_ids(user_ids: set[str]) -> dict:
+    object_ids = []
+    seen = set()
+    for user_id in user_ids:
+        user_id_str = str(user_id or "")
+        if ObjectId.is_valid(user_id_str) and user_id_str not in seen:
+            object_ids.append(ObjectId(user_id_str))
+            seen.add(user_id_str)
+
+    if not object_ids:
+        return {}
+
+    users = await db.users.find(
+        {"_id": {"$in": object_ids}},
+        {"fullName": 1, "department": 1, "avatar": 1}
+    ).to_list(len(object_ids))
+    return {str(user["_id"]): user for user in users}
+
+
 # ═══════════════════════════════════════════════════════════
 #  COURSES
 # ═══════════════════════════════════════════════════════════
@@ -293,6 +312,7 @@ async def enroll_course(course_id: str, current_user=Depends(get_current_user)):
         "courseId": course_id,
         "userId": user_id,
         "userName": current_user.get("fullName", ""),
+        "userAvatar": current_user.get("avatar", ""),
         "department": current_user.get("department", ""),
         "completedLessons": [],
         "quizResult": None,
@@ -313,6 +333,7 @@ async def complete_lesson(course_id: str, lessonIndex: int, current_user=Depends
             "courseId": course_id,
             "userId": user_id,
             "userName": current_user.get("fullName", ""),
+            "userAvatar": current_user.get("avatar", ""),
             "department": current_user.get("department", ""),
             "completedLessons": [lessonIndex],
             "quizResult": None,
@@ -519,12 +540,21 @@ async def get_course_stats(course_id: str, current_user=Depends(get_current_user
                 quiz_passed += 1
 
         enrollments.append({
+            "userId": e.get("userId"),
             "userName": e.get("userName"),
+            "userAvatar": e.get("userAvatar"),
             "department": e.get("department"),
             "progress": progress,
             "completedLessons": len(completed_lessons),
             "quizResult": qr,
         })
+
+    users_by_id = await _build_user_lookup_by_ids({str(e.get("userId")) for e in enrollments if e.get("userId")})
+    for enrollment in enrollments:
+        user = users_by_id.get(str(enrollment.get("userId")), {})
+        enrollment["userName"] = user.get("fullName") or enrollment.get("userName")
+        enrollment["userAvatar"] = user.get("avatar") or enrollment.get("userAvatar")
+        enrollment["department"] = user.get("department") or enrollment.get("department")
 
     return {
         "title": course.get("title"),

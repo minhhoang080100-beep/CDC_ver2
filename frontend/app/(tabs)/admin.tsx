@@ -12,6 +12,7 @@ import {
     ScrollView,
     Modal,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -39,6 +40,7 @@ interface User {
     unionId: string;
     role: string;
     department: string;
+    avatar?: string | null;
     status: string;
 }
 
@@ -364,9 +366,18 @@ export default function AdminScreen() {
         return (
             <WebHoverCard style={styles.userCard}>
                 <View style={styles.userInfo}>
-                    <View style={styles.userMainInfo}>
-                        <Text style={styles.userName}>{item.fullName}</Text>
-                        <Text style={styles.userSubtitle}>@{item.username}</Text>
+                    <View style={styles.userMainRow}>
+                        <View style={styles.accountAvatar}>
+                            {item.avatar ? (
+                                <Image source={{ uri: item.avatar }} style={styles.accountAvatarImage} />
+                            ) : (
+                                <Text style={styles.accountAvatarText}>{item.fullName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                            )}
+                        </View>
+                        <View style={styles.userMainInfo}>
+                            <Text style={styles.userName}>{item.fullName}</Text>
+                            <Text style={styles.userSubtitle}>@{item.username}</Text>
+                        </View>
                     </View>
                     <View style={styles.badgesWrapper}>
                         <View style={styles.roleBadge}>
@@ -611,8 +622,19 @@ export default function AdminScreen() {
                                     return (
                                     <View style={styles.tableRow}>
                                         <View style={[styles.tableCell, { flex: 2, alignItems: 'flex-start' }]}>
-                                            <Text style={styles.userName}>{item.fullName}</Text>
-                                            <Text style={styles.userSubtitle}>@{item.username}</Text>
+                                            <View style={styles.tableUserCell}>
+                                                <View style={styles.accountAvatarSmall}>
+                                                    {item.avatar ? (
+                                                        <Image source={{ uri: item.avatar }} style={styles.accountAvatarImage} />
+                                                    ) : (
+                                                        <Text style={styles.accountAvatarSmallText}>{item.fullName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                                                    )}
+                                                </View>
+                                                <View style={{ minWidth: 0 }}>
+                                                    <Text style={styles.userName}>{item.fullName}</Text>
+                                                    <Text style={styles.userSubtitle}>@{item.username}</Text>
+                                                </View>
+                                            </View>
                                         </View>
                                         <View style={[styles.tableCell, { flex: 1.5, alignItems: 'flex-start' }]}>
                                             <View style={styles.roleBadge}>
@@ -1038,8 +1060,54 @@ const styles = StyleSheet.create({
     userInfo: {
         flex: 1,
     },
-    userMainInfo: {
+    userMainRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
         marginBottom: 8,
+    },
+    userMainInfo: {
+        flex: 1,
+        minWidth: 0,
+    },
+    accountAvatar: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: '#e0f2fe',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    accountAvatarSmall: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: '#e0f2fe',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    accountAvatarImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    accountAvatarText: {
+        color: Colors.primary,
+        fontSize: 16,
+        fontWeight: '800',
+    },
+    accountAvatarSmallText: {
+        color: Colors.primary,
+        fontSize: 13,
+        fontWeight: '800',
+    },
+    tableUserCell: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        minWidth: 0,
     },
     userName: {
         fontSize: 16,

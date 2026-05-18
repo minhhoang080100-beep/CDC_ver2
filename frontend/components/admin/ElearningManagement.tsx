@@ -9,6 +9,7 @@ import {
     TextInput,
     Platform,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -652,9 +653,18 @@ export default function ElearningManagement() {
                                     <Text style={[styles.label, { marginTop: 20 }]}>Chi tiết học viên</Text>
                                     {stats.enrollments?.map((e: any, idx: number) => (
                                         <View key={idx} style={styles.enrollmentRow}>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={styles.enrollName}>{e.userName}</Text>
-                                                <Text style={styles.enrollDept}>{DEPT_LABELS[e.department] || e.department}</Text>
+                                            <View style={styles.enrollUserCell}>
+                                                <View style={styles.enrollAvatar}>
+                                                    {e.userAvatar ? (
+                                                        <Image source={{ uri: e.userAvatar }} style={styles.enrollAvatarImage} />
+                                                    ) : (
+                                                        <Text style={styles.enrollAvatarText}>{e.userName?.charAt(0)?.toUpperCase() || 'U'}</Text>
+                                                    )}
+                                                </View>
+                                                <View style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text style={styles.enrollName}>{e.userName}</Text>
+                                                    <Text style={styles.enrollDept}>{DEPT_LABELS[e.department] || e.department}</Text>
+                                                </View>
                                             </View>
                                             <View style={styles.enrollProgress}>
                                                 <Text style={styles.enrollProgressText}>{e.progress}%</Text>
@@ -797,6 +807,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 12,
         paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
     },
+    enrollUserCell: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    enrollAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#e0f2fe', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    enrollAvatarImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+    enrollAvatarText: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
     enrollName: { fontSize: 14, fontWeight: '600', color: '#0f172a' },
     enrollDept: { fontSize: 12, color: '#64748b' },
     enrollProgress: { alignItems: 'flex-end', minWidth: 80 },

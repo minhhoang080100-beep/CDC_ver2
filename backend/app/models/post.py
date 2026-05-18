@@ -45,6 +45,7 @@ class PostResponse(BaseModel):
     authorId: str
     authorName: str
     authorDepartment: str
+    authorAvatar: Optional[str] = None
     targetDepartments: List[str]
     likes: List[str] = []
     comments: List[dict] = []
