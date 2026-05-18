@@ -24,6 +24,7 @@ class MiniGameCreate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=1000)
     questions: List[MiniGameQuestion] = Field(default_factory=list)
     targetDepartments: List[str] = Field(default_factory=list)
+    totalTimeSeconds: int = Field(default=300, ge=30, le=7200)
 
 
 class MiniGameUpdate(BaseModel):
@@ -32,6 +33,7 @@ class MiniGameUpdate(BaseModel):
     questions: Optional[List[MiniGameQuestion]] = None
     targetDepartments: Optional[List[str]] = None
     status: Optional[MiniGameStatus] = None
+    totalTimeSeconds: Optional[int] = Field(default=None, ge=30, le=7200)
 
 
 class MiniGameAnswerCreate(BaseModel):

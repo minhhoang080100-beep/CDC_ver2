@@ -45,6 +45,10 @@ async def init_db_indexes():
         [("gameId", 1), ("userId", 1), ("questionIndex", 1)], unique=True
     )
     await db.mini_game_answers.create_index([("gameId", 1), ("score", -1)])
+    await db.mini_game_submissions.create_index(
+        [("gameId", 1), ("userId", 1)], unique=True
+    )
+    await db.mini_game_submissions.create_index([("gameId", 1), ("score", -1), ("submittedAt", 1)])
     # Nominations indexes
     await db.nominations.create_index("campaignId")
     await db.campaigns.create_index("createdAt")

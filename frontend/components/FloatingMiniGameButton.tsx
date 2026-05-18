@@ -27,7 +27,7 @@ export default function FloatingMiniGameButton() {
       return response.data as MiniGameSettings;
     },
     enabled: !!token,
-    refetchInterval: 30000,
+    refetchInterval: 3000,
   });
 
   useEffect(() => {
