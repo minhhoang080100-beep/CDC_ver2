@@ -181,10 +181,17 @@ def _serialize_question(question: dict, include_correct: bool) -> dict:
     return data
 
 
-async def _serialize_game(game: dict, current_user: dict, include_questions: bool = True) -> dict:
+async def _serialize_game(
+    game: dict,
+    current_user: dict,
+    include_questions: bool = True,
+    include_participant_count: bool = True,
+) -> dict:
     include_correct = _is_admin(current_user)
     questions = game.get("questions", [])
-    participant_count = len(await db.mini_game_answers.distinct("userId", {"gameId": str(game["_id"])}))
+    participant_count = 0
+    if include_participant_count:
+        participant_count = len(await db.mini_game_answers.distinct("userId", {"gameId": str(game["_id"])}))
 
     item = {
         "id": str(game["_id"]),
@@ -681,7 +688,12 @@ async def get_mini_game_state(game_id: str, current_user: dict = Depends(get_cur
     stats = await _build_game_stats(game) if can_view_dashboard else None
     show_results = can_view_dashboard or game.get("status") == "FINISHED" or bool(my_submission)
     return {
-        "game": await _serialize_game(game, current_user, include_questions=can_view_dashboard or game.get("status") == "LIVE"),
+        "game": await _serialize_game(
+            game,
+            current_user,
+            include_questions=can_view_dashboard or game.get("status") == "LIVE",
+            include_participant_count=can_view_dashboard,
+        ),
         "serverTime": _serialize_datetime(_now()),
         "activeQuestion": None,
         "remainingSeconds": remaining_seconds,
