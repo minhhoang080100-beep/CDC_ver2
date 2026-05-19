@@ -150,13 +150,16 @@ async def _auto_advance_if_expired(game: dict) -> dict:
     return game
 
 
-def _game_filter_for_user(game_id: Optional[str], current_user: dict) -> dict:
+def _game_filter_for_user(game_id: Optional[str], current_user: dict, allowed_statuses: Optional[list[str]] = None) -> dict:
     query = {"isDeleted": {"$ne": True}}
     if game_id:
         query["_id"] = validate_object_id(game_id, "Mini game ID")
 
     if not _is_admin(current_user):
-        query["status"] = "LIVE"
+        if allowed_statuses:
+            query["status"] = {"$in": allowed_statuses}
+        else:
+            query["status"] = "LIVE"
         visibility = build_content_filter(current_user)
         if visibility:
             query = {"$and": [query, visibility]}
@@ -206,8 +209,8 @@ async def _serialize_game(game: dict, current_user: dict, include_questions: boo
     return item
 
 
-async def _get_game_or_404(game_id: str, current_user: dict) -> dict:
-    game = await db.mini_games.find_one(_game_filter_for_user(game_id, current_user))
+async def _get_game_or_404(game_id: str, current_user: dict, allowed_statuses: Optional[list[str]] = None) -> dict:
+    game = await db.mini_games.find_one(_game_filter_for_user(game_id, current_user, allowed_statuses))
     if not game:
         raise HTTPException(status_code=404, detail="Khong tim thay mini game")
     return game
@@ -657,7 +660,7 @@ async def delete_mini_game(game_id: str, current_user: dict = Depends(get_curren
 @router.get("/{game_id}/state")
 async def get_mini_game_state(game_id: str, current_user: dict = Depends(get_current_user)):
     await _ensure_feature_available(current_user)
-    game = await _get_game_or_404(game_id, current_user)
+    game = await _get_game_or_404(game_id, current_user, allowed_statuses=["LIVE", "FINISHED"])
     game = await _auto_advance_if_expired(game)
     game_id_str = str(game["_id"])
     remaining_seconds = 0
@@ -774,8 +777,12 @@ async def answer_question(game_id: str, payload: MiniGameAnswerCreate, current_u
 @router.post("/{game_id}/submit")
 async def submit_mini_game(game_id: str, current_user: dict = Depends(get_current_user)):
     await _ensure_feature_available(current_user)
-    game = await _get_game_or_404(game_id, current_user)
+    game = await _get_game_or_404(game_id, current_user, allowed_statuses=["LIVE", "FINISHED"])
     game_id_str = str(game["_id"])
+    answer_count = await db.mini_game_answers.count_documents({
+        "gameId": game_id_str,
+        "userId": current_user["_id"],
+    })
     if game.get("status") != "LIVE":
         existing = await db.mini_game_submissions.find_one({
             "gameId": game_id_str,
@@ -792,6 +799,18 @@ async def submit_mini_game(game_id: str, current_user: dict = Depends(get_curren
                 "questionCount": existing.get("questionCount"),
                 "elapsedSeconds": existing.get("elapsedSeconds"),
             }
+        if game.get("status") == "FINISHED" and answer_count > 0:
+            submission = await _submit_game_for_user(game, current_user)
+            return {
+                "status": "success",
+                "score": submission.get("score"),
+                "baseScore": submission.get("baseScore"),
+                "speedBonus": submission.get("speedBonus"),
+                "correctCount": submission.get("correctCount"),
+                "answeredCount": submission.get("answeredCount"),
+                "questionCount": submission.get("questionCount"),
+                "elapsedSeconds": submission.get("elapsedSeconds"),
+            }
         raise HTTPException(status_code=400, detail="Mini game chua bat dau hoac da ket thuc")
 
     started_at = game.get("questionStartedAt")
@@ -800,11 +819,7 @@ async def submit_mini_game(game_id: str, current_user: dict = Depends(get_curren
 
     elapsed_seconds = max(0, (_now() - _as_utc(started_at)).total_seconds())
     total_seconds = _total_time_seconds(game)
-    answer_count = await db.mini_game_answers.count_documents({
-        "gameId": game_id_str,
-        "userId": current_user["_id"],
-    })
-    if answer_count == 0 and elapsed_seconds < total_seconds:
+    if answer_count == 0 and elapsed_seconds + 2 < total_seconds:
         raise HTTPException(status_code=400, detail="Vui long tra loi it nhat mot cau truoc khi nop bai")
 
     submission = await _submit_game_for_user(game, current_user)

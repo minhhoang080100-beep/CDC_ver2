@@ -203,10 +203,15 @@ export default function MiniGameScreen() {
   const stateQuery = useQuery({
     queryKey: ['mini-game-state', selectedGameId],
     queryFn: async () => {
+      if (!selectedGameId) throw new Error('Chua chon mini game');
       const response = await api.get(`/api/mini-games/${selectedGameId}/state`);
       return response.data as MiniGameState;
     },
     enabled: !!selectedGameId && (featureEnabled || isSuperAdmin),
+    retry: (failureCount, error: any) => {
+      const status = error?.response?.status || error?.status;
+      return status !== 404 && failureCount < 1;
+    },
     refetchInterval: 1000,
   });
 
@@ -244,6 +249,7 @@ export default function MiniGameScreen() {
     const elapsedSinceFetch = Math.max(0, Math.floor((Date.now() - stateQuery.dataUpdatedAt) / 1000));
     return Math.max(0, serverRemaining - elapsedSinceFetch);
   }, [selectedGame?.status, selectedGame?.totalTimeSeconds, selectedGameId, stateQuery.data, stateQuery.dataUpdatedAt, tick]);
+  const serverRemainingSeconds = stateQuery.data?.game?.id === selectedGameId ? stateQuery.data.remainingSeconds : null;
 
   useEffect(() => {
     setCurrentQuestionIndex(0);
@@ -257,6 +263,7 @@ export default function MiniGameScreen() {
   };
 
   const removeDeletedGameFromCache = (gameId: string) => {
+    void queryClient.cancelQueries({ queryKey: ['mini-game-state', gameId], exact: true });
     queryClient.removeQueries({ queryKey: ['mini-game-state', gameId], exact: true });
     queryClient.setQueryData(['mini-games'], (current: { items: MiniGameSummary[]; total: number; hasMore?: boolean } | undefined) => {
       if (!current?.items) return current;
@@ -313,6 +320,7 @@ export default function MiniGameScreen() {
 
   const answerMutation = useMutation({
     mutationFn: async ({ questionIndex, optionIndex }: { questionIndex: number; optionIndex: number }) => {
+      if (!selectedGameId) throw new Error('Chua chon mini game');
       const response = await api.post(`/api/mini-games/${selectedGameId}/answers`, {
         optionIndex,
         questionIndex,
@@ -334,6 +342,7 @@ export default function MiniGameScreen() {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedGameId) throw new Error('Chua chon mini game');
       const response = await api.post(`/api/mini-games/${selectedGameId}/submit`, {});
       return response.data as {
         score: number;
@@ -350,11 +359,20 @@ export default function MiniGameScreen() {
       });
       invalidateGame();
     },
-    onError: showApiError,
+    onError: (error: any) => {
+      const status = error?.response?.status || error?.status;
+      if (status === 404 && selectedGameId) {
+        removeDeletedGameFromCache(selectedGameId);
+        setSelectedGameId(null);
+        return;
+      }
+      showApiError(error);
+    },
   });
 
   const controlMutation = useMutation({
     mutationFn: async (action: 'start' | 'finish' | 'reset' | 'delete') => {
+      if (!selectedGameId) throw new Error('Chua chon mini game');
       if (action === 'delete') {
         const response = await api.delete(`/api/mini-games/${selectedGameId}`);
         return response.data;
@@ -386,7 +404,8 @@ export default function MiniGameScreen() {
       selectedGame?.status === 'LIVE' &&
       selectedGameId &&
       liveStateReady &&
-      remainingSeconds <= 0 &&
+      serverRemainingSeconds !== null &&
+      serverRemainingSeconds <= 0 &&
       !mySubmission &&
       !answerMutation.isPending &&
       !submitMutation.isPending &&
@@ -395,7 +414,7 @@ export default function MiniGameScreen() {
       setAutoSubmittedGameId(selectedGameId);
       submitMutation.mutate();
     }
-  }, [answerMutation.isPending, autoSubmittedGameId, liveStateReady, mySubmission, remainingSeconds, selectedGame?.status, selectedGameId, submitMutation]);
+  }, [answerMutation.isPending, autoSubmittedGameId, liveStateReady, mySubmission, selectedGame?.status, selectedGameId, serverRemainingSeconds, submitMutation]);
 
   const updateOption = (index: number, value: string) => {
     setDraftQuestion((current) => {

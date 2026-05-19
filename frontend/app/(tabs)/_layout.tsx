@@ -34,6 +34,10 @@ export default function TabsLayout() {
   const { showToast } = useToast();
 
   const handleWebSocketMessage = useCallback((msg: any) => {
+    if (msg.type === 'ping') {
+      return;
+    }
+
     if (msg.title) {
       showToast({ message: msg.title, type: 'success' });
     }

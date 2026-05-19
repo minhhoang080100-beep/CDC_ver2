@@ -7,9 +7,11 @@ Users connect with their user_id and a valid JWT token to receive live push
 events (new posts, activities, feedback replies, etc.) without polling.
 """
 
+import asyncio
+import logging
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from starlette.websockets import WebSocketState
-import logging
 
 from app.core.security import decode_token
 
@@ -87,8 +89,13 @@ async def websocket_endpoint(ws: WebSocket, user_id: str, token: str = Query(Non
     await manager.connect(user_id, ws)
     try:
         while True:
-            # Keep connection alive; we only send server→client messages
-            await ws.receive_text()
+            try:
+                await asyncio.wait_for(ws.receive_text(), timeout=25)
+            except asyncio.TimeoutError:
+                if ws.client_state == WebSocketState.CONNECTED:
+                    await ws.send_json({"type": "ping"})
     except WebSocketDisconnect:
+        manager.disconnect(user_id, ws)
+    except Exception:
         manager.disconnect(user_id, ws)
 
