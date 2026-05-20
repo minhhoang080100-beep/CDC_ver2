@@ -15,7 +15,7 @@ interface Props {
     visible: boolean;
     onClose: () => void;
     member: UnionMember | null;
-    onSaved: () => void;
+    onSaved: (savedMember?: UnionMember) => void | Promise<void>;
 }
 
 // ISO "2020-01-15T00:00:00" → "15/01/2020"
@@ -32,17 +32,28 @@ function isoToDisplay(iso?: string): string {
 
 // "15/01/2020" → ISO string | null
 function displayToIso(display: string): string | null {
-    if (!display.trim()) return null;
-    const parts = display.trim().split('/');
-    if (parts.length === 3) {
-        const [dd, mm, yyyy] = parts;
-        const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-        if (!isNaN(d.getTime())) return d.toISOString();
+    const trimmed = display.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return null;
+
+    const dd = Number(match[1]);
+    const mm = Number(match[2]);
+    const yyyy = Number(match[3]);
+    const d = new Date(yyyy, mm - 1, dd);
+    if (
+        !isNaN(d.getTime())
+        && d.getFullYear() === yyyy
+        && d.getMonth() === mm - 1
+        && d.getDate() === dd
+    ) {
+        return d.toISOString();
     }
     return null;
 }
 
 interface FormState {
+    employeeId: string;
     fullName: string;
     gender: string;
     birthDate: string;
@@ -70,6 +81,7 @@ interface FormState {
 
 function initForm(member: UnionMember | null): FormState {
     return {
+        employeeId: member?.employeeId || '',
         fullName: member?.fullName || '',
         gender: member?.gender || '',
         birthDate: isoToDisplay(member?.birthDate),
@@ -133,13 +145,35 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
         setForm(prev => ({ ...prev, [key]: val }));
 
     const handleSave = async () => {
+        if (!form.employeeId.trim()) {
+            showToast({ message: 'Mã nhân viên không được để trống', type: 'error' });
+            return;
+        }
         if (!form.fullName.trim()) {
             showToast({ message: 'Họ tên không được để trống', type: 'error' });
             return;
         }
+        const dateFields: [keyof FormState, string][] = [
+            ['birthDate', 'Ngày sinh'],
+            ['unionJoinDate', 'Ngày vào Công đoàn'],
+            ['idIssueDate', 'Ngày cấp'],
+        ];
+        if (form.isPartyMember) {
+            dateFields.push(['partyJoinDate', 'Ngày vào Đảng']);
+            dateFields.push(['partyOfficialDate', 'Ngày chính thức']);
+        }
+        for (const [key, label] of dateFields) {
+            const value = form[key];
+            if (typeof value === 'string' && value.trim() && displayToIso(value) === null) {
+                showToast({ message: `${label} phải có định dạng dd/MM/yyyy`, type: 'error' });
+                return;
+            }
+        }
+
         setSaving(true);
         try {
             const payload = {
+                employeeId: form.employeeId.trim(),
                 fullName: form.fullName.trim(),
                 gender: form.gender.trim() || null,
                 birthDate: displayToIso(form.birthDate),
@@ -165,19 +199,22 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                 familyBackground: form.familyBackground.trim() || null,
             };
 
+            let savedMember: UnionMember | undefined;
             if (member?.id) {
-                await api.put(`/api/union-members/${member.id}`, payload, {
+                const response = await api.put(`/api/union-members/${member.id}`, payload, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
+                savedMember = response.data as UnionMember;
                 showToast({ message: 'Cập nhật hồ sơ thành công!', type: 'success' });
             } else {
-                await api.post(`/api/union-members`, payload, {
+                const response = await api.post(`/api/union-members`, payload, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
+                savedMember = response.data as UnionMember;
                 showToast({ message: 'Thêm mới đoàn viên thành công!', type: 'success' });
             }
 
-            onSaved();
+            await onSaved(savedMember);
             onClose();
         } catch (error: any) {
             showToast({
@@ -212,6 +249,7 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                     >
                         {/* Thông tin cơ bản */}
                         <Text style={styles.sectionTitle}>📋 Thông tin cơ bản</Text>
+                        <Field label="Mã nhân viên *" value={form.employeeId} onChange={set('employeeId')} />
                         <Field label="Họ và tên *" value={form.fullName} onChange={set('fullName')} />
                         <View style={styles.row}>
                             <View style={{ flex: 1 }}>

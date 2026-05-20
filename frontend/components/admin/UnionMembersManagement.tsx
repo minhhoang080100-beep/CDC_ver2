@@ -123,6 +123,21 @@ export default function UnionMembersManagement() {
         setEditModalVisible(true);
     };
 
+    const handleMemberSaved = async (savedMember?: UnionMember) => {
+        if (savedMember?.id) {
+            setMembers(prev => {
+                const exists = prev.some(member => member.id === savedMember.id);
+                if (exists) {
+                    return prev.map(member => member.id === savedMember.id ? { ...member, ...savedMember } : member);
+                }
+                return [savedMember, ...prev];
+            });
+            setSelectedMember(prev => prev?.id === savedMember.id ? { ...prev, ...savedMember } : prev);
+            setEditingMember(prev => prev?.id === savedMember.id ? { ...prev, ...savedMember } : prev);
+        }
+        await fetchMembers();
+    };
+
     const handleImportExcel = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -519,7 +534,7 @@ export default function UnionMembersManagement() {
                     setTimeout(() => setEditingMember(null), 300);
                 }}
                 member={editingMember}
-                onSaved={fetchMembers}
+                onSaved={handleMemberSaved}
             />
             </View>
         </View>

@@ -265,10 +265,18 @@ async def update_union_member(
         if allowed_wu and existing_member.get("workUnit") != allowed_wu:
             raise HTTPException(status_code=403, detail="Not authorized to edit this member")
 
-    update_data = {k: v for k, v in member_update.dict().items() if v is not None}
+    # Use exclude_unset so omitted fields stay unchanged, while fields explicitly
+    # sent as null can clear stale profile data.
+    update_data = member_update.model_dump(exclude_unset=True)
+
+    for required_field in ("employeeId", "fullName"):
+        if required_field in update_data and not update_data.get(required_field):
+            raise HTTPException(status_code=400, detail=f"{required_field} cannot be empty")
     
-    if allowed_wu and update_data.get("workUnit") and update_data.get("workUnit") != allowed_wu:
-        raise HTTPException(status_code=403, detail="Cannot change member to a different work unit")
+    if allowed_wu and "workUnit" in update_data:
+        if update_data.get("workUnit") and update_data.get("workUnit") != allowed_wu:
+            raise HTTPException(status_code=403, detail="Cannot change member to a different work unit")
+        update_data["workUnit"] = allowed_wu
     
     if update_data:
         result = await db.union_members.update_one(
