@@ -37,7 +37,7 @@ const getDocumentAssetUrls = (doc: Document) => {
 
 const reloadIfNewWebBundleAvailable = async () => {
   if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof document === 'undefined') {
-    return;
+    return false;
   }
 
   try {
@@ -45,7 +45,7 @@ const reloadIfNewWebBundleAvailable = async () => {
       cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache' },
     });
-    if (!response.ok) return;
+    if (!response.ok) return false;
 
     const html = await response.text();
     const nextDocument = new DOMParser().parseFromString(html, 'text/html');
@@ -58,10 +58,12 @@ const reloadIfNewWebBundleAvailable = async () => {
       currentAssets.join('|') !== nextAssets.join('|')
     ) {
       window.location.reload();
+      return true;
     }
   } catch {
     // Keep the running game state usable if update probing fails.
   }
+  return false;
 };
 
 export default function TabsLayout() {
@@ -81,13 +83,27 @@ export default function TabsLayout() {
     }
 
     if (msg.type === 'mini_game_event') {
-      queryClient.invalidateQueries({ queryKey: ['mini-games'] });
-      queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
-      queryClient.invalidateQueries({ queryKey: ['mini-game-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['mini-game-state'] });
-      if (msg.data?.event === 'started') {
-        void reloadIfNewWebBundleAvailable();
+      const miniGameEvent = msg.data?.event;
+      const invalidateMiniGameQueries = () => {
+        queryClient.invalidateQueries({ queryKey: ['mini-games'] });
+        queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
+        queryClient.invalidateQueries({ queryKey: ['mini-game-state'] });
+        if (miniGameEvent === 'settings_updated') {
+          queryClient.invalidateQueries({ queryKey: ['mini-game-settings'] });
+        }
+      };
+
+      if (miniGameEvent === 'started') {
+        const delay = Math.floor(Math.random() * 1500);
+        setTimeout(() => {
+          void reloadIfNewWebBundleAvailable().then((willReload) => {
+            if (!willReload) invalidateMiniGameQueries();
+          });
+        }, delay);
+        return;
       }
+
+      invalidateMiniGameQueries();
       return;
     }
 
