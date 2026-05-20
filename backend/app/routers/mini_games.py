@@ -835,7 +835,6 @@ async def submit_mini_game(game_id: str, current_user: dict = Depends(get_curren
         raise HTTPException(status_code=400, detail="Vui long tra loi it nhat mot cau truoc khi nop bai")
 
     submission = await _submit_game_for_user(game, current_user)
-    await _broadcast_mini_game_event("submitted", game)
     return {
         "status": "success",
         "score": submission.get("score"),

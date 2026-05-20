@@ -176,7 +176,7 @@ export default function MiniGameScreen() {
       return response.data as { enabled: boolean };
     },
     enabled: !!token,
-    refetchInterval: 30000,
+    refetchInterval: 60000,
   });
 
   const featureEnabled = settingsQuery.data?.enabled === true;
@@ -188,7 +188,7 @@ export default function MiniGameScreen() {
       return response.data as { items: MiniGameSummary[]; total: number };
     },
     enabled: !!token && (featureEnabled || isSuperAdmin),
-    refetchInterval: isAdmin ? 3000 : 15000,
+    refetchInterval: isAdmin ? 5000 : 30000,
   });
 
   const games = useMemo(() => gamesQuery.data?.items || [], [gamesQuery.data?.items]);
@@ -218,7 +218,7 @@ export default function MiniGameScreen() {
       const status = error?.response?.status || error?.status;
       return status !== 404 && failureCount < 1;
     },
-    refetchInterval: isAdmin ? 1000 : 5000,
+    refetchInterval: isAdmin ? 2000 : 8000,
   });
 
   const stateGame = stateQuery.data?.game;
