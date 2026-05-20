@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from typing import List, Optional
-from datetime import datetime
+from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from bson import ObjectId
 import pandas as pd
 import io
@@ -12,10 +13,43 @@ from app.core.permissions import require_admin
 
 router = APIRouter()
 
+VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+DATE_FIELDS = (
+    "birthDate",
+    "partyJoinDate",
+    "partyOfficialDate",
+    "unionJoinDate",
+    "idIssueDate",
+)
+
+
+def _normalize_member_date(value):
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        value = value.to_pydatetime()
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            local_value = value.replace(tzinfo=timezone.utc).astimezone(VN_TZ)
+        else:
+            local_value = value.astimezone(VN_TZ)
+        return datetime(local_value.year, local_value.month, local_value.day)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+    return value
+
+
+def _normalize_member_dates(member: dict) -> dict:
+    for field in DATE_FIELDS:
+        if field in member:
+            member[field] = _normalize_member_date(member.get(field))
+    return member
+
+
 # Helper to format response
 def format_member(member: dict) -> dict:
     member["id"] = str(member["_id"])
-    return member
+    return _normalize_member_dates(member)
 
 def get_allowed_work_unit(role: str) -> Optional[str]:
     mapping = {
@@ -32,7 +66,7 @@ async def create_union_member(
 ):
     require_admin(current_user, "Not authorized")
 
-    member_dict = member.dict()
+    member_dict = _normalize_member_dates(member.model_dump())
     allowed_wu = get_allowed_work_unit(current_user["role"])
     
     # Enforce workUnit limits if not SUPER_ADMIN
@@ -136,6 +170,8 @@ async def import_union_members(
                 }
 
                 # Ghi đè/Kiểm tra quyền khi lưu vào DB:
+                member_data = _normalize_member_dates(member_data)
+
                 allowed_wu = get_allowed_work_unit(current_user["role"])
                 if allowed_wu:
                     member_data["workUnit"] = allowed_wu
@@ -272,6 +308,8 @@ async def update_union_member(
     for required_field in ("employeeId", "fullName"):
         if required_field in update_data and not update_data.get(required_field):
             raise HTTPException(status_code=400, detail=f"{required_field} cannot be empty")
+
+    update_data = _normalize_member_dates(update_data)
     
     if allowed_wu and "workUnit" in update_data:
         if update_data.get("workUnit") and update_data.get("workUnit") != allowed_wu:
