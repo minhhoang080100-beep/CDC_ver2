@@ -19,6 +19,7 @@ export default function FloatingMiniGameButton() {
   const { token } = useAuth();
   const { isDesktop } = useResponsive();
   const pulse = useRef(new Animated.Value(0)).current;
+  const isMiniGameRoute = pathname.includes('mini-game');
 
   const settingsQuery = useQuery({
     queryKey: ['mini-game-settings'],
@@ -26,11 +27,18 @@ export default function FloatingMiniGameButton() {
       const response = await api.get('/api/mini-games/settings');
       return response.data as MiniGameSettings;
     },
-    enabled: !!token,
-    refetchInterval: 3000,
+    enabled: !!token && !isMiniGameRoute,
+    refetchInterval: 30000,
   });
 
+  const showButton = settingsQuery.data?.enabled === true && !isMiniGameRoute;
+
   useEffect(() => {
+    if (!showButton) {
+      pulse.setValue(0);
+      return;
+    }
+
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
@@ -47,9 +55,9 @@ export default function FloatingMiniGameButton() {
     );
     animation.start();
     return () => animation.stop();
-  }, [pulse]);
+  }, [pulse, showButton]);
 
-  if (!settingsQuery.data?.enabled || pathname.includes('mini-game')) {
+  if (!showButton) {
     return null;
   }
 
