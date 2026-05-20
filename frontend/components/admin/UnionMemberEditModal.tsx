@@ -21,13 +21,11 @@ interface Props {
 // ISO "2020-01-15T00:00:00" → "15/01/2020"
 function isoToDisplay(iso?: string): string {
     if (!iso) return '';
-    try {
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return '';
-        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-    } catch {
+    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) {
         return '';
     }
+    return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
 // "15/01/2020" → ISO string | null
@@ -47,7 +45,7 @@ function displayToIso(display: string): string | null {
         && d.getMonth() === mm - 1
         && d.getDate() === dd
     ) {
-        return d.toISOString();
+        return `${String(yyyy).padStart(4, '0')}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}T00:00:00`;
     }
     return null;
 }

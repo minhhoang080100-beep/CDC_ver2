@@ -3,8 +3,6 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform }
 import { Colors } from '../../constants/Colors';
 import { X, User, Briefcase, MapPin, Phone, CheckCircle, Calendar as CalendarIcon, Users } from 'lucide-react-native';
 import { useResponsive } from '../../hooks/useResponsive';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 
 interface UnionMember {
     employeeId?: string;
@@ -46,11 +44,8 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
 
     const formatDate = (dateString?: string) => {
         if (!dateString) return 'Chưa cập nhật';
-        try {
-            return format(new Date(dateString), 'dd/MM/yyyy', { locale: vi });
-        } catch (e) {
-            return dateString;
-        }
+        const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return match ? `${match[3]}/${match[2]}/${match[1]}` : dateString;
     };
 
     const renderField = (label: string, value?: string | boolean, icon?: React.ReactNode) => (
