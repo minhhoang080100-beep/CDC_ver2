@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React, { useCallback } from 'react';
-import { View, Platform, StyleSheet, Text } from 'react-native';
+import { View, Platform, StyleSheet } from 'react-native';
 import { Home, Calendar, BookOpen, IdCard, MoreHorizontal } from 'lucide-react-native';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -26,6 +26,44 @@ const TabIcon = ({ Icon, color, size, focused, label }: {
   </View>
 );
 
+const getDocumentAssetUrls = (doc: Document) => {
+  const nodes = Array.from(doc.querySelectorAll('script[src], link[rel="stylesheet"][href]'));
+  return nodes
+    .map((node) => node.getAttribute('src') || node.getAttribute('href'))
+    .filter((value): value is string => !!value)
+    .map((value) => new URL(value, window.location.origin).href)
+    .sort();
+};
+
+const reloadIfNewWebBundleAvailable = async () => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined' || typeof document === 'undefined') {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/?miniGameUpdateCheck=${Date.now()}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (!response.ok) return;
+
+    const html = await response.text();
+    const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+    const currentAssets = getDocumentAssetUrls(document);
+    const nextAssets = getDocumentAssetUrls(nextDocument);
+
+    if (
+      currentAssets.length > 0 &&
+      nextAssets.length > 0 &&
+      currentAssets.join('|') !== nextAssets.join('|')
+    ) {
+      window.location.reload();
+    }
+  } catch {
+    // Keep the running game state usable if update probing fails.
+  }
+};
+
 export default function TabsLayout() {
   const { isDesktop, sidebarWidth } = useResponsive();
   usePushNotifications();
@@ -47,6 +85,9 @@ export default function TabsLayout() {
       queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
       queryClient.invalidateQueries({ queryKey: ['mini-game-settings'] });
       queryClient.invalidateQueries({ queryKey: ['mini-game-state'] });
+      if (msg.data?.event === 'started') {
+        void reloadIfNewWebBundleAvailable();
+      }
       return;
     }
 
