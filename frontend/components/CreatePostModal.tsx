@@ -23,17 +23,73 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
+const MAX_POST_IMAGES = 10;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const CLOUD_NAME = 'dljjearo2';
+const UPLOAD_PRESET = 'CDCnghetinh';
+
 const postSchema = z.object({
   title: z.string().min(5, 'Tiêu đề bài viết phải có ít nhất 5 ký tự'),
   summary: z.string().optional(),
   content: z.string().min(10, 'Nội dung bài viết quá ngắn (tối thiểu 10 ký tự)'),
   category: z.string(),
   targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
-  images: z.array(z.string()).max(10, 'Tối đa 10 ảnh').optional(),
+  images: z.array(z.string()).max(MAX_POST_IMAGES, 'Tối đa 10 ảnh').optional(),
   videoUrl: z.string().url('Link video không hợp lệ').optional().or(z.literal('')),
 });
 
 type PostFormValues = z.infer<typeof postSchema>;
+
+const getAssetMimeType = (asset: ImagePicker.ImagePickerAsset) => {
+  if (asset.mimeType) return asset.mimeType;
+
+  const lowerName = asset.fileName?.toLowerCase() || '';
+  if (lowerName.endsWith('.png')) return 'image/png';
+  if (lowerName.endsWith('.webp')) return 'image/webp';
+  if (lowerName.endsWith('.heic')) return 'image/heic';
+  if (lowerName.endsWith('.heif')) return 'image/heif';
+  return 'image/jpeg';
+};
+
+const getAssetFileName = (asset: ImagePicker.ImagePickerAsset) => {
+  if (asset.fileName) return asset.fileName;
+
+  const mimeType = getAssetMimeType(asset);
+  const extension = mimeType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+  return `post-image-${Date.now()}.${extension}`;
+};
+
+const estimateBase64Bytes = (base64?: string | null) => {
+  if (!base64) return undefined;
+  return Math.ceil((base64.length * 3) / 4);
+};
+
+const getAssetSize = (asset: ImagePicker.ImagePickerAsset) => {
+  return asset.fileSize || asset.file?.size || estimateBase64Bytes(asset.base64);
+};
+
+const appendAssetToFormData = (formData: FormData, asset: ImagePicker.ImagePickerAsset) => {
+  if (Platform.OS === 'web' && asset.file) {
+    formData.append('file', asset.file);
+    return;
+  }
+
+  if (asset.uri) {
+    formData.append('file', {
+      uri: asset.uri,
+      name: getAssetFileName(asset),
+      type: getAssetMimeType(asset),
+    } as any);
+    return;
+  }
+
+  if (asset.base64) {
+    formData.append('file', `data:${getAssetMimeType(asset)};base64,${asset.base64}`);
+    return;
+  }
+
+  throw new Error('Không đọc được dữ liệu ảnh');
+};
 
 interface Post {
   id: string;
@@ -57,11 +113,8 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadStatus, setImageUploadStatus] = useState('');
   const [notifyUpdate, setNotifyUpdate] = useState(false);
-
-  // Cloudinary Details
-  const CLOUD_NAME = 'dljjearo2';
-  const UPLOAD_PRESET = 'CDCnghetinh';
 
   const {
     control,
@@ -139,6 +192,12 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
 
   const pickImage = async () => {
     try {
+      const remainingSlots = MAX_POST_IMAGES - watchedImages.length;
+      if (remainingSlots <= 0) {
+        showToast({ message: 'Bài viết đã đủ tối đa 10 ảnh', type: 'error' });
+        return;
+      }
+
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
@@ -150,32 +209,79 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsMultipleSelection: true,
-        selectionLimit: 10 - watchedImages.length, // Only allow filling up to 10
+        selectionLimit: remainingSlots,
         quality: 0.6, // Optimize size
-        base64: true,
+        base64: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploadingImage(true);
+        setImageUploadStatus('Đang chuẩn bị ảnh...');
         try {
           const validUrls: string[] = [];
-          
-          // Upload sequentially to prevent memory/network overload on mobile/web
-          for (const asset of result.assets) {
-            const base64Img = `data:image/jpeg;base64,${asset.base64}`;
-            const url = await uploadSingleToCloudinary(base64Img);
+
+          // Expo web does not enforce selectionLimit, so cap again before uploading.
+          const selectedAssets = result.assets.slice(0, remainingSlots);
+          const overLimitCount = result.assets.length - selectedAssets.length;
+          let skippedTooLargeCount = 0;
+          let skippedInvalidCount = 0;
+          let failedUploadCount = 0;
+
+          const uploadableAssets = selectedAssets.filter((asset) => {
+            const assetSize = getAssetSize(asset);
+            if (assetSize && assetSize > MAX_IMAGE_SIZE_BYTES) {
+              skippedTooLargeCount += 1;
+              return false;
+            }
+
+            if (!asset.file && !asset.uri && !asset.base64) {
+              skippedInvalidCount += 1;
+              return false;
+            }
+
+            return true;
+          });
+
+          // Upload sequentially to prevent memory/network overload on mobile/web.
+          for (let index = 0; index < uploadableAssets.length; index += 1) {
+            setImageUploadStatus(`Đang tải ảnh ${index + 1}/${uploadableAssets.length}...`);
+            const url = await uploadSingleToCloudinary(uploadableAssets[index]);
             if (url) {
               validUrls.push(url);
+            } else {
+              failedUploadCount += 1;
             }
           }
-          
+
           if (validUrls.length > 0) {
-            setValue('images', [...watchedImages, ...validUrls], { shouldValidate: true });
+            setValue('images', [...watchedImages, ...validUrls].slice(0, MAX_POST_IMAGES), {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
+          }
+
+          const skippedMessages = [];
+          if (overLimitCount > 0) skippedMessages.push(`${overLimitCount} ảnh vượt giới hạn 10 ảnh`);
+          if (skippedTooLargeCount > 0) skippedMessages.push(`${skippedTooLargeCount} ảnh lớn hơn 5MB`);
+          if (skippedInvalidCount > 0) skippedMessages.push(`${skippedInvalidCount} ảnh không đọc được`);
+          if (failedUploadCount > 0) skippedMessages.push(`${failedUploadCount} ảnh upload thất bại`);
+
+          if (validUrls.length > 0 && skippedMessages.length === 0) {
+            showToast({ message: `Đã tải ${validUrls.length} ảnh lên`, type: 'success' });
+          } else if (validUrls.length > 0) {
+            showToast({
+              message: `Đã tải ${validUrls.length} ảnh. Bỏ qua: ${skippedMessages.join(', ')}`,
+              type: 'error',
+            });
+          } else if (skippedMessages.length > 0) {
+            showToast({ message: `Không có ảnh nào được tải lên. ${skippedMessages.join(', ')}`, type: 'error' });
           }
         } catch (error) {
           console.error("Lỗi upload nhiều ảnh:", error);
+          showToast({ message: 'Không thể tải ảnh lên', type: 'error' });
         } finally {
           setUploadingImage(false);
+          setImageUploadStatus('');
         }
       }
     } catch (error) {
@@ -184,10 +290,10 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     }
   };
 
-  const uploadSingleToCloudinary = async (base64Img: string): Promise<string | null> => {
+  const uploadSingleToCloudinary = async (asset: ImagePicker.ImagePickerAsset): Promise<string | null> => {
     try {
       const formData = new FormData();
-      formData.append('file', base64Img);
+      appendAssetToFormData(formData, asset);
       formData.append('upload_preset', UPLOAD_PRESET);
       formData.append('folder', 'cong-doan-app');
 
@@ -205,7 +311,6 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
       }
     } catch (error: any) {
       console.error('Error uploading to Cloudinary:', error);
-      showToast({ message: 'Upload ảnh thất bại. Kiểm tra kết nối hoặc size.', type: 'error' });
       return null;
     }
   };
@@ -334,38 +439,41 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
             />
             {errors.videoUrl && <Text style={styles.errorText}>{errors.videoUrl.message}</Text>}
 
-            <Text style={styles.label}>Ảnh minh họa (Tối đa 10 ảnh)</Text>
+            <Text style={styles.label}>Ảnh minh họa ({watchedImages.length}/{MAX_POST_IMAGES})</Text>
             {watchedImages.length > 0 ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalImageScroll}>
-                {watchedImages.map((imgUri, index) => (
-                  <View key={index} style={styles.multiImagePreviewContainer}>
-                    <Image source={{ uri: imgUri }} style={styles.imagePreview} />
+              <>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalImageScroll}>
+                  {watchedImages.map((imgUri, index) => (
+                    <View key={index} style={styles.multiImagePreviewContainer}>
+                      <Image source={{ uri: imgUri }} style={styles.imagePreview} />
+                      <TouchableOpacity
+                        style={styles.removeImageButton}
+                        onPress={() => {
+                          const newImages = watchedImages.filter((_, i) => i !== index);
+                          setValue('images', newImages, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        disabled={isSubmitting || uploadingImage}
+                      >
+                        <X color="#fff" size={20} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {watchedImages.length < MAX_POST_IMAGES && (
                     <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => {
-                        const newImages = watchedImages.filter((_, i) => i !== index);
-                        setValue('images', newImages, { shouldValidate: true });
-                      }}
+                      style={[styles.imageUploadButton, styles.addMoreImageButton]}
+                      onPress={pickImage}
                       disabled={isSubmitting || uploadingImage}
                     >
-                      <X color="#fff" size={20} />
+                      {uploadingImage ? (
+                        <ActivityIndicator color={Colors.primary} />
+                      ) : (
+                        <ImagePlus color={Colors.primary} size={28} />
+                      )}
                     </TouchableOpacity>
-                  </View>
-                ))}
-                {watchedImages.length < 10 && (
-                  <TouchableOpacity
-                    style={[styles.imageUploadButton, styles.addMoreImageButton]}
-                    onPress={pickImage}
-                    disabled={isSubmitting || uploadingImage}
-                  >
-                    {uploadingImage ? (
-                      <ActivityIndicator color={Colors.primary} />
-                    ) : (
-                      <ImagePlus color={Colors.primary} size={28} />
-                    )}
-                  </TouchableOpacity>
-                )}
-              </ScrollView>
+                  )}
+                </ScrollView>
+                {imageUploadStatus ? <Text style={styles.uploadStatusText}>{imageUploadStatus}</Text> : null}
+              </>
             ) : (
               <TouchableOpacity
                 style={styles.imageUploadButton}
@@ -375,12 +483,12 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                 {uploadingImage ? (
                   <>
                     <ActivityIndicator color={Colors.primary} style={{ marginBottom: 8 }} />
-                    <Text style={styles.imageUploadText}>Đang tải ảnh lên...</Text>
+                    <Text style={styles.imageUploadText}>{imageUploadStatus || 'Đang tải ảnh lên...'}</Text>
                   </>
                 ) : (
                   <>
                     <ImagePlus color={Colors.primary} size={32} style={{ marginBottom: 8 }} />
-                    <Text style={styles.imageUploadText}>Nhấn để tải ảnh lên (tối đa 10)</Text>
+                    <Text style={styles.imageUploadText}>Nhấn để tải ảnh lên (tối đa {MAX_POST_IMAGES})</Text>
                     <Text style={styles.imageUploadSubText}>Hỗ trợ JPG, PNG (Tối đa 5MB/ảnh)</Text>
                   </>
                 )}
@@ -555,6 +663,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.text.secondary,
     marginTop: 4,
+  },
+  uploadStatusText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginBottom: 8,
   },
   horizontalImageScroll: {
     marginBottom: 8,
