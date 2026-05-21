@@ -99,26 +99,23 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
     );
   }
 
-    // 5 or more images
+  // 5 or more images: keep the feed preview stable and show the rest in detail.
   return (
-    <View style={[styles.imageGrid, { flexDirection: 'column', height: 320 }]}>
-      <View style={{ flex: 1.5, flexDirection: 'row', marginBottom: 2 }}>
-        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
-        <View style={styles.gridSpace} />
-        <Image source={{ uri: images[1] }} style={styles.gridImageHalf} />
-      </View>
-      <View style={{ flex: 1, flexDirection: 'row' }}>
+    <View style={styles.imageGrid}>
+      <View style={styles.gridColumnHalf}>
+        <Image source={{ uri: images[0] }} style={styles.gridImageQuarter} />
+        <View style={styles.gridSpaceH} />
         <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
-        <View style={styles.gridSpace} />
-        <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
-        <View style={styles.gridSpace} />
+      </View>
+      <View style={styles.gridSpace} />
+      <View style={styles.gridColumnHalf}>
+        <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+        <View style={styles.gridSpaceH} />
         <View style={styles.gridImageQuarterContainer}>
-          <Image source={{ uri: images[4] }} style={styles.gridImageQuarter} />
-          {images.length > 5 && (
-            <View style={styles.moreImagesOverlay}>
-              <Text style={styles.moreImagesText}>+{images.length - 4}</Text>
-            </View>
-          )}
+          <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
+          <View style={styles.moreImagesOverlay}>
+            <Text style={styles.moreImagesText}>+{images.length - 4}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -934,16 +931,21 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: Colors.divider,
   },
   moreImagesOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    minWidth: 0,
   },
   moreImagesText: {
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });
