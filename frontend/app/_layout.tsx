@@ -23,33 +23,43 @@ const queryClient = new QueryClient({
   },
 });
 
-const asyncStoragePersister = createAsyncStoragePersister({
-  storage: AsyncStorage,
-  key: 'CDC_QUERY_CACHE',
-});
+const asyncStoragePersister = Platform.OS === 'web'
+  ? null
+  : createAsyncStoragePersister({
+      storage: AsyncStorage,
+      key: 'CDC_QUERY_CACHE',
+    });
 
 export default function RootLayout() {
+  const content = (
+    <ToastProvider>
+      <AuthProvider>
+        <ConfirmProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+          <Toast />
+          <ConfirmModal />
+          {Platform.OS === 'web' && <InstallPrompt />}
+        </ConfirmProvider>
+      </AuthProvider>
+    </ToastProvider>
+  );
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister }}>
-          <ToastProvider>
-            <AuthProvider>
-              <ConfirmProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="login" />
-                  <Stack.Screen name="register" />
-                  <Stack.Screen name="(tabs)" />
-                </Stack>
-                <Toast />
-                <ConfirmModal />
-                {Platform.OS === 'web' && <InstallPrompt />}
-              </ConfirmProvider>
-            </AuthProvider>
-          </ToastProvider>
-        </PersistQueryClientProvider>
+        {Platform.OS === 'web' ? (
+          <QueryClientProvider client={queryClient}>{content}</QueryClientProvider>
+        ) : (
+          <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: asyncStoragePersister! }}>
+            {content}
+          </PersistQueryClientProvider>
+        )}
       </ThemeProvider>
     </ErrorBoundary>
   );
-}
+}

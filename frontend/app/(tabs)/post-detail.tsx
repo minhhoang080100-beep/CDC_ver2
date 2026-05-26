@@ -18,6 +18,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { api } from '../../utils/api';
+import { optimizeCloudinaryImage } from '../../utils/cloudinary';
 import { ArrowLeft, Calendar, User, Tag, Heart, MessageCircle, Send, Globe } from 'lucide-react-native';
 
 const windowWidth = Dimensions.get('window').width;
@@ -118,7 +119,7 @@ export default function PostDetailScreen() {
                 <View style={styles.postHeaderLeft}>
                   <View style={styles.authorAvatar}>
                     {authorAvatar ? (
-                        <Image source={{ uri: authorAvatar }} style={styles.authorAvatarImage} />
+                        <Image source={{ uri: optimizeCloudinaryImage(authorAvatar, { width: 96 }) }} style={styles.authorAvatarImage} />
                     ) : (
                         <User size={24} color="#bac2c9" />
                     )}
@@ -146,7 +147,7 @@ export default function PostDetailScreen() {
                                     {imagesArray.map((img: string, idx: number) => (
                                         <Image 
                                             key={idx} 
-                                            source={{ uri: img }} 
+                                            source={{ uri: optimizeCloudinaryImage(img, { width: 1200 }) }} 
                                             style={styles.postDetailImageVertical} 
                                             resizeMode="cover"
                                         />
@@ -199,7 +200,7 @@ export default function PostDetailScreen() {
                         <View key={idx} style={styles.commentBox}>
                             <View style={styles.commentAvatar}>
                                 {cmt.userAvatar ? (
-                                    <Image source={{ uri: cmt.userAvatar }} style={styles.commentAvatarImage} />
+                                    <Image source={{ uri: optimizeCloudinaryImage(cmt.userAvatar, { width: 80 }) }} style={styles.commentAvatarImage} />
                                 ) : (
                                     <User size={16} color="#64748b" />
                                 )}

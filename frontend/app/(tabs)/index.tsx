@@ -28,6 +28,7 @@ import PostDetailModal from '../../components/PostDetailModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { Colors } from '../../constants/Colors';
 import { api } from '../../utils/api';
+import { optimizeCloudinaryImage } from '../../utils/cloudinary';
 
 interface Post {
   id: string;
@@ -53,16 +54,16 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
 
   if (images.length === 1) {
     return (
-      <Image source={{ uri: images[0] }} style={styles.postImage} />
+      <Image source={{ uri: optimizeCloudinaryImage(images[0], { width: isDesktop ? 1200 : 720 }) }} style={styles.postImage} />
     );
   }
 
   if (images.length === 2) {
     return (
       <View style={styles.imageGrid}>
-        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[0], { width: isDesktop ? 900 : 520 }) }} style={styles.gridImageHalf} />
         <View style={styles.gridSpace} />
-        <Image source={{ uri: images[1] }} style={styles.gridImageHalf} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[1], { width: isDesktop ? 900 : 520 }) }} style={styles.gridImageHalf} />
       </View>
     );
   }
@@ -70,12 +71,12 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
   if (images.length === 3) {
     return (
       <View style={styles.imageGrid}>
-        <Image source={{ uri: images[0] }} style={styles.gridImageHalf} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[0], { width: isDesktop ? 900 : 520 }) }} style={styles.gridImageHalf} />
         <View style={styles.gridSpace} />
         <View style={styles.gridColumnHalf}>
-          <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[1], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
           <View style={styles.gridSpaceH} />
-          <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[2], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
         </View>
       </View>
     );
@@ -85,15 +86,15 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
     return (
       <View style={styles.imageGrid}>
         <View style={styles.gridColumnHalf}>
-          <Image source={{ uri: images[0] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[0], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
           <View style={styles.gridSpaceH} />
-          <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[2], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
         </View>
         <View style={styles.gridSpace} />
         <View style={styles.gridColumnHalf}>
-          <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[1], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
           <View style={styles.gridSpaceH} />
-          <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[3], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
         </View>
       </View>
     );
@@ -103,16 +104,16 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
   return (
     <View style={styles.imageGrid}>
       <View style={styles.gridColumnHalf}>
-        <Image source={{ uri: images[0] }} style={styles.gridImageQuarter} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[0], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
         <View style={styles.gridSpaceH} />
-        <Image source={{ uri: images[2] }} style={styles.gridImageQuarter} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[2], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
       </View>
       <View style={styles.gridSpace} />
       <View style={styles.gridColumnHalf}>
-        <Image source={{ uri: images[1] }} style={styles.gridImageQuarter} />
+        <Image source={{ uri: optimizeCloudinaryImage(images[1], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
         <View style={styles.gridSpaceH} />
         <View style={styles.gridImageQuarterContainer}>
-          <Image source={{ uri: images[3] }} style={styles.gridImageQuarter} />
+          <Image source={{ uri: optimizeCloudinaryImage(images[3], { width: isDesktop ? 700 : 420 }) }} style={styles.gridImageQuarter} />
           <View style={styles.moreImagesOverlay}>
             <Text style={styles.moreImagesText}>+{images.length - 4}</Text>
           </View>
@@ -203,6 +204,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { gridColumns, isDesktop } = useResponsive();
+  const pageSize = Platform.OS === 'web' && !isDesktop ? 6 : 20;
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -218,9 +220,9 @@ export default function HomeScreen() {
     refetch,
     isRefetching
   } = useInfiniteQuery({
-    queryKey: ['posts'],
+    queryKey: ['posts', pageSize],
     queryFn: async ({ pageParam }) => {
-      const response = await api.get(`/api/posts?skip=${(pageParam as number) * 20}&limit=20`, {
+      const response = await api.get(`/api/posts?skip=${(pageParam as number) * pageSize}&limit=${pageSize}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
@@ -326,7 +328,7 @@ export default function HomeScreen() {
             <View style={styles.postHeaderLeft}>
               <View style={styles.authorAvatar}>
                 {item.authorAvatar ? (
-                  <Image source={{ uri: item.authorAvatar }} style={styles.authorAvatarImage} />
+                  <Image source={{ uri: optimizeCloudinaryImage(item.authorAvatar, { width: 96 }) }} style={styles.authorAvatarImage} />
                 ) : (
                   <User size={24} color="#bac2c9" />
                 )}
@@ -364,9 +366,20 @@ export default function HomeScreen() {
 
         {/* Video */}
         {item.videoUrl ? (
-          <View style={styles.videoContainer}>
-            <VideoPlayer url={item.videoUrl} style={styles.webview} />
-          </View>
+          Platform.OS === 'web' && !isDesktop ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigateToPost(item)}
+              style={styles.videoPlaceholder}
+            >
+              <Text style={styles.videoPlaceholderText}>Mở video</Text>
+              <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.videoContainer}>
+              <VideoPlayer url={item.videoUrl} style={styles.webview} />
+            </View>
+          )
         ) : null}
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigateToPost(item)}>
@@ -479,7 +492,7 @@ export default function HomeScreen() {
                   <View style={styles.createPostTop}>
                     <View style={styles.authorAvatar}>
                        {user?.avatar ? (
-                         <Image source={{ uri: user.avatar }} style={styles.authorAvatarImage} />
+                         <Image source={{ uri: optimizeCloudinaryImage(user.avatar, { width: 96 }) }} style={styles.authorAvatarImage} />
                        ) : (
                          <User size={24} color="#bac2c9" />
                        )}
@@ -654,6 +667,24 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  videoPlaceholder: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  videoPlaceholderText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  videoPlaceholderSubtext: {
+    color: '#cbd5e1',
+    fontSize: 13,
   },
   postAuthorName: {
     fontSize: 15,

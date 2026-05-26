@@ -6,15 +6,17 @@ import { Platform } from 'react-native';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-        shouldShowBanner: true,
-        shouldShowList: true,
-    }),
-});
+if (Platform.OS !== 'web') {
+    Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+        }),
+    });
+}
 
 export function usePushNotifications() {
     const [expoPushToken, setExpoPushToken] = useState('');

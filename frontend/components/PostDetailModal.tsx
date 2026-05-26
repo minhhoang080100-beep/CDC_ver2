@@ -17,6 +17,7 @@ import { Colors } from '../constants/Colors';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { api } from '../utils/api';
+import { optimizeCloudinaryImage } from '../utils/cloudinary';
 import { useResponsive } from '../hooks/useResponsive';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -41,11 +42,12 @@ interface Post {
 
 // Component tự đo kích thước ảnh và hiển thị đúng tỷ lệ gốc
 const AutoHeightImage = ({ uri }: { uri: string }) => {
+    const optimizedUri = optimizeCloudinaryImage(uri, { width: 1200 });
     const [aspectRatio, setAspectRatio] = React.useState(16 / 9); // default fallback
 
     React.useEffect(() => {
         Image.getSize(
-            uri,
+            optimizedUri,
             (width, height) => {
                 if (width && height) {
                     setAspectRatio(width / height);
@@ -55,11 +57,11 @@ const AutoHeightImage = ({ uri }: { uri: string }) => {
                 console.error('Error getting image size:', error);
             }
         );
-    }, [uri]);
+    }, [optimizedUri]);
 
     return (
         <Image
-            source={{ uri }}
+            source={{ uri: optimizedUri }}
             style={{ width: '100%', aspectRatio, backgroundColor: '#f0f2f5' }}
             resizeMode="cover"
         />
@@ -205,7 +207,7 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
                                 <View style={styles.postHeaderLeft}>
                                   <View style={styles.authorAvatar}>
                                     {post.authorAvatar ? (
-                                      <Image source={{ uri: post.authorAvatar }} style={styles.authorAvatarImage} />
+                                      <Image source={{ uri: optimizeCloudinaryImage(post.authorAvatar, { width: 96 }) }} style={styles.authorAvatarImage} />
                                     ) : (
                                       <User size={24} color="#bac2c9" />
                                     )}
@@ -274,7 +276,7 @@ export default function PostDetailModal({ visible, post, onClose }: PostDetailMo
                                         <View key={idx} style={styles.commentBox}>
                                             <View style={styles.commentAvatar}>
                                                 {cmt.userAvatar ? (
-                                                    <Image source={{ uri: cmt.userAvatar }} style={styles.commentAvatarImage} />
+                                                    <Image source={{ uri: optimizeCloudinaryImage(cmt.userAvatar, { width: 80 }) }} style={styles.commentAvatarImage} />
                                                 ) : (
                                                     <User size={16} color="#64748b" />
                                                 )}

@@ -93,6 +93,37 @@ export default function Root({ children }: PropsWithChildren) {
                     return;
                   }
 
+                  var ua = navigator.userAgent || '';
+                  var isIOSWebKit =
+                    /iPad|iPhone|iPod/.test(ua) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+                  if (isIOSWebKit) {
+                    var iosCleanup = Promise.all([
+                      navigator.serviceWorker.getRegistrations()
+                        .then(function(registrations) {
+                          return Promise.all(registrations.map(function(reg) {
+                            return reg.unregister();
+                          }));
+                        }),
+                      window.caches
+                        ? caches.keys().then(function(keys) {
+                            return Promise.all(keys
+                              .filter(function(key) { return key.indexOf('cdc-pwa-') === 0; })
+                              .map(function(key) { return caches.delete(key); }));
+                          })
+                        : Promise.resolve()
+                    ]);
+
+                    iosCleanup.then(function() {
+                      if (navigator.serviceWorker.controller && !sessionStorage.getItem('sw-ios-cleaned')) {
+                        sessionStorage.setItem('sw-ios-cleaned', '1');
+                        window.location.reload();
+                      }
+                    });
+                    return;
+                  }
+
                   var hadController = !!navigator.serviceWorker.controller;
                   var refreshing = false;
                   navigator.serviceWorker.addEventListener('controllerchange', function() {
@@ -101,7 +132,7 @@ export default function Root({ children }: PropsWithChildren) {
                     window.location.reload();
                   });
 
-                  navigator.serviceWorker.register('/sw.js')
+                  navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
                     .then(function(reg) {
                       console.log('[PWA] Service Worker registered:', reg.scope);
                       reg.update();
