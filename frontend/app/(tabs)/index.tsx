@@ -5,6 +5,7 @@ import {
   StyleSheet,
   FlatList,
   Image,
+  ImageBackground,
   RefreshControl,
   TouchableOpacity,
   Platform,
@@ -21,7 +22,7 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useToast } from '../../contexts/ToastContext';
 import { format } from 'date-fns';
-import { Plus, Edit2, Trash2, Heart, MessageCircle, Search, User, Image as ImageIcon, Share2, Globe, MoreHorizontal } from 'lucide-react-native';
+import { Plus, Edit2, Trash2, Heart, MessageCircle, Search, User, Image as ImageIcon, Share2, Globe, MoreHorizontal, Play } from 'lucide-react-native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreatePostModal from '../../components/CreatePostModal';
 import PostDetailModal from '../../components/PostDetailModal';
@@ -121,6 +122,33 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
       </View>
     </View>
   );
+};
+
+const getYouTubeVideoId = (url: string) => {
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match?.[1] || '';
+};
+
+const getCloudinaryVideoThumbnail = (url: string) => {
+  if (!/res\.cloudinary\.com\/.+\/video\/upload\//i.test(url)) return '';
+
+  const thumbnailUrl = url.replace(
+    '/video/upload/',
+    '/video/upload/so_0,w_1200,c_fill,ar_16:9,f_jpg,q_auto/'
+  );
+
+  return thumbnailUrl.replace(/\.(mp4|webm|mov|m4v)(\?.*)?$/i, '.jpg$2');
+};
+
+const getVideoThumbnailUrl = (url?: string) => {
+  if (!url) return '';
+
+  const youtubeId = getYouTubeVideoId(url);
+  if (youtubeId) {
+    return `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+  }
+
+  return getCloudinaryVideoThumbnail(url);
 };
 
 const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
@@ -283,7 +311,10 @@ export default function HomeScreen() {
     }
   };
 
-  const renderPost = ({ item }: { item: Post }) => (
+  const renderPost = ({ item }: { item: Post }) => {
+    const videoThumbnailUrl = getVideoThumbnailUrl(item.videoUrl);
+
+    return (
     <View style={{ flex: 1, marginBottom: 8, maxWidth: 680, alignSelf: 'center', width: '100%' }}>
       <WebHoverCard style={styles.postCard}>
         <TouchableOpacity
@@ -338,8 +369,30 @@ export default function HomeScreen() {
             onPress={() => navigateToPost(item)}
             style={styles.videoPlaceholder}
           >
-            <Text style={styles.videoPlaceholderText}>Mở video</Text>
-            <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
+            {videoThumbnailUrl ? (
+              <ImageBackground
+                source={{ uri: videoThumbnailUrl }}
+                style={styles.videoPreviewImage}
+                imageStyle={styles.videoPreviewImageStyle}
+                blurRadius={Platform.OS === 'web' ? 6 : 12}
+              >
+                <View style={styles.videoPreviewOverlay}>
+                  <View style={styles.videoPlayIcon}>
+                    <Play color="#ffffff" size={30} fill="#ffffff" />
+                  </View>
+                  <Text style={styles.videoPlaceholderText}>Mở video</Text>
+                  <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
+                </View>
+              </ImageBackground>
+            ) : (
+              <View style={styles.videoPreviewFallback}>
+                <View style={styles.videoPlayIcon}>
+                  <Play color="#ffffff" size={30} fill="#ffffff" />
+                </View>
+                <Text style={styles.videoPlaceholderText}>Mở video</Text>
+                <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
+              </View>
+            )}
           </TouchableOpacity>
         ) : null}
 
@@ -381,6 +434,7 @@ export default function HomeScreen() {
       </WebHoverCard>
     </View>
   );
+  };
 
   const getDepartmentName = (dept: string) => {
     switch (dept) {
@@ -633,19 +687,51 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 16 / 9,
     backgroundColor: '#111827',
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  videoPreviewImage: {
+    flex: 1,
+  },
+  videoPreviewImageStyle: {
+    resizeMode: 'cover',
+  },
+  videoPreviewOverlay: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.44)',
+  },
+  videoPreviewFallback: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+  },
+  videoPlayIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+    marginBottom: 12,
   },
   videoPlaceholderText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   videoPlaceholderSubtext: {
-    color: '#cbd5e1',
+    color: '#f8fafc',
     fontSize: 13,
+    textShadowColor: 'rgba(0, 0, 0, 0.55)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   postAuthorName: {
     fontSize: 15,
