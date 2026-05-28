@@ -74,11 +74,26 @@ const getEmbedUrl = (url: string) => {
   return match && match[1] ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : url;
 };
 
+const isDirectVideoUrl = (url: string) => {
+  return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url) || /res\.cloudinary\.com\/.+\/video\/upload\//i.test(url);
+};
+
 const VideoPlayer = ({ url, style }: { url: string; style?: any }) => {
   const embedUrl = getEmbedUrl(url);
   if (!embedUrl) return null;
 
   if (Platform.OS === 'web') {
+    if (isDirectVideoUrl(embedUrl)) {
+      return (
+        <video
+          src={embedUrl}
+          controls
+          preload="metadata"
+          style={{ width: '100%', height: '100%', backgroundColor: '#000' } as any}
+        />
+      );
+    }
+
     return (
       <iframe
         src={embedUrl}

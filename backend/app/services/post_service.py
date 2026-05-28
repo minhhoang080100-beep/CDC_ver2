@@ -3,6 +3,7 @@ Post service — business logic extracted from posts router.
 """
 
 from datetime import datetime, timezone
+from typing import Optional
 from bson import ObjectId
 from fastapi import HTTPException
 
@@ -21,6 +22,12 @@ def _normalize_images(post: dict) -> list:
     if old_image:
         return [old_image]
     return []
+
+
+def _cloudinary_url(value: Optional[str]) -> Optional[str]:
+    if value and "cloudinary.com" in value:
+        return value
+    return None
 
 
 def _to_object_id(value):
@@ -196,10 +203,17 @@ async def update_post(post_id: str, post_data: dict, current_user: dict):
 
     target_departments = resolve_target_departments(current_user, post_data.get("targetDepartments", []))
 
-    # Detect removed images for Cloudinary cleanup
+    # Detect removed media for Cloudinary cleanup
     old_images = set(_normalize_images(existing_post))
     new_images = set(post_data.get("images", []))
-    images_to_delete = list(old_images - new_images)
+    assets_to_delete = list(old_images - new_images)
+
+    old_video = existing_post.get("videoUrl")
+    new_video = post_data.get("videoUrl")
+    if old_video and old_video != new_video:
+        old_cloudinary_video = _cloudinary_url(old_video)
+        if old_cloudinary_video:
+            assets_to_delete.append(old_cloudinary_video)
 
     update_data = {
         "title": post_data["title"],
@@ -214,7 +228,7 @@ async def update_post(post_id: str, post_data: dict, current_user: dict):
 
     await db.posts.update_one({"_id": oid}, {"$set": update_data})
 
-    return {"status": "success", "message": "Post updated"}, images_to_delete
+    return {"status": "success", "message": "Post updated"}, assets_to_delete
 
 
 async def delete_post(post_id: str, current_user: dict):
@@ -227,10 +241,14 @@ async def delete_post(post_id: str, current_user: dict):
     if current_user["role"] != "SUPER_ADMIN" and existing_post.get("authorId") != current_user["_id"]:
         raise HTTPException(status_code=403, detail="You don't have permission to delete this post")
 
-    images = _normalize_images(existing_post)
-    await db.posts.update_one({"_id": oid}, {"$set": {"isDeleted": True, "images": []}})
+    assets_to_delete = _normalize_images(existing_post)
+    video_to_delete = _cloudinary_url(existing_post.get("videoUrl"))
+    if video_to_delete:
+        assets_to_delete.append(video_to_delete)
 
-    return images  # caller handles async cleanup
+    await db.posts.update_one({"_id": oid}, {"$set": {"isDeleted": True, "images": [], "videoUrl": None}})
+
+    return assets_to_delete  # caller handles async cleanup
 
 
 async def toggle_like(post_id: str, current_user: dict):

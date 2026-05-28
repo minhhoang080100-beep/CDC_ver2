@@ -18,13 +18,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Colors } from '../constants/Colors';
 import { api } from '../utils/api';
-import { ImagePlus, X } from 'lucide-react-native';
+import { ImagePlus, Video, X } from 'lucide-react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
 const MAX_POST_IMAGES = 10;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_POST_VIDEO_SIZE_BYTES = 80 * 1024 * 1024;
 const CLOUD_NAME = 'dljjearo2';
 const UPLOAD_PRESET = 'CDCnghetinh';
 
@@ -91,6 +92,42 @@ const appendAssetToFormData = (formData: FormData, asset: ImagePicker.ImagePicke
   throw new Error('Không đọc được dữ liệu ảnh');
 };
 
+const getVideoAssetMimeType = (asset: ImagePicker.ImagePickerAsset) => {
+  if (asset.mimeType) return asset.mimeType;
+
+  const lowerName = asset.fileName?.toLowerCase() || '';
+  if (lowerName.endsWith('.mov')) return 'video/quicktime';
+  if (lowerName.endsWith('.m4v')) return 'video/x-m4v';
+  if (lowerName.endsWith('.webm')) return 'video/webm';
+  return 'video/mp4';
+};
+
+const getVideoAssetFileName = (asset: ImagePicker.ImagePickerAsset) => {
+  if (asset.fileName) return asset.fileName;
+
+  const mimeType = getVideoAssetMimeType(asset);
+  const extension = mimeType.split('/')[1]?.replace('quicktime', 'mov').replace('x-m4v', 'm4v') || 'mp4';
+  return `post-video-${Date.now()}.${extension}`;
+};
+
+const appendVideoAssetToFormData = (formData: FormData, asset: ImagePicker.ImagePickerAsset) => {
+  if (Platform.OS === 'web' && asset.file) {
+    formData.append('file', asset.file);
+    return;
+  }
+
+  if (asset.uri) {
+    formData.append('file', {
+      uri: asset.uri,
+      name: getVideoAssetFileName(asset),
+      type: getVideoAssetMimeType(asset),
+    } as any);
+    return;
+  }
+
+  throw new Error('Không đọc được dữ liệu video');
+};
+
 interface Post {
   id: string;
   title: string;
@@ -113,7 +150,9 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [imageUploadStatus, setImageUploadStatus] = useState('');
+  const [videoUploadStatus, setVideoUploadStatus] = useState('');
   const [notifyUpdate, setNotifyUpdate] = useState(false);
 
   const {
@@ -139,6 +178,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
   const watchedCategory = watch('category');
   const watchedDepts = watch('targetDepartments');
   const watchedImages = watch('images') || [];
+  const watchedVideoUrl = watch('videoUrl') || '';
 
   // Pre-fill form when editing
   useEffect(() => {
@@ -315,11 +355,81 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
     }
   };
 
+  const pickVideo = async () => {
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          showToast({ message: 'Ứng dụng cần quyền truy cập thư viện để tải video lên', type: 'error' });
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsMultipleSelection: false,
+        quality: 0.7,
+        base64: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+      const assetSize = getAssetSize(asset);
+      if (assetSize && assetSize > MAX_POST_VIDEO_SIZE_BYTES) {
+        showToast({ message: 'Video phải nhỏ hơn 80MB để phù hợp gói Cloudinary free', type: 'error' });
+        return;
+      }
+
+      setUploadingVideo(true);
+      setVideoUploadStatus('Đang tải video lên...');
+      const videoUrl = await uploadVideoToCloudinary(asset);
+
+      if (videoUrl) {
+        setValue('videoUrl', videoUrl, { shouldValidate: true, shouldDirty: true });
+        showToast({ message: 'Đã tải video lên', type: 'success' });
+      } else {
+        showToast({ message: 'Không thể tải video lên', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Error picking video:', error);
+      showToast({ message: 'Không thể chọn video', type: 'error' });
+    } finally {
+      setUploadingVideo(false);
+      setVideoUploadStatus('');
+    }
+  };
+
+  const uploadVideoToCloudinary = async (asset: ImagePicker.ImagePickerAsset): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      appendVideoAssetToFormData(formData, asset);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'cong-doan-app/videos');
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok && data.secure_url) {
+        return data.secure_url;
+      }
+
+      throw new Error(data.error?.message || 'Video upload failed');
+    } catch (error) {
+      console.error('Error uploading video to Cloudinary:', error);
+      return null;
+    }
+  };
+
   const onSubmit = async (data: PostFormValues) => {
     try {
       const postData = {
         ...data,
         summary: data.summary || data.title, // Fallback if summary is empty
+        videoUrl: data.videoUrl?.trim() || undefined,
       };
 
       if (editPost) {
@@ -438,6 +548,40 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
               )}
             />
             {errors.videoUrl && <Text style={styles.errorText}>{errors.videoUrl.message}</Text>}
+            <View style={styles.videoToolsContainer}>
+              {watchedVideoUrl ? (
+                <View style={styles.videoUrlPreview}>
+                  <View style={styles.videoUrlTextWrap}>
+                    <Text style={styles.videoUrlLabel}>Video đang gắn</Text>
+                    <Text style={styles.videoUrlText} numberOfLines={1}>{watchedVideoUrl}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.clearVideoButton}
+                    onPress={() => setValue('videoUrl', '', { shouldValidate: true, shouldDirty: true })}
+                    disabled={isSubmitting || uploadingVideo}
+                  >
+                    <X color="#fff" size={16} />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <TouchableOpacity
+                style={styles.videoUploadButton}
+                onPress={pickVideo}
+                disabled={isSubmitting || uploadingImage || uploadingVideo}
+              >
+                {uploadingVideo ? (
+                  <ActivityIndicator color={Colors.primary} />
+                ) : (
+                  <Video color={Colors.primary} size={22} />
+                )}
+                <View style={styles.videoUploadTextWrap}>
+                  <Text style={styles.videoUploadText}>
+                    {uploadingVideo ? (videoUploadStatus || 'Đang tải video...') : 'Tải video lên Cloudinary'}
+                  </Text>
+                  <Text style={styles.videoUploadSubText}>Tối đa 1 video, khuyến nghị MP4 720p, nhỏ hơn 80MB</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
 
             <Text style={styles.label}>Ảnh minh họa ({watchedImages.length}/{MAX_POST_IMAGES})</Text>
             {watchedImages.length > 0 ? (
@@ -452,7 +596,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                           const newImages = watchedImages.filter((_, i) => i !== index);
                           setValue('images', newImages, { shouldValidate: true, shouldDirty: true });
                         }}
-                        disabled={isSubmitting || uploadingImage}
+                        disabled={isSubmitting || uploadingImage || uploadingVideo}
                       >
                         <X color="#fff" size={20} />
                       </TouchableOpacity>
@@ -462,7 +606,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
                     <TouchableOpacity
                       style={[styles.imageUploadButton, styles.addMoreImageButton]}
                       onPress={pickImage}
-                      disabled={isSubmitting || uploadingImage}
+                      disabled={isSubmitting || uploadingImage || uploadingVideo}
                     >
                       {uploadingImage ? (
                         <ActivityIndicator color={Colors.primary} />
@@ -478,7 +622,7 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
               <TouchableOpacity
                 style={styles.imageUploadButton}
                 onPress={pickImage}
-                disabled={isSubmitting || uploadingImage}
+                disabled={isSubmitting || uploadingImage || uploadingVideo}
               >
                 {uploadingImage ? (
                   <>
@@ -563,9 +707,9 @@ export default function CreatePostModal({ visible, onClose, onSuccess, editPost 
             )}
 
             <TouchableOpacity
-              style={[styles.submitButton, (isSubmitting || uploadingImage) && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (isSubmitting || uploadingImage || uploadingVideo) && styles.submitButtonDisabled]}
               onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting || uploadingImage}
+              disabled={isSubmitting || uploadingImage || uploadingVideo}
             >
               <Text style={styles.submitButtonText}>
                 {isSubmitting ? 'Đang lưu...' : (editPost ? 'Lưu thay đổi' : 'Đăng bài')}
@@ -642,6 +786,66 @@ const styles = StyleSheet.create({
   textArea: {
     height: 120,
     paddingTop: 12,
+  },
+  videoToolsContainer: {
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  videoUrlPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 8,
+    padding: 10,
+  },
+  videoUrlTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  videoUrlLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginBottom: 2,
+  },
+  videoUrlText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+  },
+  clearVideoButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 14,
+  },
+  videoUploadTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  videoUploadText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  videoUploadSubText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 2,
   },
   imageUploadButton: {
     backgroundColor: Colors.surface,

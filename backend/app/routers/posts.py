@@ -67,11 +67,11 @@ async def update_post(
     notify_update: bool = Query(False),
     current_user: dict = Depends(get_current_user)
 ):
-    result, images_to_delete = await svc_update_post(post_id, post.model_dump(), current_user)
+    result, assets_to_delete = await svc_update_post(post_id, post.model_dump(), current_user)
 
-    if images_to_delete:
-        for img in images_to_delete:
-            background_tasks.add_task(delete_cloudinary_asset, img)
+    if assets_to_delete:
+        for asset_url in assets_to_delete:
+            background_tasks.add_task(delete_cloudinary_asset, asset_url)
 
     if notify_update:
         target_departments = resolve_target_departments(current_user, post.targetDepartments)
@@ -95,11 +95,11 @@ async def delete_post(
     background_tasks: BackgroundTasks,
     current_user: dict = Depends(get_current_user)
 ):
-    images = await svc_delete_post(post_id, current_user)
+    assets_to_delete = await svc_delete_post(post_id, current_user)
 
-    if images:
-        for img in images:
-            background_tasks.add_task(delete_cloudinary_asset, img)
+    if assets_to_delete:
+        for asset_url in assets_to_delete:
+            background_tasks.add_task(delete_cloudinary_asset, asset_url)
 
     return {"status": "success", "message": "Post deleted"}
 

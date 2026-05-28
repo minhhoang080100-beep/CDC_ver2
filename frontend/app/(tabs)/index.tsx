@@ -123,39 +123,6 @@ const ImageGrid = ({ images, isDesktop }: { images: string[]; isDesktop?: boolea
   );
 };
 
-const getEmbedUrl = (url: string) => {
-  if (!url) return '';
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})/);
-  return match && match[1] ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : url;
-};
-
-const VideoPlayer = ({ url, style }: { url: string; style?: any }) => {
-  const embedUrl = getEmbedUrl(url);
-  if (!embedUrl) return null;
-
-  if (Platform.OS === 'web') {
-    return (
-      <iframe
-        src={embedUrl}
-        style={{ width: '100%', height: '100%', border: 'none' } as any}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
-      />
-    );
-  }
-
-  const WebView = require('react-native-webview').WebView;
-  return (
-    <WebView
-      source={{ uri: embedUrl }}
-      style={style || { flex: 1 }}
-      allowsFullscreenVideo
-      javaScriptEnabled
-      domStorageEnabled
-    />
-  );
-};
-
 const SkeletonLoader = ({ isDesktop, gridColumns }: { isDesktop: boolean; gridColumns: number }) => {
   const animatedValue = React.useRef(new Animated.Value(0.5)).current;
 
@@ -366,20 +333,14 @@ export default function HomeScreen() {
 
         {/* Video */}
         {item.videoUrl ? (
-          Platform.OS === 'web' && !isDesktop ? (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => navigateToPost(item)}
-              style={styles.videoPlaceholder}
-            >
-              <Text style={styles.videoPlaceholderText}>Mở video</Text>
-              <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.videoContainer}>
-              <VideoPlayer url={item.videoUrl} style={styles.webview} />
-            </View>
-          )
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => navigateToPost(item)}
+            style={styles.videoPlaceholder}
+          >
+            <Text style={styles.videoPlaceholderText}>Mở video</Text>
+            <Text style={styles.videoPlaceholderSubtext}>Chạm để xem chi tiết</Text>
+          </TouchableOpacity>
         ) : null}
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => navigateToPost(item)}>
