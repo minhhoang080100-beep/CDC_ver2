@@ -101,6 +101,8 @@ export interface Activity {
     time: string;
     type: string;
     image?: string;
+    documentLink?: string | null;
+    registrationLink?: string | null;
     targetDepartments: string[];
     registrations: ActivityRegistration[];
     attendances: ActivityAttendance[];

@@ -19,12 +19,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Colors } from '../constants/Colors';
 
+const optionalUrlSchema = z
+  .string()
+  .trim()
+  .refine((value) => !value || /^https?:\/\/\S+$/i.test(value), 'Link không hợp lệ');
+
 const activitySchema = z.object({
   name: z.string().min(3, 'Tên hoạt động phải có ít nhất 3 ký tự'),
   description: z.string().optional(),
   time: z.string().min(5, 'Vui lòng nhập thời gian hợp lệ'),
   location: z.string().min(2, 'Vui lòng nhập địa điểm'),
   type: z.enum(['TRAINING', 'SPORTS', 'VACATION']),
+  documentLink: optionalUrlSchema,
+  registrationLink: optionalUrlSchema,
   targetDepartments: z.array(z.string()).min(1, 'Vui lòng chọn ít nhất 1 bộ phận'),
 });
 
@@ -37,6 +44,8 @@ interface Activity {
   time: string;
   location: string;
   type: string;
+  documentLink?: string | null;
+  registrationLink?: string | null;
   targetDepartments: string[];
 }
 
@@ -67,6 +76,8 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
       time: '',
       location: '',
       type: 'TRAINING',
+      documentLink: '',
+      registrationLink: '',
       targetDepartments: ['ALL'],
     },
   });
@@ -83,6 +94,8 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         time: editActivity.time,
         location: editActivity.location,
         type: editActivity.type as 'TRAINING' | 'SPORTS' | 'VACATION',
+        documentLink: editActivity.documentLink || '',
+        registrationLink: editActivity.registrationLink || '',
         targetDepartments: editActivity.targetDepartments || ['ALL'],
       });
       setNotifyUpdate(false);
@@ -94,6 +107,8 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         time: '',
         location: '',
         type: 'TRAINING',
+        documentLink: '',
+        registrationLink: '',
         targetDepartments: ['ALL'],
       });
     }
@@ -129,15 +144,21 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
 
   const onSubmit = async (data: ActivityFormValues) => {
     try {
+      const payload = {
+        ...data,
+        documentLink: data.documentLink?.trim() || undefined,
+        registrationLink: data.registrationLink?.trim() || undefined,
+      };
+
       if (editActivity) {
         // Update existing activity
-        await api.put(`/api/activities/${editActivity.id}?notify_update=${notifyUpdate}`, data, {
+        await api.put(`/api/activities/${editActivity.id}?notify_update=${notifyUpdate}`, payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast({ message: 'Đã cập nhật hoạt động thành công!', type: 'success' });
       } else {
         // Create new activity
-        await api.post('/api/activities', data, {
+        await api.post('/api/activities', payload, {
           headers: { Authorization: `Bearer ${token}` },
         });
         showToast({ message: 'Đã tạo hoạt động thành công!', type: 'success' });
@@ -245,6 +266,48 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
               )}
             />
             {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
+
+            <Text style={styles.label}>Link đọc thông báo</Text>
+            <Controller
+              control={control}
+              name="documentLink"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.documentLink && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="https://docs.google.com/document/..."
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  editable={!isSubmitting}
+                />
+              )}
+            />
+            {errors.documentLink && <Text style={styles.errorText}>{errors.documentLink.message}</Text>}
+
+            <Text style={styles.label}>Link đăng ký danh sách</Text>
+            <Controller
+              control={control}
+              name="registrationLink"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  style={[styles.input, errors.registrationLink && styles.inputError]}
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  placeholder="https://docs.google.com/spreadsheets/..."
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  editable={!isSubmitting}
+                />
+              )}
+            />
+            {errors.registrationLink && <Text style={styles.errorText}>{errors.registrationLink.message}</Text>}
 
             <Text style={styles.label}>Loại hoạt động</Text>
             <View style={styles.typeContainer}>

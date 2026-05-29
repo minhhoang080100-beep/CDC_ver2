@@ -10,6 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../contexts/AuthContext';
@@ -17,7 +18,7 @@ import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search, User, ScanLine, Monitor, ToggleLeft, ToggleRight } from 'lucide-react-native';
+import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search, User, ScanLine, Monitor, ToggleLeft, ToggleRight, FileText, Link as LinkIcon } from 'lucide-react-native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
@@ -34,6 +35,8 @@ interface Activity {
   time: string;
   location: string;
   type: string;
+  documentLink?: string | null;
+  registrationLink?: string | null;
   createdBy: string;
   targetDepartments: string[];
   registrations: Array<{ userId: string; userName: string; userAvatar?: string }>;
@@ -101,6 +104,17 @@ export default function ActivitiesScreen() {
       queryClient.invalidateQueries({ queryKey: ['activities'] });
     } catch (error) {
       console.error('Error registering:', error);
+    }
+  };
+
+  const handleOpenLink = async (url?: string | null) => {
+    if (!url) return;
+
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('Error opening activity link:', error);
+      showToast({ message: 'Không thể mở đường link này', type: 'error' });
     }
   };
 
@@ -201,6 +215,30 @@ export default function ActivitiesScreen() {
             <MapPin color="#64748b" size={16} />
             <Text style={styles.infoText}>{item.location}</Text>
           </View>
+
+          {(item.documentLink || item.registrationLink) && (
+            <View style={styles.activityLinksRow}>
+              {item.documentLink ? (
+                <TouchableOpacity
+                  style={styles.activityLinkButton}
+                  onPress={() => handleOpenLink(item.documentLink)}
+                >
+                  <FileText color={Colors.primary} size={16} />
+                  <Text style={styles.activityLinkText}>Đọc thông báo</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              {item.registrationLink ? (
+                <TouchableOpacity
+                  style={[styles.activityLinkButton, styles.registrationLinkButton]}
+                  onPress={() => handleOpenLink(item.registrationLink)}
+                >
+                  <LinkIcon color="#047857" size={16} />
+                  <Text style={[styles.activityLinkText, styles.registrationLinkText]}>Mở đăng ký</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )}
 
           <TouchableOpacity 
             style={styles.participantsButton}
@@ -574,6 +612,38 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
+  },
+  activityLinksRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+    maxWidth: '100%',
+  },
+  activityLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.primaryLight,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+    maxWidth: '100%',
+  },
+  registrationLinkButton: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#10b98140',
+  },
+  activityLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
+    flexShrink: 1,
+  },
+  registrationLinkText: {
+    color: '#047857',
   },
   participantsButton: {
     flexDirection: 'row',

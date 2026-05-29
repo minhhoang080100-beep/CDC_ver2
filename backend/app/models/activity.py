@@ -9,6 +9,8 @@ class ActivityCreate(BaseModel):
     location: str
     type: str
     image: Optional[str] = None
+    documentLink: Optional[str] = None
+    registrationLink: Optional[str] = None
     targetDepartments: List[str] = []
 
 class CheckInRequest(BaseModel):
@@ -25,6 +27,8 @@ class ActivityResponse(BaseModel):
     location: str
     type: str
     image: Optional[str] = None
+    documentLink: Optional[str] = None
+    registrationLink: Optional[str] = None
     createdBy: str
     registrations: List[Dict[str, Any]] = []
     attendances: List[Dict[str, Any]] = []

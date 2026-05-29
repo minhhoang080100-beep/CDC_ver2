@@ -18,6 +18,13 @@ import time as time_mod
 router = APIRouter()
 
 
+def _clean_optional_link(value):
+    if not value:
+        return None
+    value = value.strip()
+    return value or None
+
+
 async def _build_activity_user_lookup(activities: list) -> dict:
     user_ids = []
     seen = set()
@@ -72,6 +79,8 @@ async def get_activities(
         "location": activity["location"],
         "type": activity["type"],
         "image": activity.get("image"),
+        "documentLink": activity.get("documentLink"),
+        "registrationLink": activity.get("registrationLink"),
         "createdBy": activity["createdBy"],
         "targetDepartments": activity.get("targetDepartments", ["ALL"]),
         "registrations": [_enrich_activity_person(reg, users_by_id) for reg in activity.get("registrations", []) or []],
@@ -290,6 +299,8 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
         "location": activity.location,
         "type": activity.type,
         "image": activity.image,
+        "documentLink": _clean_optional_link(activity.documentLink),
+        "registrationLink": _clean_optional_link(activity.registrationLink),
         "createdBy": current_user["_id"],
         "targetDepartments": target_departments,
         "registrations": [],
@@ -386,6 +397,8 @@ async def update_activity(
         "location": activity.location,
         "type": activity.type,
         "image": activity.image,
+        "documentLink": _clean_optional_link(activity.documentLink),
+        "registrationLink": _clean_optional_link(activity.registrationLink),
         "targetDepartments": target_departments,
         "updatedAt": datetime.now(timezone.utc)
     }
