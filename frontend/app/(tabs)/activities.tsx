@@ -18,7 +18,7 @@ import { Colors } from '../../constants/Colors';
 import { useResponsive } from '../../hooks/useResponsive';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
-import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search, User, ScanLine, Monitor, ToggleLeft, ToggleRight, FileText, Link as LinkIcon } from 'lucide-react-native';
+import { Calendar, MapPin, Users, Plus, Edit2, Trash2, QrCode, Search, User, ScanLine, Monitor, ToggleLeft, ToggleRight, FileText, Link as LinkIcon, ExternalLink } from 'lucide-react-native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import CreateActivityModal from '../../components/CreateActivityModal';
 import QRScannerModal from '../../components/QRScannerModal';
@@ -218,6 +218,23 @@ export default function ActivitiesScreen() {
 
           {(item.documentLink || item.registrationLink) && (
             <View style={styles.activityLinksRow}>
+              {item.registrationLink ? (
+                <TouchableOpacity
+                  style={styles.registrationLinkButton}
+                  onPress={() => handleOpenLink(item.registrationLink)}
+                  activeOpacity={0.88}
+                >
+                  <View style={styles.registrationLinkIconBox}>
+                    <LinkIcon color="#ffffff" size={22} />
+                  </View>
+                  <View style={styles.registrationLinkContent}>
+                    <Text style={styles.registrationLinkTitle}>Mở đăng ký</Text>
+                    <Text style={styles.registrationLinkSubtitle}>Danh sách Excel đăng ký tham gia</Text>
+                  </View>
+                  <ExternalLink color="#ffffff" size={18} />
+                </TouchableOpacity>
+              ) : null}
+
               {item.documentLink ? (
                 <TouchableOpacity
                   style={styles.activityLinkButton}
@@ -225,16 +242,6 @@ export default function ActivitiesScreen() {
                 >
                   <FileText color={Colors.primary} size={16} />
                   <Text style={styles.activityLinkText}>Đọc thông báo</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              {item.registrationLink ? (
-                <TouchableOpacity
-                  style={[styles.activityLinkButton, styles.registrationLinkButton]}
-                  onPress={() => handleOpenLink(item.registrationLink)}
-                >
-                  <LinkIcon color="#047857" size={16} />
-                  <Text style={[styles.activityLinkText, styles.registrationLinkText]}>Mở đăng ký</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -614,10 +621,9 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? { overflowWrap: 'break-word' } as any : {}),
   },
   activityLinksRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
     maxWidth: '100%',
   },
   activityLinkButton: {
@@ -630,20 +636,52 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryLight,
     borderWidth: 1,
     borderColor: Colors.primary + '30',
+    alignSelf: 'flex-start',
     maxWidth: '100%',
   },
   registrationLinkButton: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#10b98140',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    minHeight: 58,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#059669',
+    borderWidth: 1,
+    borderColor: '#047857',
+    ...Colors.shadows.sm,
+  },
+  registrationLinkIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  registrationLinkContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  registrationLinkTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  registrationLinkSubtitle: {
+    color: '#d1fae5',
+    fontSize: 12,
+    fontWeight: '500',
+    flexShrink: 1,
   },
   activityLinkText: {
     fontSize: 13,
     fontWeight: '600',
     color: Colors.primary,
     flexShrink: 1,
-  },
-  registrationLinkText: {
-    color: '#047857',
   },
   participantsButton: {
     flexDirection: 'row',
