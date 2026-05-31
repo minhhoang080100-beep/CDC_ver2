@@ -239,11 +239,22 @@ export default function ActivitiesScreen() {
 
               {item.documentLink ? (
                 <TouchableOpacity
-                  style={styles.activityLinkButton}
+                  style={styles.documentLinkButton}
                   onPress={() => handleOpenLink(item.documentLink)}
+                  activeOpacity={0.88}
                 >
-                  <FileText color={Colors.primary} size={16} />
-                  <Text style={styles.activityLinkText}>{item.documentFileName ? 'Xem PDF thông báo' : 'Đọc thông báo'}</Text>
+                  <View style={styles.documentLinkIconBox}>
+                    <FileText color="#ffffff" size={22} />
+                  </View>
+                  <View style={styles.documentLinkContent}>
+                    <Text style={styles.documentLinkTitle}>{item.documentFileName ? 'Xem PDF thông báo' : 'Đọc thông báo'}</Text>
+                    <Text style={styles.documentLinkSubtitle} numberOfLines={1}>
+                      {item.documentFileName
+                        ? `${item.documentFileName}${item.documentFileSize ? ` • ${item.documentFileSize}` : ''}`
+                        : 'Nội dung chi tiết hoạt động'}
+                    </Text>
+                  </View>
+                  <ExternalLink color="#ffffff" size={18} />
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -628,19 +639,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     maxWidth: '100%',
   },
-  activityLinkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: Colors.primaryLight,
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-  },
   registrationLinkButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -679,10 +677,42 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flexShrink: 1,
   },
-  activityLinkText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.primary,
+  documentLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    minHeight: 56,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#2563eb',
+    borderWidth: 1,
+    borderColor: '#1d4ed8',
+    ...Colors.shadows.sm,
+  },
+  documentLinkIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  documentLinkContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  documentLinkTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  documentLinkSubtitle: {
+    color: '#dbeafe',
+    fontSize: 12,
+    fontWeight: '500',
     flexShrink: 1,
   },
   participantsButton: {
