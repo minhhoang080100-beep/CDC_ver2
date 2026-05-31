@@ -25,6 +25,7 @@ import QRScannerModal from '../../components/QRScannerModal';
 import ActivityCheckinQRModal from '../../components/ActivityCheckinQRModal';
 import MemberCheckinModal from '../../components/MemberCheckinModal';
 import ActivityParticipantsModal from '../../components/ActivityParticipantsModal';
+import DocumentViewerModal from '../../components/DocumentViewerModal';
 import WebHoverCard from '../../components/WebHoverCard';
 import { api } from '../../utils/api';
 
@@ -61,6 +62,9 @@ export default function ActivitiesScreen() {
   const [memberCheckinVisible, setMemberCheckinVisible] = useState(false);
   const [participantsVisible, setParticipantsVisible] = useState(false);
   const [participantsActivity, setParticipantsActivity] = useState<Activity | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -118,6 +122,14 @@ export default function ActivitiesScreen() {
       console.error('Error opening activity link:', error);
       showToast({ message: 'Không thể mở đường link này', type: 'error' });
     }
+  };
+
+  const handleViewDocument = (activity: Activity) => {
+    if (!activity.documentLink) return;
+
+    setViewerUrl(activity.documentLink);
+    setViewerTitle(activity.documentFileName || activity.name);
+    setViewerVisible(true);
   };
 
   const canCreateActivity = user?.role === 'SUPER_ADMIN' || user?.role?.startsWith('BCH_');
@@ -240,7 +252,7 @@ export default function ActivitiesScreen() {
               {item.documentLink ? (
                 <TouchableOpacity
                   style={styles.documentLinkButton}
-                  onPress={() => handleOpenLink(item.documentLink)}
+                  onPress={() => handleViewDocument(item)}
                   activeOpacity={0.88}
                 >
                   <View style={styles.documentLinkIconBox}>
@@ -503,6 +515,13 @@ export default function ActivitiesScreen() {
         visible={participantsVisible}
         onClose={() => setParticipantsVisible(false)}
         activity={participantsActivity}
+      />
+
+      <DocumentViewerModal
+        visible={viewerVisible}
+        url={viewerUrl}
+        title={viewerTitle}
+        onClose={() => setViewerVisible(false)}
       />
     </SafeAreaView>
   );
