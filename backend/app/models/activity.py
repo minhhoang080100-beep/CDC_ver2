@@ -10,6 +10,8 @@ class ActivityCreate(BaseModel):
     type: str
     image: Optional[str] = None
     documentLink: Optional[str] = None
+    documentFileName: Optional[str] = None
+    documentFileSize: Optional[str] = None
     registrationLink: Optional[str] = None
     targetDepartments: List[str] = []
 
@@ -28,6 +30,8 @@ class ActivityResponse(BaseModel):
     type: str
     image: Optional[str] = None
     documentLink: Optional[str] = None
+    documentFileName: Optional[str] = None
+    documentFileSize: Optional[str] = None
     registrationLink: Optional[str] = None
     createdBy: str
     registrations: List[Dict[str, Any]] = []

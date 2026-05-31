@@ -102,6 +102,8 @@ export interface Activity {
     type: string;
     image?: string;
     documentLink?: string | null;
+    documentFileName?: string | null;
+    documentFileSize?: string | null;
     registrationLink?: string | null;
     targetDepartments: string[];
     registrations: ActivityRegistration[];

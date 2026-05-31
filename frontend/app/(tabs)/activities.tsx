@@ -36,6 +36,8 @@ interface Activity {
   location: string;
   type: string;
   documentLink?: string | null;
+  documentFileName?: string | null;
+  documentFileSize?: string | null;
   registrationLink?: string | null;
   createdBy: string;
   targetDepartments: string[];
@@ -241,7 +243,7 @@ export default function ActivitiesScreen() {
                   onPress={() => handleOpenLink(item.documentLink)}
                 >
                   <FileText color={Colors.primary} size={16} />
-                  <Text style={styles.activityLinkText}>Đọc thông báo</Text>
+                  <Text style={styles.activityLinkText}>{item.documentFileName ? 'Xem PDF thông báo' : 'Đọc thông báo'}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>

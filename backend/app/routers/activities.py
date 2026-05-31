@@ -25,6 +25,13 @@ def _clean_optional_link(value):
     return value or None
 
 
+def _clean_optional_text(value):
+    if not value:
+        return None
+    value = value.strip()
+    return value or None
+
+
 async def _build_activity_user_lookup(activities: list) -> dict:
     user_ids = []
     seen = set()
@@ -80,6 +87,8 @@ async def get_activities(
         "type": activity["type"],
         "image": activity.get("image"),
         "documentLink": activity.get("documentLink"),
+        "documentFileName": activity.get("documentFileName"),
+        "documentFileSize": activity.get("documentFileSize"),
         "registrationLink": activity.get("registrationLink"),
         "createdBy": activity["createdBy"],
         "targetDepartments": activity.get("targetDepartments", ["ALL"]),
@@ -291,6 +300,7 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
         raise HTTPException(status_code=403, detail="You don't have permission to create activities")
     
     target_departments = resolve_target_departments(current_user, activity.targetDepartments)
+    document_link = _clean_optional_link(activity.documentLink)
     
     activity_data = {
         "name": activity.name,
@@ -299,7 +309,9 @@ async def create_activity(activity: ActivityCreate, background_tasks: Background
         "location": activity.location,
         "type": activity.type,
         "image": activity.image,
-        "documentLink": _clean_optional_link(activity.documentLink),
+        "documentLink": document_link,
+        "documentFileName": _clean_optional_text(activity.documentFileName) if document_link else None,
+        "documentFileSize": _clean_optional_text(activity.documentFileSize) if document_link else None,
         "registrationLink": _clean_optional_link(activity.registrationLink),
         "createdBy": current_user["_id"],
         "targetDepartments": target_departments,
@@ -385,10 +397,15 @@ async def update_activity(
     
     target_departments = resolve_target_departments(current_user, activity.targetDepartments)
     
-    # Check if image changed to clean up old image from Cloudinary 
+    # Check if Cloudinary assets changed to clean up old files.
     old_image = existing_activity.get("image")
     if old_image and old_image != activity.image:
         background_tasks.add_task(delete_cloudinary_asset, old_image)
+
+    document_link = _clean_optional_link(activity.documentLink)
+    old_document_link = existing_activity.get("documentLink")
+    if old_document_link and old_document_link != document_link:
+        background_tasks.add_task(delete_cloudinary_asset, old_document_link)
     
     update_data = {
         "name": activity.name,
@@ -397,7 +414,9 @@ async def update_activity(
         "location": activity.location,
         "type": activity.type,
         "image": activity.image,
-        "documentLink": _clean_optional_link(activity.documentLink),
+        "documentLink": document_link,
+        "documentFileName": _clean_optional_text(activity.documentFileName) if document_link else None,
+        "documentFileSize": _clean_optional_text(activity.documentFileSize) if document_link else None,
         "registrationLink": _clean_optional_link(activity.registrationLink),
         "targetDepartments": target_departments,
         "updatedAt": datetime.now(timezone.utc)
@@ -442,10 +461,21 @@ async def delete_activity(
     if image:
         background_tasks.add_task(delete_cloudinary_asset, image)
 
+    document_link = existing_activity.get("documentLink")
+    if document_link:
+        background_tasks.add_task(delete_cloudinary_asset, document_link)
+
     # Soft delete
     await db.activities.update_one(
         {"_id": oid},
-        {"$set": {"isDeleted": True, "image": None, "deletedAt": datetime.now(timezone.utc)}}
+        {"$set": {
+            "isDeleted": True,
+            "image": None,
+            "documentLink": None,
+            "documentFileName": None,
+            "documentFileSize": None,
+            "deletedAt": datetime.now(timezone.utc)
+        }}
     )
     
     return {"status": "success", "message": "Activity deleted"}

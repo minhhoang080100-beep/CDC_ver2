@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -18,6 +19,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Colors } from '../constants/Colors';
+import * as DocumentPicker from 'expo-document-picker';
+import { CheckCircle, FileText, FileUp, X } from 'lucide-react-native';
 
 const optionalUrlSchema = z
   .string()
@@ -45,6 +48,8 @@ interface Activity {
   location: string;
   type: string;
   documentLink?: string | null;
+  documentFileName?: string | null;
+  documentFileSize?: string | null;
   registrationLink?: string | null;
   targetDepartments: string[];
 }
@@ -60,6 +65,12 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
   const { user, token } = useAuth();
   const { showToast } = useToast();
   const [notifyUpdate, setNotifyUpdate] = useState(false);
+  const [documentFileName, setDocumentFileName] = useState('');
+  const [documentFileSize, setDocumentFileSize] = useState('');
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+
+  const CLOUD_NAME = 'dljjearo2';
+  const UPLOAD_PRESET = 'CDCnghetinh';
 
   const {
     control,
@@ -98,6 +109,9 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         registrationLink: editActivity.registrationLink || '',
         targetDepartments: editActivity.targetDepartments || ['ALL'],
       });
+      setDocumentFileName(editActivity.documentFileName || '');
+      setDocumentFileSize(editActivity.documentFileSize || '');
+      setUploadingDocument(false);
       setNotifyUpdate(false);
     } else if (visible) {
       // Reset form fields when opening modal for creating new
@@ -111,6 +125,9 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
         registrationLink: '',
         targetDepartments: ['ALL'],
       });
+      setDocumentFileName('');
+      setDocumentFileSize('');
+      setUploadingDocument(false);
     }
   }, [editActivity, visible, reset]);
 
@@ -142,11 +159,97 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
     }
   };
 
+  const formatFileSize = (size?: number | null) => {
+    if (!size) return '';
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const clearUploadedDocument = () => {
+    setValue('documentLink', '', { shouldValidate: true, shouldDirty: true });
+    setDocumentFileName('');
+    setDocumentFileSize('');
+  };
+
+  const uploadDocumentToCloudinary = async (fileObj: any) => {
+    setUploadingDocument(true);
+
+    try {
+      const formData = new FormData();
+
+      if (Platform.OS === 'web') {
+        if (fileObj.file) {
+          formData.append('file', fileObj.file);
+        } else {
+          const res = await fetch(fileObj.uri);
+          const blob = await res.blob();
+          formData.append('file', blob, fileObj.name || 'activity-document.pdf');
+        }
+      } else {
+        formData.append('file', {
+          uri: fileObj.uri,
+          type: fileObj.mimeType || 'application/pdf',
+          name: fileObj.name || 'activity-document.pdf',
+        } as any);
+      }
+
+      formData.append('upload_preset', UPLOAD_PRESET);
+      formData.append('folder', 'cong-doan-activities');
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.secure_url) {
+        setValue('documentLink', data.secure_url, { shouldValidate: true, shouldDirty: true });
+        setDocumentFileName(fileObj.name || 'activity-document.pdf');
+        setDocumentFileSize(formatFileSize(fileObj.size));
+        showToast({ message: 'Đã tải PDF thông báo lên thành công', type: 'success' });
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      console.error('Error uploading activity document:', error);
+      setDocumentFileName('');
+      setDocumentFileSize('');
+      showToast({ message: error.message || 'Không thể tải PDF lên', type: 'error' });
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const file = result.assets[0];
+      if (file.name && !file.name.toLowerCase().endsWith('.pdf')) {
+        showToast({ message: 'Vui lòng chỉ chọn file PDF', type: 'error' });
+        return;
+      }
+
+      await uploadDocumentToCloudinary(file);
+    } catch (error) {
+      console.error('Error picking activity document:', error);
+      showToast({ message: 'Không thể chọn file PDF', type: 'error' });
+    }
+  };
+
   const onSubmit = async (data: ActivityFormValues) => {
     try {
+      const documentLink = data.documentLink?.trim() || undefined;
       const payload = {
         ...data,
-        documentLink: data.documentLink?.trim() || undefined,
+        documentLink,
+        documentFileName: documentLink ? documentFileName || undefined : undefined,
+        documentFileSize: documentLink ? documentFileSize || undefined : undefined,
         registrationLink: data.registrationLink?.trim() || undefined,
       };
 
@@ -267,6 +370,48 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
             />
             {errors.location && <Text style={styles.errorText}>{errors.location.message}</Text>}
 
+            <Text style={styles.label}>File PDF thông báo</Text>
+            {documentFileName ? (
+              <View style={styles.filePreviewContainer}>
+                <View style={styles.filePreviewInfo}>
+                  <FileText color={Colors.status.success} size={28} />
+                  <View style={styles.filePreviewTextBlock}>
+                    <Text style={styles.fileNameText} numberOfLines={1}>{documentFileName}</Text>
+                    <View style={styles.fileStatusRow}>
+                      <CheckCircle color={Colors.status.success} size={14} />
+                      <Text style={styles.fileStatusText}>Đã tải lên{documentFileSize ? ` • ${documentFileSize}` : ''}</Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.removeFileButton}
+                  onPress={clearUploadedDocument}
+                  disabled={isSubmitting || uploadingDocument}
+                >
+                  <X color={Colors.text.secondary} size={18} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.fileUploadButton}
+                onPress={pickDocument}
+                disabled={isSubmitting || uploadingDocument}
+              >
+                {uploadingDocument ? (
+                  <>
+                    <ActivityIndicator color={Colors.primary} style={styles.fileUploadIcon} />
+                    <Text style={styles.fileUploadText}>Đang tải PDF lên...</Text>
+                  </>
+                ) : (
+                  <>
+                    <FileUp color={Colors.primary} size={30} style={styles.fileUploadIcon} />
+                    <Text style={styles.fileUploadText}>Chọn file PDF thông báo</Text>
+                    <Text style={styles.fileUploadSubText}>PDF sẽ tự điền vào link đọc thông báo</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
             <Text style={styles.label}>Link đọc thông báo</Text>
             <Controller
               control={control}
@@ -275,14 +420,20 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
                 <TextInput
                   style={[styles.input, errors.documentLink && styles.inputError]}
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={(text) => {
+                    onChange(text);
+                    if (documentFileName) {
+                      setDocumentFileName('');
+                      setDocumentFileSize('');
+                    }
+                  }}
                   onBlur={onBlur}
-                  placeholder="https://docs.google.com/document/..."
+                  placeholder="https://docs.google.com/document/... hoặc link PDF"
                   placeholderTextColor="#94a3b8"
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="url"
-                  editable={!isSubmitting}
+                  editable={!isSubmitting && !uploadingDocument}
                 />
               )}
             />
@@ -376,12 +527,12 @@ export default function CreateActivityModal({ visible, onClose, onSuccess, editA
             )}
 
             <TouchableOpacity
-              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (isSubmitting || uploadingDocument) && styles.submitButtonDisabled]}
               onPress={handleSubmit(onSubmit)}
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadingDocument}
             >
               <Text style={styles.submitButtonText}>
-                {isSubmitting ? 'Đang lưu...' : (editActivity ? 'Lưu thay đổi' : 'Tạo hoạt động')}
+                {isSubmitting ? 'Đang lưu...' : (uploadingDocument ? 'Đang tải PDF...' : (editActivity ? 'Lưu thay đổi' : 'Tạo hoạt động'))}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -455,6 +606,75 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     paddingTop: 12,
+  },
+  fileUploadButton: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  fileUploadIcon: {
+    marginBottom: 8,
+  },
+  fileUploadText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+  fileUploadSubText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  filePreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  filePreviewInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 10,
+  },
+  filePreviewTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fileNameText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  fileStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  fileStatusText: {
+    fontSize: 12,
+    color: Colors.text.secondary,
+    marginLeft: 4,
+  },
+  removeFileButton: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.divider,
   },
   typeContainer: {
     flexDirection: 'row',
