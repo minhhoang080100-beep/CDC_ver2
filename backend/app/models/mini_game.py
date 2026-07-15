@@ -1,7 +1,8 @@
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class MiniGameStatus(str, Enum):
@@ -43,3 +44,36 @@ class MiniGameAnswerCreate(BaseModel):
 
 class MiniGameSettingsUpdate(BaseModel):
     enabled: bool
+
+
+class LuckyNumberEventStatus(str, Enum):
+    DRAFT = "DRAFT"
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    DRAWN = "DRAWN"
+
+
+class LuckyNumberEventCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    numberMin: int = Field(default=1, ge=0, le=99999999)
+    numberMax: int = Field(default=9999, ge=1, le=99999999)
+    numberDigits: int = Field(default=4, ge=1, le=12)
+    issueStartAt: Optional[datetime] = None
+    issueEndAt: Optional[datetime] = None
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.numberMin > self.numberMax:
+            raise ValueError("numberMin phai nho hon hoac bang numberMax")
+        if self.issueStartAt and self.issueEndAt and self.issueEndAt <= self.issueStartAt:
+            raise ValueError("issueEndAt phai lon hon issueStartAt")
+        return self
+
+
+class LuckyNumberEventUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    numberMin: Optional[int] = Field(default=None, ge=0, le=99999999)
+    numberMax: Optional[int] = Field(default=None, ge=1, le=99999999)
+    numberDigits: Optional[int] = Field(default=None, ge=1, le=12)
+    issueStartAt: Optional[datetime] = None
+    issueEndAt: Optional[datetime] = None

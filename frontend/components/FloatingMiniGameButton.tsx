@@ -19,7 +19,7 @@ export default function FloatingMiniGameButton() {
   const { token } = useAuth();
   const { isDesktop } = useResponsive();
   const pulse = useRef(new Animated.Value(0)).current;
-  const isMiniGameRoute = pathname.includes('mini-game');
+  const isMiniGameRoute = pathname.includes('mini-game') || pathname.includes('lucky-number');
 
   const settingsQuery = useQuery({
     queryKey: ['mini-game-settings'],

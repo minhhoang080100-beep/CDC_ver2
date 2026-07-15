@@ -88,6 +88,8 @@ export default function TabsLayout() {
         queryClient.invalidateQueries({ queryKey: ['mini-games'] });
         queryClient.invalidateQueries({ queryKey: ['mini-game-active'] });
         queryClient.invalidateQueries({ queryKey: ['mini-game-state'] });
+        queryClient.invalidateQueries({ queryKey: ['lucky-number-state'] });
+        queryClient.invalidateQueries({ queryKey: ['lucky-number-tickets'] });
         if (miniGameEvent === 'settings_updated') {
           queryClient.invalidateQueries({ queryKey: ['mini-game-settings'] });
         }
@@ -239,6 +241,12 @@ export default function TabsLayout() {
           />
           <Tabs.Screen
             name="mini-game"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="lucky-number"
             options={{
               href: null,
             }}

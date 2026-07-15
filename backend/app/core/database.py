@@ -49,6 +49,18 @@ async def init_db_indexes():
         [("gameId", 1), ("userId", 1)], unique=True
     )
     await db.mini_game_submissions.create_index([("gameId", 1), ("score", -1), ("submittedAt", 1)])
+    await db.lucky_number_events.create_index("createdAt")
+    await db.lucky_number_events.create_index("status")
+    await db.lucky_number_tickets.create_index(
+        [("eventId", 1), ("userId", 1)], unique=True
+    )
+    await db.lucky_number_tickets.create_index(
+        [("eventId", 1), ("luckyNumber", 1)], unique=True
+    )
+    await db.lucky_number_tickets.create_index([("eventId", 1), ("issuedAt", -1)])
+    await db.lucky_number_draws.create_index([("eventId", 1), ("drawOrder", 1)], unique=True)
+    await db.lucky_number_draws.create_index([("eventId", 1), ("ticketId", 1)], unique=True)
+    await db.lucky_number_draws.create_index([("eventId", 1), ("drawnAt", -1)])
     # Nominations indexes
     await db.nominations.create_index("campaignId")
     await db.campaigns.create_index("createdAt")

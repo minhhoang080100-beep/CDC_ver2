@@ -1,13 +1,22 @@
+import secrets
 from datetime import datetime, timezone
 from typing import Optional
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pymongo.errors import DuplicateKeyError
 
 from app.core.database import db
 from app.core.permissions import build_content_filter, can_manage_content, resolve_target_departments
 from app.core.security import get_current_user, validate_object_id
-from app.models.mini_game import MiniGameAnswerCreate, MiniGameCreate, MiniGameSettingsUpdate, MiniGameUpdate
+from app.models.mini_game import (
+    LuckyNumberEventCreate,
+    LuckyNumberEventUpdate,
+    MiniGameAnswerCreate,
+    MiniGameCreate,
+    MiniGameSettingsUpdate,
+    MiniGameUpdate,
+)
 from app.routers.websocket import manager
 
 
@@ -214,6 +223,286 @@ async def _serialize_game(
     if include_questions:
         item["questions"] = [_serialize_question(q, include_correct) for q in questions]
     return item
+
+
+def _format_lucky_number(number: int, digits: int) -> str:
+    return str(number).zfill(max(1, int(digits or 1)))
+
+
+def _lucky_capacity(event: dict) -> int:
+    return int(event.get("numberMax", 0)) - int(event.get("numberMin", 0)) + 1
+
+
+def _effective_lucky_status(event: dict) -> str:
+    status = event.get("status", "DRAFT")
+    issue_end_at = _as_utc(event.get("issueEndAt"))
+    if status == "OPEN" and issue_end_at and _now() > issue_end_at:
+        return "CLOSED"
+    return status
+
+
+def _lucky_claim_window_open(event: dict) -> bool:
+    if event.get("status") != "OPEN":
+        return False
+    now = _now()
+    issue_start_at = _as_utc(event.get("issueStartAt"))
+    issue_end_at = _as_utc(event.get("issueEndAt"))
+    if issue_start_at and now < issue_start_at:
+        return False
+    if issue_end_at and now > issue_end_at:
+        return False
+    return True
+
+
+def _validate_lucky_event_values(data: dict) -> None:
+    number_min = int(data.get("numberMin", 1))
+    number_max = int(data.get("numberMax", 9999))
+    number_digits = int(data.get("numberDigits", 4))
+    if number_min > number_max:
+        raise HTTPException(status_code=400, detail="Dai so khong hop le")
+    if number_max - number_min + 1 > 1000000:
+        raise HTTPException(status_code=400, detail="Dai so toi da 1.000.000 so")
+    if len(str(number_max)) > number_digits:
+        data["numberDigits"] = len(str(number_max))
+    issue_start_at = _as_utc(data.get("issueStartAt"))
+    issue_end_at = _as_utc(data.get("issueEndAt"))
+    if issue_start_at and issue_end_at and issue_end_at <= issue_start_at:
+        raise HTTPException(status_code=400, detail="Thoi gian dong phat so phai sau thoi gian mo")
+
+
+def _serialize_lucky_ticket(ticket: Optional[dict]) -> Optional[dict]:
+    if not ticket:
+        return None
+    user_snapshot = ticket.get("userSnapshot") or {}
+    return {
+        "id": str(ticket["_id"]),
+        "eventId": ticket.get("eventId"),
+        "userId": ticket.get("userId"),
+        "luckyNumber": ticket.get("luckyNumber"),
+        "displayNumber": ticket.get("displayNumber"),
+        "issuedAt": _serialize_datetime(ticket.get("issuedAt")),
+        "userSnapshot": {
+            "fullName": user_snapshot.get("fullName"),
+            "department": user_snapshot.get("department"),
+            "workUnit": user_snapshot.get("workUnit"),
+        },
+    }
+
+
+def _serialize_lucky_draw(draw: Optional[dict]) -> Optional[dict]:
+    if not draw:
+        return None
+    return {
+        "id": str(draw["_id"]),
+        "eventId": draw.get("eventId"),
+        "drawOrder": draw.get("drawOrder"),
+        "ticketId": draw.get("ticketId"),
+        "luckyNumber": draw.get("luckyNumber"),
+        "displayNumber": draw.get("displayNumber"),
+        "userId": draw.get("userId"),
+        "winnerName": draw.get("winnerName"),
+        "winnerDepartment": draw.get("winnerDepartment"),
+        "drawnAt": _serialize_datetime(draw.get("drawnAt")),
+        "drawnBy": draw.get("drawnBy"),
+    }
+
+
+async def _serialize_lucky_event(event: Optional[dict], include_ticket_count: bool = False) -> Optional[dict]:
+    if not event:
+        return None
+    event_id = str(event["_id"])
+    ticket_count = None
+    draw_count = None
+    if include_ticket_count:
+        ticket_count = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+        draw_count = await db.lucky_number_draws.count_documents({"eventId": event_id})
+    return {
+        "id": event_id,
+        "title": event.get("title"),
+        "status": _effective_lucky_status(event),
+        "rawStatus": event.get("status", "DRAFT"),
+        "numberMin": event.get("numberMin", 1),
+        "numberMax": event.get("numberMax", 9999),
+        "numberDigits": event.get("numberDigits", 4),
+        "issueStartAt": _serialize_datetime(event.get("issueStartAt")),
+        "issueEndAt": _serialize_datetime(event.get("issueEndAt")),
+        "ticketCount": ticket_count,
+        "drawCount": draw_count,
+        "remainingDrawCount": max((ticket_count or 0) - (draw_count or 0), 0) if ticket_count is not None else None,
+        "winningTicketId": event.get("winningTicketId"),
+        "winningNumber": event.get("winningNumber"),
+        "winningDisplayNumber": event.get("winningDisplayNumber"),
+        "winningUserId": event.get("winningUserId"),
+        "winningUserName": event.get("winningUserName"),
+        "winningUserDepartment": event.get("winningUserDepartment"),
+        "drawnAt": _serialize_datetime(event.get("drawnAt")),
+        "drawnBy": event.get("drawnBy"),
+        "createdBy": event.get("createdBy"),
+        "createdAt": _serialize_datetime(event.get("createdAt")),
+        "updatedAt": _serialize_datetime(event.get("updatedAt")),
+    }
+
+
+def _ensure_can_manage_lucky_event(current_user: dict) -> None:
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail=ADMIN_ONLY)
+
+
+async def _get_lucky_event_or_404(event_id: str) -> dict:
+    event = await db.lucky_number_events.find_one({
+        "_id": validate_object_id(event_id, "Su kien"),
+        "isDeleted": {"$ne": True},
+    })
+    if not event:
+        raise HTTPException(status_code=404, detail="Khong tim thay su kien so may man")
+    return event
+
+
+async def _get_latest_lucky_event(current_user: dict) -> Optional[dict]:
+    query = {"isDeleted": {"$ne": True}}
+    if not _is_admin(current_user):
+        query["status"] = {"$in": ["OPEN", "CLOSED", "DRAWN"]}
+    return await db.lucky_number_events.find_one(query, sort=[("createdAt", -1)])
+
+
+async def _broadcast_lucky_event(event_name: str, event: Optional[dict] = None, title: Optional[str] = None) -> None:
+    payload = {
+        "type": "mini_game_event",
+        "data": {
+            "event": event_name,
+            "mode": "lucky_number",
+        },
+    }
+    if title:
+        payload["title"] = title
+    if event:
+        payload["data"].update({
+            "eventId": str(event["_id"]),
+            "status": _effective_lucky_status(event),
+        })
+    await manager.broadcast(payload)
+
+
+async def _get_existing_lucky_ticket(event_id: str, user_id: str) -> Optional[dict]:
+    return await db.lucky_number_tickets.find_one({
+        "eventId": event_id,
+        "userId": user_id,
+    })
+
+
+async def _get_lucky_draw_history(event_id: str) -> list[dict]:
+    draws = await db.lucky_number_draws.find({"eventId": event_id}).sort("drawOrder", 1).to_list(100000)
+    return [_serialize_lucky_draw(draw) for draw in draws]
+
+
+async def _choose_available_lucky_number(event: dict, event_id: str) -> int:
+    number_min = int(event.get("numberMin", 1))
+    number_max = int(event.get("numberMax", 9999))
+    capacity = _lucky_capacity(event)
+    issued_count = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+    if issued_count >= capacity:
+        raise HTTPException(status_code=400, detail="Da phat het so may man")
+
+    if capacity <= 20000:
+        used = set(await db.lucky_number_tickets.distinct("luckyNumber", {"eventId": event_id}))
+        available = [number for number in range(number_min, number_max + 1) if number not in used]
+        if not available:
+            raise HTTPException(status_code=400, detail="Da phat het so may man")
+        return available[secrets.randbelow(len(available))]
+
+    for _ in range(200):
+        candidate = number_min + secrets.randbelow(capacity)
+        if not await db.lucky_number_tickets.find_one({"eventId": event_id, "luckyNumber": candidate}, {"_id": 1}):
+            return candidate
+
+    used = set(await db.lucky_number_tickets.distinct("luckyNumber", {"eventId": event_id}))
+    for number in range(number_min, number_max + 1):
+        if number not in used:
+            return number
+    raise HTTPException(status_code=400, detail="Da phat het so may man")
+
+
+async def _claim_lucky_ticket(event: dict, current_user: dict) -> dict:
+    event_id = str(event["_id"])
+    existing = await _get_existing_lucky_ticket(event_id, current_user["_id"])
+    if existing:
+        return existing
+
+    if not _lucky_claim_window_open(event):
+        raise HTTPException(status_code=400, detail="Da dong phat so may man")
+
+    for _ in range(8):
+        lucky_number = await _choose_available_lucky_number(event, event_id)
+        now = _now()
+        ticket = {
+            "eventId": event_id,
+            "userId": current_user["_id"],
+            "luckyNumber": lucky_number,
+            "displayNumber": _format_lucky_number(lucky_number, int(event.get("numberDigits", 4))),
+            "issuedAt": now,
+            "createdAt": now,
+            "userSnapshot": {
+                "fullName": current_user.get("fullName"),
+                "department": current_user.get("department"),
+                "workUnit": current_user.get("workUnit"),
+            },
+        }
+        try:
+            result = await db.lucky_number_tickets.insert_one(ticket)
+            ticket["_id"] = result.inserted_id
+            await _broadcast_lucky_event("lucky_ticket_claimed", event)
+            return ticket
+        except DuplicateKeyError:
+            existing = await _get_existing_lucky_ticket(event_id, current_user["_id"])
+            if existing:
+                return existing
+
+    raise HTTPException(status_code=409, detail="He thong dang phat so, vui long thu lai")
+
+
+async def _ensure_latest_event_draw_record(event: dict) -> None:
+    ticket_id = event.get("winningTicketId")
+    if not ticket_id:
+        return
+    event_id = str(event["_id"])
+    existing = await db.lucky_number_draws.find_one({"eventId": event_id, "ticketId": ticket_id})
+    if existing:
+        return
+
+    draw_order = await db.lucky_number_draws.count_documents({"eventId": event_id}) + 1
+    draw_doc = {
+        "eventId": event_id,
+        "drawOrder": draw_order,
+        "ticketId": ticket_id,
+        "luckyNumber": event.get("winningNumber"),
+        "displayNumber": event.get("winningDisplayNumber"),
+        "userId": event.get("winningUserId"),
+        "winnerName": event.get("winningUserName"),
+        "winnerDepartment": event.get("winningUserDepartment"),
+        "drawnAt": event.get("drawnAt") or event.get("updatedAt") or _now(),
+        "drawnBy": event.get("drawnBy"),
+        "createdAt": event.get("drawnAt") or event.get("updatedAt") or _now(),
+    }
+    try:
+        await db.lucky_number_draws.insert_one(draw_doc)
+    except DuplicateKeyError:
+        return
+
+
+async def _build_lucky_state(current_user: dict) -> dict:
+    event = await _get_latest_lucky_event(current_user)
+    if not event:
+        return {"event": None, "myTicket": None, "ticketCount": 0, "drawHistory": []}
+    event_id = str(event["_id"])
+    await _ensure_latest_event_draw_record(event)
+    my_ticket = await _get_existing_lucky_ticket(event_id, current_user["_id"])
+    ticket_count = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+    return {
+        "event": await _serialize_lucky_event(event, include_ticket_count=True),
+        "myTicket": _serialize_lucky_ticket(my_ticket),
+        "ticketCount": ticket_count,
+        "drawHistory": await _get_lucky_draw_history(event_id),
+    }
 
 
 async def _get_game_or_404(game_id: str, current_user: dict, allowed_statuses: Optional[list[str]] = None) -> dict:
@@ -490,6 +779,214 @@ async def update_mini_game_settings(
         "enabled": payload.enabled,
         "updatedAt": _serialize_datetime(now),
         "updatedBy": current_user["_id"],
+    }
+
+
+@router.get("/lucky/state")
+async def get_lucky_number_state(current_user: dict = Depends(get_current_user)):
+    if not _is_super_admin(current_user) and not await _feature_enabled():
+        return {"event": None, "myTicket": None, "ticketCount": 0}
+    return await _build_lucky_state(current_user)
+
+
+@router.post("/lucky/events")
+async def create_lucky_number_event(payload: LuckyNumberEventCreate, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+
+    existing_open_event = await db.lucky_number_events.find_one({
+        "isDeleted": {"$ne": True},
+        "status": {"$in": ["DRAFT", "OPEN", "CLOSED"]},
+    })
+    if existing_open_event:
+        raise HTTPException(status_code=400, detail="Dang co su kien so may man chua hoan tat")
+
+    now = _now()
+    data = payload.model_dump()
+    _validate_lucky_event_values(data)
+    data.update({
+        "status": "DRAFT",
+        "createdBy": current_user["_id"],
+        "creatorName": current_user.get("fullName"),
+        "isDeleted": False,
+        "createdAt": now,
+        "updatedAt": now,
+    })
+    result = await db.lucky_number_events.insert_one(data)
+    data["_id"] = result.inserted_id
+    await _broadcast_lucky_event("lucky_event_created", data)
+    return await _serialize_lucky_event(data, include_ticket_count=True)
+
+
+@router.put("/lucky/events/{event_id}")
+async def update_lucky_number_event(
+    event_id: str,
+    payload: LuckyNumberEventUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+    event = await _get_lucky_event_or_404(event_id)
+    if event.get("status") not in ["DRAFT", "OPEN", "CLOSED"]:
+        raise HTTPException(status_code=400, detail="Chi co the cap nhat su kien chua quay so")
+
+    ticket_count = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+    update_data = {key: value for key, value in payload.model_dump(exclude_unset=True).items()}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Khong co du lieu cap nhat")
+
+    if ticket_count > 0 and any(key in update_data for key in ["numberMin", "numberMax", "numberDigits"]):
+        raise HTTPException(status_code=400, detail="Khong the doi dai so sau khi da phat ve")
+
+    next_data = {**event, **update_data}
+    _validate_lucky_event_values(next_data)
+    update_data["updatedAt"] = _now()
+    await db.lucky_number_events.update_one({"_id": event["_id"]}, {"$set": update_data})
+    updated = await db.lucky_number_events.find_one({"_id": event["_id"]})
+    await _broadcast_lucky_event("lucky_event_updated", updated or event)
+    return await _serialize_lucky_event(updated, include_ticket_count=True)
+
+
+@router.post("/lucky/events/{event_id}/open")
+async def open_lucky_number_event(event_id: str, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+    event = await _get_lucky_event_or_404(event_id)
+    if event.get("status") == "DRAWN":
+        raise HTTPException(status_code=400, detail="Su kien da quay so")
+
+    now = _now()
+    issue_end_at = _as_utc(event.get("issueEndAt"))
+    if issue_end_at and issue_end_at <= now:
+        raise HTTPException(status_code=400, detail="Thoi gian dong phat so da qua")
+
+    update_data = {
+        "status": "OPEN",
+        "issueStartAt": _as_utc(event.get("issueStartAt")) or now,
+        "updatedAt": now,
+    }
+    await db.lucky_number_events.update_one({"_id": event["_id"]}, {"$set": update_data})
+    updated = await db.lucky_number_events.find_one({"_id": event["_id"]})
+    await _broadcast_lucky_event("lucky_event_opened", updated or event, title="Da mo nhan so may man")
+    return await _serialize_lucky_event(updated, include_ticket_count=True)
+
+
+@router.post("/lucky/events/{event_id}/close")
+async def close_lucky_number_event(event_id: str, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+    event = await _get_lucky_event_or_404(event_id)
+    if event.get("status") == "DRAWN":
+        raise HTTPException(status_code=400, detail="Su kien da quay so")
+
+    now = _now()
+    await db.lucky_number_events.update_one(
+        {"_id": event["_id"]},
+        {"$set": {"status": "CLOSED", "updatedAt": now}},
+    )
+    updated = await db.lucky_number_events.find_one({"_id": event["_id"]})
+    await _broadcast_lucky_event("lucky_event_closed", updated or event, title="Da dong nhan so may man")
+    return await _serialize_lucky_event(updated, include_ticket_count=True)
+
+
+@router.post("/lucky/events/{event_id}/claim")
+async def claim_lucky_number(event_id: str, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    event = await _get_lucky_event_or_404(event_id)
+    ticket = await _claim_lucky_ticket(event, current_user)
+    return {
+        "ticket": _serialize_lucky_ticket(ticket),
+        "state": await _build_lucky_state(current_user),
+    }
+
+
+@router.post("/lucky/events/{event_id}/draw")
+async def draw_lucky_number(event_id: str, current_user: dict = Depends(get_current_user)):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+    event = await _get_lucky_event_or_404(event_id)
+
+    effective_status = _effective_lucky_status(event)
+    if effective_status not in ["CLOSED", "DRAWN"]:
+        raise HTTPException(status_code=400, detail="Can dong phat so truoc khi quay")
+
+    await _ensure_latest_event_draw_record(event)
+    drawn_ticket_ids = set(await db.lucky_number_draws.distinct("ticketId", {"eventId": event_id}))
+    excluded_ticket_object_ids = [
+        ObjectId(ticket_id)
+        for ticket_id in drawn_ticket_ids
+        if ObjectId.is_valid(str(ticket_id))
+    ]
+    match_query = {"eventId": event_id}
+    if excluded_ticket_object_ids:
+        match_query["_id"] = {"$nin": excluded_ticket_object_ids}
+
+    tickets = await db.lucky_number_tickets.aggregate([
+        {"$match": match_query},
+        {"$sample": {"size": 1}},
+    ]).to_list(1)
+    if not tickets:
+        issued_count = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+        if issued_count == 0:
+            raise HTTPException(status_code=400, detail="Chua co nguoi nhan so")
+        raise HTTPException(status_code=400, detail="Da quay het so da phat")
+
+    ticket = tickets[0]
+    user_snapshot = ticket.get("userSnapshot") or {}
+    now = _now()
+    draw_order = await db.lucky_number_draws.count_documents({"eventId": event_id}) + 1
+    draw_doc = {
+        "eventId": event_id,
+        "drawOrder": draw_order,
+        "ticketId": str(ticket["_id"]),
+        "luckyNumber": ticket.get("luckyNumber"),
+        "displayNumber": ticket.get("displayNumber"),
+        "userId": ticket.get("userId"),
+        "winnerName": user_snapshot.get("fullName"),
+        "winnerDepartment": user_snapshot.get("department"),
+        "drawnAt": now,
+        "drawnBy": current_user["_id"],
+        "createdAt": now,
+    }
+    try:
+        await db.lucky_number_draws.insert_one(draw_doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="So nay vua duoc quay, vui long bam lai")
+
+    update_data = {
+        "status": "DRAWN",
+        "winningTicketId": str(ticket["_id"]),
+        "winningNumber": ticket.get("luckyNumber"),
+        "winningDisplayNumber": ticket.get("displayNumber"),
+        "winningUserId": ticket.get("userId"),
+        "winningUserName": user_snapshot.get("fullName"),
+        "winningUserDepartment": user_snapshot.get("department"),
+        "drawnAt": now,
+        "drawnBy": current_user["_id"],
+        "updatedAt": now,
+    }
+    await db.lucky_number_events.update_one({"_id": event["_id"]}, {"$set": update_data})
+    updated = await db.lucky_number_events.find_one({"_id": event["_id"]})
+    await _broadcast_lucky_event("lucky_event_drawn", updated or event, title="Da co so may man trung giai")
+    return await _serialize_lucky_event(updated, include_ticket_count=True)
+
+
+@router.get("/lucky/events/{event_id}/tickets")
+async def list_lucky_number_tickets(
+    event_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    current_user: dict = Depends(get_current_user),
+):
+    await _ensure_feature_available(current_user)
+    _ensure_can_manage_lucky_event(current_user)
+    await _get_lucky_event_or_404(event_id)
+    total = await db.lucky_number_tickets.count_documents({"eventId": event_id})
+    tickets = await db.lucky_number_tickets.find({"eventId": event_id}).sort("issuedAt", -1).skip(skip).limit(limit).to_list(limit)
+    return {
+        "items": [_serialize_lucky_ticket(ticket) for ticket in tickets],
+        "total": total,
+        "hasMore": skip + limit < total,
     }
 
 
