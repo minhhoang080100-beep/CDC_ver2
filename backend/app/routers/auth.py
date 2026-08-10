@@ -8,7 +8,8 @@ import time
 from app.core.database import db
 from app.core.security import (
     verify_password, hash_password, create_access_token, create_refresh_token,
-    decode_token, get_current_user, validate_password, validate_object_id
+    decode_token, get_current_user, validate_password, validate_object_id,
+    create_reset_token
 )
 from app.models.user import UserLogin, ChangePassword, UserCreate
 from app.routers.websocket import manager
@@ -495,3 +496,64 @@ async def change_password(data: ChangePassword, current_user: dict = Depends(get
 
     return {"status": "success", "message": "Đổi mật khẩu thành công"}
 
+
+class VerifyCCCDRequest(BaseModel):
+    cccdNumber: str = Field(..., min_length=9, max_length=12)
+
+class ResetPasswordWithTokenRequest(BaseModel):
+    resetToken: str = Field(..., min_length=1)
+    newPassword: str = Field(..., min_length=1)
+
+@router.post("/verify-cccd")
+async def verify_cccd(data: VerifyCCCDRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    await _check_rate_limit(f"verify-cccd:{client_ip}")
+
+    variants = _cccd_variants(data.cccdNumber)
+    if not variants:
+        raise HTTPException(status_code=400, detail="CCCD không hợp lệ")
+
+    # Tìm user có cccdNumber nằm trong danh sách variants
+    user = await db.users.find_one({"cccdNumber": {"$in": list(variants)}})
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản nào khớp với số CCCD này")
+
+    if user.get("status") != "ACTIVE":
+        raise HTTPException(status_code=403, detail="Tài khoản này đang bị khóa hoặc chưa được duyệt")
+
+    token = create_reset_token({"user_id": str(user["_id"])})
+    return {
+        "status": "success",
+        "message": "Xác thực CCCD thành công",
+        "resetToken": token
+    }
+
+@router.post("/reset-password-with-token")
+async def reset_password_with_token(data: ResetPasswordWithTokenRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    await _check_rate_limit(f"reset-pw-token:{client_ip}")
+
+    payload = decode_token(data.resetToken)
+    if payload.get("type") != "reset":
+        raise HTTPException(status_code=401, detail="Phiên làm việc không hợp lệ")
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Phiên làm việc không hợp lệ")
+
+    user = await db.users.find_one({"_id": validate_object_id(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài khoản")
+
+    validate_password(data.newPassword)
+    hashed_pw = hash_password(data.newPassword)
+
+    await db.users.update_one(
+        {"_id": validate_object_id(user_id)},
+        {"$set": {"password": hashed_pw, "updatedAt": datetime.now(timezone.utc)}}
+    )
+
+    # Thu hồi tất cả phiên đăng nhập cũ
+    await db.refresh_tokens.delete_many({"userId": user_id})
+
+    return {"status": "success", "message": "Đặt lại mật khẩu thành công"}

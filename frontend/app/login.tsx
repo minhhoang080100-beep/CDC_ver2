@@ -123,6 +123,14 @@ export default function LoginScreen() {
               {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
               <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={() => router.push('/forgot-password')}
+                disabled={isLoading}
+              >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[styles.button, isLoading && styles.buttonDisabled]}
                 onPress={handleSubmit(onSubmit)}
                 disabled={isLoading}
@@ -242,6 +250,16 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: Colors.primary,
     fontSize: 15,
+    fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    color: Colors.primary,
+    fontSize: 14,
     fontWeight: '600',
   },
   demoInfo: {
