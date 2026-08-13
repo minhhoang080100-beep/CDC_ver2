@@ -62,7 +62,7 @@ export default function ForgotPasswordScreen() {
   const onVerifyCCCD = async (data: CccdFormValues) => {
     setIsLoading(true);
     try {
-      const result = await api.post('/api/auth/verify-cccd', {
+      const result = await api.post('/api/v1/auth/verify-cccd', {
         cccdNumber: data.cccdNumber,
       });
 
@@ -84,7 +84,7 @@ export default function ForgotPasswordScreen() {
     
     setIsLoading(true);
     try {
-      await api.post('/api/auth/reset-password-with-token', {
+      await api.post('/api/v1/auth/reset-password-with-token', {
         resetToken,
         newPassword: data.password,
       });
@@ -119,7 +119,18 @@ export default function ForgotPasswordScreen() {
             </View>
 
             <View style={styles.form}>
-              <TouchableOpacity style={styles.backButton} onPress={() => router.back()} disabled={isLoading}>
+              <TouchableOpacity 
+                style={styles.backButton} 
+                onPress={() => {
+                  if (step === 2) {
+                    setStep(1);
+                    setResetToken(null);
+                  } else {
+                    router.back();
+                  }
+                }} 
+                disabled={isLoading}
+              >
                 <ChevronLeft size={24} color={Colors.text.secondary} />
                 <Text style={styles.backButtonText}>Quay lại</Text>
               </TouchableOpacity>

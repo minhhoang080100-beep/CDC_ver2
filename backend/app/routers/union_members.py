@@ -324,6 +324,30 @@ async def update_union_member(
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Member not found")
             
+        # Đồng bộ trạng thái nghỉ việc sang tài khoản người dùng
+        if "isDeleted" in update_data:
+            cccd = update_data.get("cccdNumber") or existing_member.get("cccdNumber")
+            if cccd:
+                def normalize_cccd(val):
+                    s = str(val)
+                    if len(s) == 11: return s.zfill(12)
+                    if len(s) == 8: return s.zfill(9)
+                    return s
+                norm_cccd = normalize_cccd(cccd)
+                if update_data["isDeleted"] == 1:
+                    await db.users.update_many(
+                        {"cccdNumber": norm_cccd}, 
+                        {"$set": {"isDeleted": 1, "status": "INACTIVE"}}
+                    )
+                    users_cursor = db.users.find({"cccdNumber": norm_cccd}, {"_id": 1})
+                    async for u in users_cursor:
+                        await db.refresh_tokens.delete_many({"userId": str(u["_id"])})
+                elif update_data["isDeleted"] == 0:
+                    await db.users.update_many(
+                        {"cccdNumber": norm_cccd}, 
+                        {"$set": {"isDeleted": 0, "status": "ACTIVE"}}
+                    )
+            
     updated_member = await db.union_members.find_one({"_id": ObjectId(member_id)})
     return format_member(updated_member)
 

@@ -16,6 +16,8 @@ class UserResponse(BaseModel):
     status: str
     pushToken: Optional[str] = None
     cccdNumber: Optional[str] = None
+    isDeleted: Optional[int] = 0
+    lastBirthdayGreetingYear: Optional[int] = None
 
 class UpdatePushToken(BaseModel):
     token: str
@@ -33,6 +35,7 @@ class UserCreate(BaseModel):
     department: str
     avatar: Optional[str] = None
     cccdNumber: Optional[str] = None
+    isDeleted: Optional[int] = 0
 
 class UserUpdate(BaseModel):
     fullName: Optional[str] = None
@@ -41,6 +44,7 @@ class UserUpdate(BaseModel):
     status: Optional[str] = None
     avatar: Optional[str] = None
     cccdNumber: Optional[str] = None
+    isDeleted: Optional[int] = None
 
 class ResetPasswordRequest(BaseModel):
     newPassword: str = Field(..., min_length=1)

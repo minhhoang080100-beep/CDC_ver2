@@ -118,6 +118,8 @@ export default function TabsLayout() {
       new_honor: ['honors', 'campaigns'],
       new_course: ['courses'],
       new_registration: ['users'],
+      new_donation: ['donations', 'donations-stats', 'my-donations', 'my-received'],
+      new_donation_pending: ['donations-pending', 'donations-stats'],
     };
 
     const queries = typeToQuery[msg.type];
@@ -253,6 +255,12 @@ export default function TabsLayout() {
           />
           <Tabs.Screen
             name="honors"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="donations"
             options={{
               href: null,
             }}

@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+
 import { useRouter, usePathname } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/Colors';
@@ -20,6 +21,7 @@ import {
     ClipboardList,
     Trophy,
     GraduationCap,
+    Gift,
 } from 'lucide-react-native';
 
 interface MenuItem {
@@ -38,6 +40,7 @@ const MENU_ITEMS: MenuItem[] = [
     { name: 'surveys', path: '/(tabs)/surveys', icon: ClipboardList, label: 'Khảo sát' },
     { name: 'honors', path: '/(tabs)/honors', icon: Trophy, label: 'Vinh danh' },
     { name: 'elearning', path: '/(tabs)/elearning', icon: GraduationCap, label: 'Đào tạo' },
+    { name: 'donations', path: '/(tabs)/donations', icon: Gift, label: 'Kho 0 đồng' },
     { name: 'settings', path: '/(tabs)/settings', icon: Settings, label: 'Cài đặt' },
 ];
 

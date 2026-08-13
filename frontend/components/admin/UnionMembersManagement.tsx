@@ -50,6 +50,7 @@ export interface UnionMember {
     idIssuePlace?: string;
     familyBackground?: string;
     userId?: string;
+    isDeleted?: number;
 }
 
 export default function UnionMembersManagement() {
@@ -251,7 +252,10 @@ export default function UnionMembersManagement() {
         <TouchableOpacity activeOpacity={0.7} onPress={() => handleRowClick(item)}>
             <WebHoverCard style={styles.card}>
                 <View style={styles.cardInfo}>
-                    <Text style={styles.nameText}>{item.employeeId ? `[${item.employeeId}] ` : ''}{item.fullName}</Text>
+                    <Text style={[styles.nameText, item.isDeleted === 1 && { textDecorationLine: 'line-through', color: Colors.text.placeholder }]}>
+                        {item.employeeId ? `[${item.employeeId}] ` : ''}{item.fullName}
+                        {item.isDeleted === 1 && <Text style={{color: Colors.status.error, fontSize: 12}}> (Đã nghỉ việc)</Text>}
+                    </Text>
                     <Text style={styles.subText}>{item.position || 'Chưa cập nhật CV'} • {item.department || 'Chưa cập nhật PB'}</Text>
                     <Text style={styles.subText}>{item.phoneNumber || 'Không có SĐT'}</Text>
                 </View>
@@ -445,7 +449,10 @@ export default function UnionMembersManagement() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.tr} activeOpacity={0.7} onPress={() => handleRowClick(item)}>
                                     <Text style={[styles.td, { flex: 0.8, color: Colors.text.secondary }]}>{item.employeeId || '-'}</Text>
-                                    <Text style={[styles.td, { flex: 1.6, fontWeight: '500' }]}>{item.fullName}</Text>
+                                    <Text style={[styles.td, { flex: 1.6, fontWeight: '500' }, item.isDeleted === 1 && { textDecorationLine: 'line-through', color: Colors.text.placeholder }]}>
+                                        {item.fullName}
+                                        {item.isDeleted === 1 && <Text style={{color: Colors.status.error, fontSize: 12}}>{`\n`}(Đã nghỉ việc)</Text>}
+                                    </Text>
                                     <Text style={[styles.td, { flex: 1.4 }]}>
                                         <Text style={{ fontWeight: '500' }}>{item.position || '-'}</Text>
                                         <Text style={{ color: Colors.text.secondary, fontSize: 13 }}>{`\n`}{item.department || '-'}</Text>

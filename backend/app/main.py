@@ -6,6 +6,14 @@ from starlette.middleware.cors import CORSMiddleware
 import logging
 import time
 import uuid
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from starlette.middleware.cors import CORSMiddleware
+import logging
+import time
+import uuid
 import cloudinary
 import os
 import sentry_sdk
@@ -15,7 +23,8 @@ from app.core.database import client, db, init_db_indexes
 from app.routers import (
     auth, posts, activities, feedback, documents, users,
     analytics, union_members, surveys, honors, elearning,
-    comments, notifications, search, export, websocket, mini_games
+    comments, notifications, search, export, websocket, mini_games,
+    donations
 )
 
 # ─── Structured Logging ─────────────────────────────────────
@@ -47,12 +56,20 @@ else:
     logger.info("ℹ️  SENTRY_DSN not set — error monitoring disabled")
 
 
+from app.core.database import client, db, init_db_indexes
+from app.core.cron import birthday_cron_loop
+import asyncio
+
 # ─── Lifespan ────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await init_db_indexes()
     logger.info("✅ Database indexes initialized")
+    
+    # Bắt đầu background task
+    asyncio.create_task(birthday_cron_loop())
+    
     yield
     # Shutdown
     client.close()
@@ -159,15 +176,6 @@ app.include_router(union_members.router, prefix=f"{_V1}/union-members", tags=["u
 app.include_router(surveys.router,       prefix=f"{_V1}/surveys",       tags=["surveys"])
 app.include_router(mini_games.router,    prefix=f"{_V1}/mini-games",    tags=["mini_games"])
 app.include_router(honors.router,        prefix=f"{_V1}/honors",        tags=["honors"])
-app.include_router(elearning.router,     prefix=f"{_V1}/elearning",     tags=["elearning"])
-app.include_router(comments.router,      prefix=f"{_V1}/comments",      tags=["comments"])
-app.include_router(notifications.router, prefix=f"{_V1}/notifications", tags=["notifications"])
-app.include_router(search.router,        prefix=f"{_V1}/search",        tags=["search"])
-app.include_router(export.router,        prefix=f"{_V1}/export",        tags=["export"])
-app.include_router(websocket.router,     prefix=f"{_V1}",              tags=["websocket"])
-
-# ─── Backward-compatible: /api/* → /api/v1/* redirect ────────
-# Also mount at /api/* so existing frontend continues to work without changes
 app.include_router(auth.router,          prefix="/api/auth",          tags=["auth"], include_in_schema=False)
 app.include_router(posts.router,         prefix="/api/posts",         tags=["posts"], include_in_schema=False)
 app.include_router(activities.router,    prefix="/api/activities",    tags=["activities"], include_in_schema=False)
@@ -184,8 +192,8 @@ app.include_router(comments.router,      prefix="/api/comments",      tags=["com
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"], include_in_schema=False)
 app.include_router(search.router,        prefix="/api/search",        tags=["search"], include_in_schema=False)
 app.include_router(export.router,        prefix="/api/export",        tags=["export"], include_in_schema=False)
+app.include_router(donations.router,     prefix="/api/donations",     tags=["donations"], include_in_schema=False)
 app.include_router(websocket.router,     prefix="/api",               tags=["websocket"], include_in_schema=False)
-
 
 # ═══════════════════════════════════════════════════════════════
 #  HEALTH CHECK

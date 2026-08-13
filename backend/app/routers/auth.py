@@ -162,6 +162,8 @@ async def login(user_login: UserLogin, request: Request):
 
     if user.get("status") == "PENDING":
         raise HTTPException(status_code=403, detail="Tài khoản của bạn đang chờ Quản trị viên phê duyệt")
+    if user.get("isDeleted") == 1:
+        raise HTTPException(status_code=403, detail="Tài khoản của bạn đã bị vô hiệu hóa (Đã nghỉ việc)")
     if user.get("status") != "ACTIVE":
         raise HTTPException(status_code=403, detail="Tài khoản của bạn đã bị vô hiệu hóa")
 
@@ -214,7 +216,7 @@ async def refresh_token(data: RefreshTokenRequest):
         raise HTTPException(status_code=401, detail="Token đã bị thu hồi hoặc không hợp lệ")
 
     user = await db.users.find_one({"_id": ObjectId(user_id)})
-    if not user or user.get("status") != "ACTIVE":
+    if not user or user.get("status") != "ACTIVE" or user.get("isDeleted") == 1:
         raise HTTPException(status_code=401, detail="Tài khoản không tồn tại hoặc đã bị vô hiệu hóa")
 
     new_token = create_access_token({"user_id": user_id})
@@ -251,6 +253,10 @@ async def register_user(user_data: UserCreate, request: Request, background_task
         existing_cccd = await db.users.find_one({"cccdNumber": user_data.cccdNumber})
         if existing_cccd:
             raise HTTPException(status_code=400, detail="Số Căn cước công dân này đã tồn tại tài khoản")
+            
+        member = await _find_union_member_by_cccd(user_data.cccdNumber)
+        if member and member.get("isDeleted") == 1:
+            raise HTTPException(status_code=403, detail="Không thể đăng ký tài khoản cho nhân viên đã nghỉ việc")
 
     # Validate password (chữ hoa + chữ thường + số, >=8 ký tự)
     validate_password(user_data.password)

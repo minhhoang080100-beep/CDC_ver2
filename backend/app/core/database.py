@@ -76,6 +76,19 @@ async def init_db_indexes():
         ("title", "text"), ("category", "text")
     ], default_language="none")
     # Notifications indexes
+    await db.campaigns.create_index("createdAt")
+    # Feedback indexes
+    await db.feedback.create_index("senderId")
+    await db.feedback.create_index("targetRecipients")
+    await db.feedback.create_index("createdAt")
+    # Text search indexes
+    await db.posts.create_index([
+        ("title", "text"), ("content", "text"), ("summary", "text")
+    ], default_language="none")
+    await db.documents.create_index([
+        ("title", "text"), ("category", "text")
+    ], default_language="none")
+    # Notifications indexes
     await db.notifications.create_index([("userId", 1), ("createdAt", -1)])
     await db.notifications.create_index("read")
     # App settings indexes
@@ -85,8 +98,14 @@ async def init_db_indexes():
     # Rate limiting (TTL auto-cleanup)
     await db.rate_limits.create_index("expiresAt", expireAfterSeconds=0)
     await db.rate_limits.create_index([("key", 1), ("timestamp", 1)])
+    # Donations indexes
+    await db.donations.create_index("status")
+    await db.donations.create_index("category")
+    await db.donations.create_index("donorDepartment")
+    await db.donations.create_index("createdAt")
+    await db.donations.create_index([("status", 1), ("createdAt", -1)])
+    await db.donations.create_index([("donorId", 1), ("status", 1)])
     # Refresh tokens (TTL auto-cleanup + lookup by userId)
     await db.refresh_tokens.create_index("expiresAt", expireAfterSeconds=0)
     await db.refresh_tokens.create_index("userId")
     await db.refresh_tokens.create_index("token")
-

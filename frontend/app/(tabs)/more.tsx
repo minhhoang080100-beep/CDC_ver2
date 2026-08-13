@@ -22,6 +22,8 @@ import {
     Users,
     LogOut,
     ChevronRight,
+    Heart,
+    Gift,
 } from 'lucide-react-native';
 
 interface MenuItem {
@@ -74,21 +76,21 @@ const MENU_ITEMS: MenuItem[] = [
     {
         name: 'honors',
         path: '/(tabs)/honors',
-        icon: Trophy,
+        icon: Heart,
         label: 'Vinh danh',
-        description: 'Bảng vinh danh & đề cử',
-        color: '#f59e0b',
-        bgColor: '#fffbeb',
+        description: 'Bảng vàng khen thưởng',
+        color: '#f43f5e',
+        bgColor: '#ffe4e6',
     },
     {
-        name: 'elearning',
-        path: '/(tabs)/elearning',
-        icon: GraduationCap,
-        label: 'Đào tạo',
-        description: 'Khóa học trực tuyến',
+        name: 'donations',
+        path: '/(tabs)/donations',
+        icon: Gift,
+        label: 'Kho 0 đồng',
+        description: 'Tặng và nhận đồ dùng',
         color: '#10b981',
-        bgColor: '#ecfdf5',
-    },
+        bgColor: '#d1fae5',
+    }
 ];
 
 const ADMIN_ITEM: MenuItem = {

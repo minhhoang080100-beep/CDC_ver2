@@ -75,6 +75,7 @@ interface FormState {
     idIssueDate: string;
     idIssuePlace: string;
     familyBackground: string;
+    isDeleted: number;
 }
 
 function initForm(member: UnionMember | null): FormState {
@@ -103,6 +104,7 @@ function initForm(member: UnionMember | null): FormState {
         idIssueDate: isoToDisplay(member?.idIssueDate),
         idIssuePlace: member?.idIssuePlace || '',
         familyBackground: member?.familyBackground || '',
+        isDeleted: member?.isDeleted || 0,
     };
 }
 
@@ -195,6 +197,7 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                 idIssueDate: displayToIso(form.idIssueDate),
                 idIssuePlace: form.idIssuePlace.trim() || null,
                 familyBackground: form.familyBackground.trim() || null,
+                isDeleted: form.isDeleted,
             };
 
             let savedMember: UnionMember | undefined;
@@ -246,7 +249,20 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Thông tin cơ bản */}
-                        <Text style={styles.sectionTitle}>📋 Thông tin cơ bản</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={styles.sectionTitle}>📋 Thông tin cơ bản</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={{ color: form.isDeleted === 1 ? Colors.status.error : Colors.text.secondary, fontWeight: '500' }}>
+                                    {form.isDeleted === 1 ? 'Đã nghỉ việc' : 'Đang làm việc'}
+                                </Text>
+                                <Switch
+                                    value={form.isDeleted === 1}
+                                    onValueChange={(val) => setForm(prev => ({ ...prev, isDeleted: val ? 1 : 0 }))}
+                                    trackColor={{ false: '#d1d5db', true: Colors.status.error }}
+                                    thumbColor="#fff"
+                                />
+                            </View>
+                        </View>
                         <Field label="Mã nhân viên *" value={form.employeeId} onChange={set('employeeId')} />
                         <Field label="Họ và tên *" value={form.fullName} onChange={set('fullName')} />
                         <View style={styles.row}>
