@@ -446,7 +446,7 @@ export default function DonationsScreen() {
                             />
                         ) : (
                             <View style={styles.emptyState}>
-                                <Box color="#cbd5e1" size={48} />
+                                <Package color="#cbd5e1" size={48} />
                                 <Text style={styles.emptyStateText}>Bạn chưa {myItemsTab === 'DONATED' ? 'tặng' : 'nhận'} đồ dùng nào</Text>
                             </View>
                         )}
