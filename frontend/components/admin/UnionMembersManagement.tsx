@@ -201,6 +201,8 @@ export default function UnionMembersManagement() {
         const tree: Record<string, { total: number, departments: Record<string, number> }> = {};
         
         members.forEach(m => {
+            if (m.isDeleted === 1) return;
+
             const wu = m.workUnit || 'Khác';
             const dp = m.department || 'Chưa phân ban';
             
