@@ -668,10 +668,15 @@ export default function DonationsScreen() {
                                         </View>
                                     )}
                                     {/* User Actions */}
-                                    {selectedItem.status === 'APPROVED' && selectedItem.donorId !== user?.id && (
+                                    {selectedItem.status === 'APPROVED' && selectedItem.donorId !== user?.id && !selectedItem.hasRequested && (
                                         <TouchableOpacity style={styles.submitBtn} onPress={() => { setRequestReason(''); setRequestModalVisible(true); }}>
                                             <Text style={styles.submitBtnText}>Xin nhận món đồ này</Text>
                                         </TouchableOpacity>
+                                    )}
+                                    {selectedItem.status === 'APPROVED' && selectedItem.donorId !== user?.id && selectedItem.hasRequested && (
+                                        <View style={[styles.submitBtn, { backgroundColor: '#cbd5e1' }]}>
+                                            <Text style={styles.submitBtnText}>Đã gửi yêu cầu nhận</Text>
+                                        </View>
                                     )}
                                     {/* Owner Actions */}
                                     {selectedItem.donorId === user?.id && (selectedItem.status === 'PENDING' || selectedItem.status === 'REJECTED') && (

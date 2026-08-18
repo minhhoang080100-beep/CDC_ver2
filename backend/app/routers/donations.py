@@ -61,6 +61,15 @@ async def create_donation(
         {"type": "new_donation_pending", "donorName": donation_dict["donorName"]},
     )
     
+    # Gửi thông báo cho tất cả Quản trị viên (Admin/BCH)
+    admins = await db.users.find({"role": {"$in": ["SUPER_ADMIN", "BCH_VANPHONG", "BCH_CUALO", "BCH_BENTHUY"]}}).to_list(None)
+    for admin in admins:
+        await _notify_user(
+            user_id=str(admin["_id"]),
+            title="Có món đồ mới chờ duyệt",
+            message=f"{donation_dict['donorName']} vừa đăng tặng một món đồ mới trên Kho 0 Đồng."
+        )
+    
     return format_donation(created_donation)
 
 @router.get("/")
@@ -87,7 +96,16 @@ async def list_donations(
         query["status"] = "APPROVED"
 
     cursor = db.donations.find(query).sort("createdAt", -1).skip(skip).limit(limit)
-    items = [format_donation(doc) async for doc in cursor]
+    
+    user_id_str = str(current_user["_id"])
+    items = []
+    async for doc in cursor:
+        fmt_doc = format_donation(doc)
+        fmt_doc["hasRequested"] = any(r["userId"] == user_id_str for r in doc.get("requesters", []))
+        if not is_admin(current_user) and user_id_str != doc.get("donorId"):
+            fmt_doc.pop("requesters", None)
+        items.append(fmt_doc)
+        
     total = await db.donations.count_documents(query)
     
     return {"total": total, "items": items}
@@ -157,8 +175,11 @@ async def get_donation(
     
     result = format_donation(donation)
     
-    # Chỉ admin hoặc chủ bài mới được xem danh sách người đăng ký nhận
     user_id_str = str(current_user["_id"])
+    has_requested = any(r["userId"] == user_id_str for r in donation.get("requesters", []))
+    result["hasRequested"] = has_requested
+    
+    # Chỉ admin hoặc chủ bài mới được xem danh sách người đăng ký nhận
     if not is_admin(current_user) and user_id_str != donation.get("donorId"):
         result.pop("requesters", None)
     

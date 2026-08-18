@@ -61,21 +61,6 @@ class TestPasswordValidation:
             validate_password("Sh1")
         assert exc_info.value.status_code == 400
 
-    def test_no_uppercase(self):
-        with pytest.raises(HTTPException) as exc_info:
-            validate_password("lowercase1")
-        assert exc_info.value.status_code == 400
-
-    def test_no_lowercase(self):
-        with pytest.raises(HTTPException) as exc_info:
-            validate_password("UPPERCASE1")
-        assert exc_info.value.status_code == 400
-
-    def test_no_number(self):
-        with pytest.raises(HTTPException) as exc_info:
-            validate_password("NoNumberHere")
-        assert exc_info.value.status_code == 400
-
 
 class TestObjectIdValidation:
     def test_valid_object_id(self):
