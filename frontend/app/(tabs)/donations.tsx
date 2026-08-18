@@ -67,7 +67,7 @@ export default function DonationsScreen() {
 
     const [activeTab, setActiveTab] = useState<'LIST' | 'MY_ITEMS' | 'ADMIN'>('LIST');
     const [myItemsTab, setMyItemsTab] = useState<'DONATED' | 'RECEIVED'>('DONATED');
-    const [adminTab, setAdminTab] = useState<'PENDING' | 'MATCHED'>('PENDING');
+    const [adminTab, setAdminTab] = useState<'PENDING' | 'APPROVED' | 'MATCHED'>('PENDING');
 
     const [categoryFilter, setCategoryFilter] = useState('');
     const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -123,6 +123,12 @@ export default function DonationsScreen() {
         enabled: activeTab === 'ADMIN' && adminTab === 'PENDING',
     });
 
+    const { data: approvedData, isLoading: approvedLoading, refetch: refetchApproved } = useQuery({
+        queryKey: ['donations-approved-admin'],
+        queryFn: () => api.get('/api/donations?status=APPROVED').then(res => res.data),
+        enabled: activeTab === 'ADMIN' && adminTab === 'APPROVED',
+    });
+
     const { data: matchedData, isLoading: matchedLoading, refetch: refetchMatched } = useQuery({
         queryKey: ['donations-matched'],
         queryFn: () => api.get('/api/donations?status=MATCHED').then(res => res.data),
@@ -134,6 +140,7 @@ export default function DonationsScreen() {
         queryClient.invalidateQueries({ queryKey: ['my-donations'] });
         queryClient.invalidateQueries({ queryKey: ['my-received'] });
         queryClient.invalidateQueries({ queryKey: ['donations-pending'] });
+        queryClient.invalidateQueries({ queryKey: ['donations-approved-admin'] });
         queryClient.invalidateQueries({ queryKey: ['donations-matched'] });
         queryClient.invalidateQueries({ queryKey: ['donations-stats'] });
     };
@@ -459,23 +466,26 @@ export default function DonationsScreen() {
                             <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive]} onPress={() => setAdminTab('PENDING')}>
                                 <Text style={[styles.subTabText, adminTab === 'PENDING' && styles.subTabTextActive]}>Chờ duyệt</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive]} onPress={() => setAdminTab('APPROVED')}>
+                                <Text style={[styles.subTabText, adminTab === 'APPROVED' && styles.subTabTextActive]}>Đã duyệt</Text>
+                            </TouchableOpacity>
                             <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive]} onPress={() => setAdminTab('MATCHED')}>
                                 <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Đang giao dịch</Text>
                             </TouchableOpacity>
                         </View>
                         
-                        {(adminTab === 'PENDING' ? pendingLoading : matchedLoading) ? (
+                        {(adminTab === 'PENDING' ? pendingLoading : adminTab === 'APPROVED' ? approvedLoading : matchedLoading) ? (
                             <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-                        ) : (adminTab === 'PENDING' ? pendingData?.items : matchedData?.items)?.length > 0 ? (
+                        ) : (adminTab === 'PENDING' ? pendingData?.items : adminTab === 'APPROVED' ? approvedData?.items : matchedData?.items)?.length > 0 ? (
                             <FlatList
-                                data={adminTab === 'PENDING' ? pendingData.items : matchedData.items}
+                                data={adminTab === 'PENDING' ? pendingData.items : adminTab === 'APPROVED' ? approvedData.items : matchedData.items}
                                 keyExtractor={item => item.id}
                                 renderItem={renderItem}
                                 numColumns={isDesktop ? 3 : 2}
                                 key={isDesktop ? 'desktop' : 'mobile'}
                                 contentContainerStyle={styles.listContent}
                                 columnWrapperStyle={styles.columnWrapper}
-                                refreshControl={<RefreshControl refreshing={false} onRefresh={adminTab === 'PENDING' ? refetchPending : refetchMatched} />}
+                                refreshControl={<RefreshControl refreshing={false} onRefresh={adminTab === 'PENDING' ? refetchPending : adminTab === 'APPROVED' ? refetchApproved : refetchMatched} />}
                             />
                         ) : (
                             <View style={styles.emptyState}>
@@ -678,9 +688,9 @@ export default function DonationsScreen() {
                                             <Text style={styles.submitBtnText}>Đã gửi yêu cầu nhận</Text>
                                         </View>
                                     )}
-                                    {/* Owner Actions */}
-                                    {selectedItem.donorId === user?.id && (selectedItem.status === 'PENDING' || selectedItem.status === 'REJECTED') && (
-                                        <TouchableOpacity style={[styles.submitBtn, { backgroundColor: Colors.status.error }]} onPress={() => handleDelete(selectedItem.id)}>
+                                    {/* Delete Action (Owner or Admin) */}
+                                    {(isAdmin || (selectedItem.donorId === user?.id && (selectedItem.status === 'PENDING' || selectedItem.status === 'REJECTED'))) && (
+                                        <TouchableOpacity style={[styles.submitBtn, { backgroundColor: Colors.status.error, marginTop: 8 }]} onPress={() => handleDelete(selectedItem.id)}>
                                             <Text style={styles.submitBtnText}>Xóa bài</Text>
                                         </TouchableOpacity>
                                     )}
