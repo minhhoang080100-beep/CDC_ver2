@@ -267,8 +267,9 @@ async def delete_donation(
 @router.put("/{id}/approve")
 async def approve_donation(
     id: str,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(get_current_user)
 ):
+    require_admin(current_user)
     obj_id = validate_object_id(id)
     donation = await db.donations.find_one({"_id": obj_id})
     if not donation:
@@ -305,8 +306,9 @@ async def approve_donation(
 async def reject_donation(
     id: str,
     data: DonationRejectRequest,
-    current_user: dict = Depends(require_admin)
+    current_user: dict = Depends(get_current_user)
 ):
+    require_admin(current_user)
     obj_id = validate_object_id(id)
     donation = await db.donations.find_one({"_id": obj_id})
     if not donation:
