@@ -103,6 +103,13 @@ export default function UnionMemberModal({ visible, onClose, member }: UnionMemb
                             <View style={styles.profileMainInfo}>
                                 <Text style={styles.profileName}>{member.fullName}</Text>
                                 <Text style={styles.profileSubtitle}>{member.position ? `${member.position} • ` : ''}{member.department || 'Chưa phân ban'}</Text>
+                                {member.isDeleted === 1 && (
+                                    <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start', marginTop: 8 }}>
+                                        <Text style={{ color: Colors.status.error, fontSize: 12, fontWeight: 'bold' }}>
+                                            Đã nghỉ việc {member.resignationDate ? `- ${formatDate(member.resignationDate)}` : ''}
+                                        </Text>
+                                    </View>
+                                )}
                             </View>
                         </View>
 

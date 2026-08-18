@@ -76,6 +76,7 @@ interface FormState {
     idIssuePlace: string;
     familyBackground: string;
     isDeleted: number;
+    resignationDate: string;
 }
 
 function initForm(member: UnionMember | null): FormState {
@@ -105,6 +106,7 @@ function initForm(member: UnionMember | null): FormState {
         idIssuePlace: member?.idIssuePlace || '',
         familyBackground: member?.familyBackground || '',
         isDeleted: member?.isDeleted || 0,
+        resignationDate: isoToDisplay(member?.resignationDate),
     };
 }
 
@@ -162,6 +164,10 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
             dateFields.push(['partyJoinDate', 'Ngày vào Đảng']);
             dateFields.push(['partyOfficialDate', 'Ngày chính thức']);
         }
+        if (form.isDeleted === 1) {
+            dateFields.push(['resignationDate', 'Ngày nghỉ việc']);
+        }
+
         for (const [key, label] of dateFields) {
             const value = form[key];
             if (typeof value === 'string' && value.trim() && displayToIso(value) === null) {
@@ -198,6 +204,7 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                 idIssuePlace: form.idIssuePlace.trim() || null,
                 familyBackground: form.familyBackground.trim() || null,
                 isDeleted: form.isDeleted,
+                resignationDate: form.isDeleted === 1 ? displayToIso(form.resignationDate) : null,
             };
 
             let savedMember: UnionMember | undefined;
@@ -265,6 +272,9 @@ export default function UnionMemberEditModal({ visible, onClose, member, onSaved
                         </View>
                         <Field label="Mã nhân viên *" value={form.employeeId} onChange={set('employeeId')} />
                         <Field label="Họ và tên *" value={form.fullName} onChange={set('fullName')} />
+                        {form.isDeleted === 1 && (
+                            <Field label="Ngày nghỉ việc *" value={form.resignationDate} onChange={set('resignationDate')} placeholder="dd/MM/yyyy" />
+                        )}
                         <View style={styles.row}>
                             <View style={{ flex: 1 }}>
                                 <Field label="Giới tính" value={form.gender} onChange={set('gender')} placeholder="Nam / Nữ" />

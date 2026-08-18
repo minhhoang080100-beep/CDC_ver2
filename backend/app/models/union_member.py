@@ -37,6 +37,7 @@ class UnionMemberBase(BaseModel):
     familyBackground: Optional[str] = None # Hoàn cảnh gia đình
     userId: Optional[str] = None # Link to User account if exists
     isDeleted: Optional[int] = 0 # 0: Đang làm việc, 1: Đã nghỉ việc
+    resignationDate: Optional[datetime] = None # Ngày nghỉ việc
 
 class UnionMemberCreate(UnionMemberBase):
     pass
@@ -68,6 +69,7 @@ class UnionMemberUpdate(BaseModel):
     familyBackground: Optional[str] = None
     userId: Optional[str] = None
     isDeleted: Optional[int] = None
+    resignationDate: Optional[datetime] = None
 
 class UnionMemberResponse(UnionMemberBase):
     id: str

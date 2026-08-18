@@ -200,8 +200,13 @@ export default function UnionMembersManagement() {
     const structure = useMemo(() => {
         const tree: Record<string, { total: number, departments: Record<string, number> }> = {};
         
+        tree['Lao động đã nghỉ việc'] = { total: 0, departments: {} };
+
         members.forEach(m => {
-            if (m.isDeleted === 1) return;
+            if (m.isDeleted === 1) {
+                tree['Lao động đã nghỉ việc'].total += 1;
+                return;
+            }
 
             const wu = m.workUnit || 'Khác';
             const dp = m.department || 'Chưa phân ban';
@@ -217,12 +222,23 @@ export default function UnionMembersManagement() {
             tree[wu].departments[dp] += 1;
         });
         
+        // Remove 'Lao động đã nghỉ việc' if it's empty
+        if (tree['Lao động đã nghỉ việc'].total === 0) {
+            delete tree['Lao động đã nghỉ việc'];
+        }
+        
         return tree;
     }, [members]);
 
     const filteredMembers = members.filter(m => {
-        if (selectedWorkUnit && (m.workUnit || 'Khác') !== selectedWorkUnit) return false;
-        if (selectedDepartment && (m.department || 'Chưa phân ban') !== selectedDepartment) return false;
+        if (selectedWorkUnit === 'Lao động đã nghỉ việc') {
+            if (m.isDeleted !== 1) return false;
+        } else {
+            // Hide retired members from other work units, unless searching globally
+            if (m.isDeleted === 1 && !searchText) return false; 
+            if (selectedWorkUnit && (m.workUnit || 'Khác') !== selectedWorkUnit) return false;
+            if (selectedDepartment && (m.department || 'Chưa phân ban') !== selectedDepartment) return false;
+        }
 
         const matchesSearch = m.fullName?.toLowerCase().includes(searchText.toLowerCase()) ||
             m.department?.toLowerCase().includes(searchText.toLowerCase());
@@ -254,10 +270,14 @@ export default function UnionMembersManagement() {
         <TouchableOpacity activeOpacity={0.7} onPress={() => handleRowClick(item)}>
             <WebHoverCard style={styles.card}>
                 <View style={styles.cardInfo}>
-                    <Text style={[styles.nameText, item.isDeleted === 1 && { textDecorationLine: 'line-through', color: Colors.text.placeholder }]}>
+                    <Text style={[styles.nameText, item.isDeleted === 1 && { color: Colors.text.placeholder }]}>
                         {item.employeeId ? `[${item.employeeId}] ` : ''}{item.fullName}
-                        {item.isDeleted === 1 && <Text style={{color: Colors.status.error, fontSize: 12}}> (Đã nghỉ việc)</Text>}
                     </Text>
+                    {item.isDeleted === 1 && (
+                        <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4, marginBottom: 4 }}>
+                            <Text style={{ color: Colors.status.error, fontSize: 11, fontWeight: '600' }}>Đã nghỉ việc</Text>
+                        </View>
+                    )}
                     <Text style={styles.subText}>{item.position || 'Chưa cập nhật CV'} • {item.department || 'Chưa cập nhật PB'}</Text>
                     <Text style={styles.subText}>{item.phoneNumber || 'Không có SĐT'}</Text>
                 </View>
@@ -290,8 +310,15 @@ export default function UnionMembersManagement() {
             {isDesktop && (
                 <View style={styles.sidebar}>
                     <Text style={styles.sidebarTitle}>Cơ cấu tổ chức</Text>
+                    <Text style={{ fontSize: 13, color: Colors.text.secondary, marginBottom: 16, fontWeight: '500' }}>
+                        Tổng số: {members.filter(m => m.isDeleted !== 1).length} lao động
+                    </Text>
                     <ScrollView showsVerticalScrollIndicator={false} style={styles.sidebarScroll}>
-                        {Object.entries(structure).map(([wu, wuData]) => {
+                        {Object.entries(structure).sort(([a], [b]) => {
+                            if (a === 'Lao động đã nghỉ việc') return 1;
+                            if (b === 'Lao động đã nghỉ việc') return -1;
+                            return a.localeCompare(b);
+                        }).map(([wu, wuData]) => {
                             const isExpanded = selectedWorkUnit === wu;
                             return (
                                 <View key={wu} style={styles.treeNode}>
@@ -311,7 +338,7 @@ export default function UnionMembersManagement() {
                                     
                                     {isExpanded && (
                                         <View style={styles.treeChildren}>
-                                            {Object.entries(wuData.departments).map(([dp, count]) => {
+                                            {Object.entries(wuData.departments).sort(([a], [b]) => a.localeCompare(b)).map(([dp, count]) => {
                                                 const isDepSelected = selectedDepartment === dp;
                                                 return (
                                                     <TouchableOpacity 
@@ -451,10 +478,16 @@ export default function UnionMembersManagement() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity style={styles.tr} activeOpacity={0.7} onPress={() => handleRowClick(item)}>
                                     <Text style={[styles.td, { flex: 0.8, color: Colors.text.secondary }]}>{item.employeeId || '-'}</Text>
-                                    <Text style={[styles.td, { flex: 1.6, fontWeight: '500' }, item.isDeleted === 1 && { textDecorationLine: 'line-through', color: Colors.text.placeholder }]}>
-                                        {item.fullName}
-                                        {item.isDeleted === 1 && <Text style={{color: Colors.status.error, fontSize: 12}}>{`\n`}(Đã nghỉ việc)</Text>}
-                                    </Text>
+                                    <View style={{ flex: 1.6, paddingRight: 8, justifyContent: 'center' }}>
+                                        <Text style={{ fontWeight: '500', color: item.isDeleted === 1 ? Colors.text.placeholder : Colors.text.primary, fontSize: 14 }}>
+                                            {item.fullName}
+                                        </Text>
+                                        {item.isDeleted === 1 && (
+                                            <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4 }}>
+                                                <Text style={{ color: Colors.status.error, fontSize: 11, fontWeight: '600' }}>Đã nghỉ việc</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                     <Text style={[styles.td, { flex: 1.4 }]}>
                                         <Text style={{ fontWeight: '500' }}>{item.position || '-'}</Text>
                                         <Text style={{ color: Colors.text.secondary, fontSize: 13 }}>{`\n`}{item.department || '-'}</Text>
