@@ -79,18 +79,31 @@ async def list_donations(
     category: Optional[str] = None,
     department: Optional[str] = None,
     status: Optional[str] = None,
+    search: Optional[str] = None,
+    condition: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     query = {}
     
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}}
+        ]
+        
     if category:
         query["category"] = category
     if department:
         query["donorDepartment"] = department
+    if condition:
+        query["condition"] = condition
         
     if is_admin(current_user):
         if status:
             query["status"] = status
+        else:
+            # By default admins see everything except ARCHIVED unless specified
+            query["status"] = {"$ne": "ARCHIVED"}
     else:
         # Members can see APPROVED, MATCHED and COMPLETED items in the public list
         if status and status in ["APPROVED", "MATCHED", "COMPLETED"]:
@@ -487,6 +500,129 @@ async def complete_donation(
         user_id=donation["donorId"],
         title="Hoàn thành trao tặng",
         message=message
+    )
+    
+    updated = await db.donations.find_one({"_id": obj_id})
+    return format_donation(updated)
+
+@router.put("/{id}/cancel-request")
+async def cancel_request(
+    id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    obj_id = validate_object_id(id)
+    donation = await db.donations.find_one({"_id": obj_id})
+    if not donation:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mục này")
+    
+    if donation["status"] != "APPROVED":
+        raise HTTPException(status_code=400, detail="Mục này không ở trạng thái đang cho nhận")
+        
+    user_id_str = str(current_user["_id"])
+    
+    result = await db.donations.update_one(
+        {"_id": obj_id},
+        {"$pull": {"requesters": {"userId": user_id_str}}, "$set": {"updatedAt": datetime.now(timezone.utc)}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Bạn chưa đăng ký nhận hoặc mục này đã thay đổi")
+        
+    updated = await db.donations.find_one({"_id": obj_id})
+    return format_donation(updated)
+
+@router.put("/{id}/cancel-match")
+async def cancel_match(
+    id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    obj_id = validate_object_id(id)
+    donation = await db.donations.find_one({"_id": obj_id})
+    if not donation:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mục này")
+        
+    if str(current_user["_id"]) != donation["donorId"] and not is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Chỉ người tặng hoặc quản trị viên mới có thể hủy giao dịch")
+        
+    if donation["status"] != "MATCHED":
+        raise HTTPException(status_code=400, detail="Chỉ có thể hủy khi đang ở trạng thái MATCHED")
+        
+    receiver_id = donation.get("receiverId")
+    
+    result = await db.donations.update_one(
+        {"_id": obj_id, "status": "MATCHED"},
+        {
+            "$set": {"status": "APPROVED", "updatedAt": datetime.now(timezone.utc)},
+            "$unset": {"receiverId": "", "receiverName": "", "matchedAt": ""}
+        }
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Lỗi khi hủy giao dịch")
+        
+    if receiver_id:
+        await _notify_user(
+            user_id=receiver_id,
+            title="Giao dịch bị hủy",
+            message=f"Giao dịch cho món đồ '{donation['title']}' đã bị người tặng hủy."
+        )
+        
+    updated = await db.donations.find_one({"_id": obj_id})
+    return format_donation(updated)
+
+from app.models.donation import DonationCommentCreate
+
+@router.post("/{id}/comments")
+async def add_comment(
+    id: str,
+    data: DonationCommentCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    obj_id = validate_object_id(id)
+    donation = await db.donations.find_one({"_id": obj_id})
+    if not donation:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mục này")
+        
+    comment = {
+        "userId": str(current_user["_id"]),
+        "userName": current_user.get("fullName", current_user.get("username")),
+        "userAvatar": current_user.get("avatar"),
+        "content": data.content,
+        "createdAt": datetime.now(timezone.utc)
+    }
+    
+    await db.donations.update_one(
+        {"_id": obj_id},
+        {"$push": {"comments": comment}}
+    )
+    
+    if str(current_user["_id"]) != donation["donorId"]:
+        await _notify_user(
+            user_id=donation["donorId"],
+            title="Có bình luận mới",
+            message=f"{comment['userName']} đã bình luận về món đồ '{donation['title']}' của bạn."
+        )
+        
+    updated = await db.donations.find_one({"_id": obj_id})
+    return format_donation(updated)
+
+@router.put("/{id}/archive")
+async def archive_donation(
+    id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    require_admin(current_user)
+    obj_id = validate_object_id(id)
+    donation = await db.donations.find_one({"_id": obj_id})
+    if not donation:
+        raise HTTPException(status_code=404, detail="Không tìm thấy mục này")
+        
+    if donation["status"] not in ["APPROVED", "PENDING"]:
+        raise HTTPException(status_code=400, detail="Chỉ có thể lưu trữ mục APPROVED hoặc PENDING")
+        
+    await db.donations.update_one(
+        {"_id": obj_id},
+        {"$set": {"status": "ARCHIVED", "archivedAt": datetime.now(timezone.utc), "updatedAt": datetime.now(timezone.utc)}}
     )
     
     updated = await db.donations.find_one({"_id": obj_id})

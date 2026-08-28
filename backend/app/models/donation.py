@@ -46,3 +46,6 @@ class DonationRejectRequest(BaseModel):
 
 class DonationCompleteRequest(BaseModel):
     thankYouMessage: Optional[str] = Field(None, max_length=500)
+
+class DonationCommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)

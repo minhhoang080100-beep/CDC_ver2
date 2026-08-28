@@ -79,6 +79,7 @@ export default function DonationsScreen() {
     const [rejectModalVisible, setRejectModalVisible] = useState(false);
     const [requestModalVisible, setRequestModalVisible] = useState(false);
     const [completeModalVisible, setCompleteModalVisible] = useState(false);
+    const [viewerImage, setViewerImage] = useState<string | null>(null);
 
     // Form states
     const [title, setTitle] = useState('');
@@ -92,6 +93,10 @@ export default function DonationsScreen() {
     const [rejectReason, setRejectReason] = useState('');
     const [requestReason, setRequestReason] = useState('');
     const [thankYouMessage, setThankYouMessage] = useState('');
+    const [commentText, setCommentText] = useState('');
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [conditionFilter, setConditionFilter] = useState('');
 
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -102,8 +107,8 @@ export default function DonationsScreen() {
     });
 
     const { data: listData, isLoading: listLoading, refetch: refetchList } = useQuery({
-        queryKey: ['donations', categoryFilter],
-        queryFn: () => api.get(`/api/donations?status=APPROVED&category=${categoryFilter}`).then(res => res.data),
+        queryKey: ['donations', categoryFilter, conditionFilter, searchQuery],
+        queryFn: () => api.get(`/api/donations?status=APPROVED&category=${categoryFilter}&condition=${conditionFilter}&search=${searchQuery}`).then(res => res.data),
     });
 
     const { data: myDonations, isLoading: myDonationsLoading, refetch: refetchMyDonations } = useQuery({
@@ -137,8 +142,8 @@ export default function DonationsScreen() {
     });
 
     const { data: completedListData, isLoading: completedListLoading, refetch: refetchCompletedList } = useQuery({
-        queryKey: ['donations-completed-list', categoryFilter],
-        queryFn: () => api.get(`/api/donations?status=COMPLETED&category=${categoryFilter}`).then(res => res.data),
+        queryKey: ['donations-completed-list', categoryFilter, conditionFilter, searchQuery],
+        queryFn: () => api.get(`/api/donations?status=COMPLETED&category=${categoryFilter}&condition=${conditionFilter}&search=${searchQuery}`).then(res => res.data),
         enabled: activeTab === 'LIST' && listTab === 'COMPLETED',
     });
 
@@ -219,6 +224,47 @@ export default function DonationsScreen() {
         mutationFn: ({ id, userId }: { id: string, userId: string }) => api.put(`/api/donations/${id}/confirm/${userId}`),
         onSuccess: () => {
             showToast({ message: 'Đã xác nhận người nhận', type: 'success' });
+            setDetailModalVisible(false);
+            invalidateAll();
+        },
+        onError: (err: any) => showToast({ message: err.message, type: 'error' })
+    });
+
+    const cancelRequestMutation = useMutation({
+        mutationFn: (id: string) => api.put(`/api/donations/${id}/cancel-request`),
+        onSuccess: () => {
+            showToast({ message: 'Đã hủy đăng ký nhận', type: 'success' });
+            setDetailModalVisible(false);
+            invalidateAll();
+        },
+        onError: (err: any) => showToast({ message: err.message, type: 'error' })
+    });
+
+    const cancelMatchMutation = useMutation({
+        mutationFn: (id: string) => api.put(`/api/donations/${id}/cancel-match`),
+        onSuccess: () => {
+            showToast({ message: 'Đã hủy giao dịch thành công', type: 'success' });
+            setDetailModalVisible(false);
+            invalidateAll();
+        },
+        onError: (err: any) => showToast({ message: err.message, type: 'error' })
+    });
+
+    const commentMutation = useMutation({
+        mutationFn: ({ id, content }: { id: string, content: string }) => api.post(`/api/donations/${id}/comments`, { content }),
+        onSuccess: (data) => {
+            setCommentText('');
+            // Update selected item in place to show comment immediately
+            setSelectedItem(data.data);
+            queryClient.invalidateQueries({ queryKey: ['donations'] });
+        },
+        onError: (err: any) => showToast({ message: err.message, type: 'error' })
+    });
+
+    const archiveMutation = useMutation({
+        mutationFn: (id: string) => api.put(`/api/donations/${id}/archive`),
+        onSuccess: () => {
+            showToast({ message: 'Đã lưu trữ bài đăng', type: 'success' });
             setDetailModalVisible(false);
             invalidateAll();
         },
@@ -425,8 +471,16 @@ export default function DonationsScreen() {
                                 <Text style={[styles.subTabText, listTab === 'COMPLETED' && styles.subTabTextActive]}>Đã nhận</Text>
                             </TouchableOpacity>
                         </View>
+                        <View style={{ paddingHorizontal: 16, marginBottom: 8, flexDirection: 'row', gap: 8 }}>
+                            <TextInput
+                                style={[styles.input, { flex: 1, height: 40, marginBottom: 0 }]}
+                                placeholder="Tìm kiếm tên, mô tả..."
+                                value={searchQuery}
+                                onChangeText={setSearchQuery}
+                            />
+                        </View>
                         <View style={styles.filters}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                                 {CATEGORIES.map(c => (
                                     <TouchableOpacity 
                                         key={c.value} 
@@ -434,6 +488,25 @@ export default function DonationsScreen() {
                                         onPress={() => setCategoryFilter(c.value)}
                                     >
                                         <Text style={[styles.filterChipText, categoryFilter === c.value && styles.filterChipTextActive]}>
+                                            {c.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                <TouchableOpacity 
+                                    style={[styles.filterChip, conditionFilter === '' && styles.filterChipActive]}
+                                    onPress={() => setConditionFilter('')}
+                                >
+                                    <Text style={[styles.filterChipText, conditionFilter === '' && styles.filterChipTextActive]}>Mọi tình trạng</Text>
+                                </TouchableOpacity>
+                                {CONDITIONS.map(c => (
+                                    <TouchableOpacity 
+                                        key={c.value} 
+                                        style={[styles.filterChip, conditionFilter === c.value && styles.filterChipActive]}
+                                        onPress={() => setConditionFilter(c.value)}
+                                    >
+                                        <Text style={[styles.filterChipText, conditionFilter === c.value && styles.filterChipTextActive]}>
                                             {c.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -643,7 +716,9 @@ export default function DonationsScreen() {
                                 <ScrollView style={styles.modalBody}>
                                     <ScrollView horizontal pagingEnabled style={{ height: 250, marginBottom: 16 }}>
                                         {selectedItem.images?.map((img: string, i: number) => (
-                                            <Image key={i} source={{ uri: img }} style={{ width: isDesktop ? 450 : 350, height: 250, resizeMode: 'cover', borderRadius: 8, marginRight: 8 }} />
+                                            <TouchableOpacity key={i} onPress={() => setViewerImage(img)} activeOpacity={0.8}>
+                                                <Image source={{ uri: img }} style={{ width: isDesktop ? 450 : 350, height: 250, resizeMode: 'cover', borderRadius: 8, marginRight: 8 }} />
+                                            </TouchableOpacity>
                                         ))}
                                     </ScrollView>
                                     
@@ -724,6 +799,44 @@ export default function DonationsScreen() {
                                             ))}
                                         </View>
                                     )}
+
+                                    {/* Comments Section */}
+                                    <View style={{ marginTop: 24, borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 16 }}>
+                                        <Text style={styles.detailDescTitle}>Bình luận & Hỏi đáp</Text>
+                                        {selectedItem.comments && selectedItem.comments.length > 0 ? (
+                                            selectedItem.comments.map((cmt: any, idx: number) => (
+                                                <View key={idx} style={{ backgroundColor: '#f8fafc', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                        <Text style={{ fontWeight: 'bold', color: '#0f172a', fontSize: 13 }}>{cmt.userName}</Text>
+                                                        <Text style={{ color: '#94a3b8', fontSize: 11 }}>{new Date(cmt.createdAt).toLocaleDateString('vi-VN')}</Text>
+                                                    </View>
+                                                    <Text style={{ color: '#334155', fontSize: 14 }}>{cmt.content}</Text>
+                                                </View>
+                                            ))
+                                        ) : (
+                                            <Text style={{ color: '#94a3b8', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }}>Chưa có bình luận nào.</Text>
+                                        )}
+                                        
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                                            <TextInput 
+                                                style={[styles.input, { flex: 1, marginBottom: 0, height: 40, borderTopRightRadius: 0, borderBottomRightRadius: 0 }]}
+                                                placeholder="Nhập bình luận..."
+                                                value={commentText}
+                                                onChangeText={setCommentText}
+                                            />
+                                            <TouchableOpacity 
+                                                style={{ backgroundColor: Colors.primary, height: 40, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderTopRightRadius: 8, borderBottomRightRadius: 8 }}
+                                                onPress={() => {
+                                                    if (commentText.trim()) {
+                                                        commentMutation.mutate({ id: selectedItem.id, content: commentText.trim() });
+                                                    }
+                                                }}
+                                                disabled={commentMutation.isPending || !commentText.trim()}
+                                            >
+                                                <Send color="#fff" size={16} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
                                 </ScrollView>
                                 <View style={styles.modalFooter}>
                                     {/* Admin Actions */}
@@ -737,6 +850,11 @@ export default function DonationsScreen() {
                                             </TouchableOpacity>
                                         </View>
                                     )}
+                                    {isAdmin && selectedItem.status === 'APPROVED' && (
+                                        <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#64748b', marginTop: 8 }]} onPress={() => archiveMutation.mutate(selectedItem.id)} disabled={archiveMutation.isPending}>
+                                            <Text style={styles.submitBtnText}>Lưu trữ bài này</Text>
+                                        </TouchableOpacity>
+                                    )}
                                     {/* User Actions */}
                                     {selectedItem.status === 'APPROVED' && selectedItem.donorId !== user?.id && !selectedItem.hasRequested && (
                                         <TouchableOpacity style={styles.submitBtn} onPress={() => { setRequestReason(''); setRequestModalVisible(true); }}>
@@ -744,9 +862,31 @@ export default function DonationsScreen() {
                                         </TouchableOpacity>
                                     )}
                                     {selectedItem.status === 'APPROVED' && selectedItem.donorId !== user?.id && selectedItem.hasRequested && (
-                                        <View style={[styles.submitBtn, { backgroundColor: '#cbd5e1' }]}>
-                                            <Text style={styles.submitBtnText}>Đã gửi yêu cầu nhận</Text>
-                                        </View>
+                                        <TouchableOpacity 
+                                            style={[styles.submitBtn, { backgroundColor: '#cbd5e1' }]}
+                                            onPress={() => cancelRequestMutation.mutate(selectedItem.id)}
+                                            disabled={cancelRequestMutation.isPending}
+                                        >
+                                            <Text style={styles.submitBtnText}>{cancelRequestMutation.isPending ? 'Đang hủy...' : 'Hủy yêu cầu nhận'}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    {/* Cancel Match Action (Owner or Admin) */}
+                                    {(isAdmin || selectedItem.donorId === user?.id) && selectedItem.status === 'MATCHED' && (
+                                        <TouchableOpacity 
+                                            style={[styles.submitBtn, { backgroundColor: Colors.status.warning, marginTop: 8 }]}
+                                            onPress={() => {
+                                                showConfirm({
+                                                    title: 'Hủy giao dịch',
+                                                    message: 'Bạn có chắc chắn muốn hủy giao dịch này không? Món đồ sẽ chuyển lại trạng thái Đã duyệt.',
+                                                    confirmText: 'Xác nhận hủy',
+                                                    type: 'warning',
+                                                    onConfirm: () => cancelMatchMutation.mutate(selectedItem.id)
+                                                });
+                                            }}
+                                            disabled={cancelMatchMutation.isPending}
+                                        >
+                                            <Text style={styles.submitBtnText}>{cancelMatchMutation.isPending ? 'Đang xử lý...' : 'Hủy giao dịch (Bùng kèo)'}</Text>
+                                        </TouchableOpacity>
                                     )}
                                     {/* Delete Action (Owner or Admin) */}
                                     {(isAdmin || (selectedItem.donorId === user?.id && (selectedItem.status === 'PENDING' || selectedItem.status === 'REJECTED'))) && (
@@ -839,6 +979,23 @@ export default function DonationsScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
+                </View>
+            </Modal>
+            {/* Image Viewer Modal */}
+            <Modal visible={!!viewerImage} transparent animationType="fade" onRequestClose={() => setViewerImage(null)}>
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+                    <TouchableOpacity 
+                        style={{ position: 'absolute', top: 40, right: 20, zIndex: 10, padding: 8 }}
+                        onPress={() => setViewerImage(null)}
+                    >
+                        <X color="#fff" size={32} />
+                    </TouchableOpacity>
+                    {viewerImage && (
+                        <Image 
+                            source={{ uri: viewerImage }} 
+                            style={{ width: '100%', height: '80%', resizeMode: 'contain' }} 
+                        />
+                    )}
                 </View>
             </Modal>
         </SafeAreaView>
