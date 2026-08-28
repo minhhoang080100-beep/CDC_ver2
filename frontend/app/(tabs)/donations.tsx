@@ -311,9 +311,16 @@ export default function DonationsScreen() {
         createMutation.mutate({ title, description, category, condition, priority, images });
     };
 
-    const openDetail = (item: any) => {
+    const openDetail = async (item: any) => {
         setSelectedItem(item);
         setDetailModalVisible(true);
+        // Fetch fresh data to ensure requesters list and latest status are up-to-date
+        try {
+            const res = await api.get(`/api/donations/${item.id}`);
+            setSelectedItem(res.data);
+        } catch (error) {
+            // Silently use cached data if fetch fails
+        }
     };
 
     const handleDelete = (id: string) => {
@@ -351,6 +358,11 @@ export default function DonationsScreen() {
                         <View style={[styles.statusBadge, { backgroundColor: status.bgColor, marginTop: 8 }]}>
                             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
                         </View>
+                    )}
+                    {(item.status === 'COMPLETED' || item.status === 'MATCHED') && item.receiverName && (
+                        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }} numberOfLines={1}>
+                            → {item.receiverName}
+                        </Text>
                     )}
                 </View>
             </TouchableOpacity>
