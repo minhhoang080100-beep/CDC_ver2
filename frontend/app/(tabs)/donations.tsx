@@ -463,7 +463,7 @@ export default function DonationsScreen() {
             <View style={styles.content}>
                 {activeTab === 'LIST' && (
                     <View style={{ flex: 1 }}>
-                        <View style={styles.subTabBar}>
+                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingBottom: 0, marginBottom: 12 }]}>
                             <TouchableOpacity style={[styles.subTab, listTab === 'AVAILABLE' && styles.subTabActive]} onPress={() => setListTab('AVAILABLE')}>
                                 <Text style={[styles.subTabText, listTab === 'AVAILABLE' && styles.subTabTextActive]}>Đang tặng</Text>
                             </TouchableOpacity>
@@ -471,13 +471,21 @@ export default function DonationsScreen() {
                                 <Text style={[styles.subTabText, listTab === 'COMPLETED' && styles.subTabTextActive]}>Đã nhận</Text>
                             </TouchableOpacity>
                         </View>
-                        <View style={{ paddingHorizontal: 16, marginBottom: 8, flexDirection: 'row', gap: 8 }}>
-                            <TextInput
-                                style={[styles.input, { flex: 1, height: 40, marginBottom: 0 }]}
-                                placeholder="Tìm kiếm tên, mô tả..."
-                                value={searchQuery}
-                                onChangeText={setSearchQuery}
-                            />
+                        <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, height: 44 }}>
+                                <Filter color="#94a3b8" size={18} style={{ marginRight: 8 }} />
+                                <TextInput
+                                    style={{ flex: 1, height: '100%', fontSize: 14 }}
+                                    placeholder="Tìm kiếm tên, mô tả đồ dùng..."
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                />
+                                {searchQuery !== '' && (
+                                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                        <XCircle color="#cbd5e1" size={16} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         </View>
                         <View style={styles.filters}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -559,7 +567,7 @@ export default function DonationsScreen() {
 
                 {activeTab === 'MY_ITEMS' && (
                     <View style={{ flex: 1 }}>
-                        <View style={styles.subTabBar}>
+                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 }]}>
                             <TouchableOpacity style={[styles.subTab, myItemsTab === 'DONATED' && styles.subTabActive]} onPress={() => setMyItemsTab('DONATED')}>
                                 <Text style={[styles.subTabText, myItemsTab === 'DONATED' && styles.subTabTextActive]}>Đã tặng</Text>
                             </TouchableOpacity>
@@ -592,19 +600,21 @@ export default function DonationsScreen() {
 
                 {activeTab === 'ADMIN' && isAdmin && (
                     <View style={{ flex: 1 }}>
-                        <View style={styles.subTabBar}>
-                            <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive]} onPress={() => setAdminTab('PENDING')}>
-                                <Text style={[styles.subTabText, adminTab === 'PENDING' && styles.subTabTextActive]}>Chờ duyệt</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive]} onPress={() => setAdminTab('APPROVED')}>
-                                <Text style={[styles.subTabText, adminTab === 'APPROVED' && styles.subTabTextActive]}>Đã duyệt</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive]} onPress={() => setAdminTab('MATCHED')}>
-                                <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Đang giao dịch</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setAdminTab('COMPLETED')}>
-                                <Text style={[styles.subTabText, adminTab === 'COMPLETED' && styles.subTabTextActive]}>Hoàn thành</Text>
-                            </TouchableOpacity>
+                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 }]}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 24 }}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive]} onPress={() => setAdminTab('PENDING')}>
+                                    <Text style={[styles.subTabText, adminTab === 'PENDING' && styles.subTabTextActive]}>Chờ duyệt</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive]} onPress={() => setAdminTab('APPROVED')}>
+                                    <Text style={[styles.subTabText, adminTab === 'APPROVED' && styles.subTabTextActive]}>Đã duyệt</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive]} onPress={() => setAdminTab('MATCHED')}>
+                                    <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Đang giao dịch</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setAdminTab('COMPLETED')}>
+                                    <Text style={[styles.subTabText, adminTab === 'COMPLETED' && styles.subTabTextActive]}>Hoàn thành</Text>
+                                </TouchableOpacity>
+                            </ScrollView>
                         </View>
                         
                         {(adminTab === 'PENDING' ? pendingLoading : adminTab === 'APPROVED' ? approvedLoading : adminTab === 'MATCHED' ? matchedLoading : adminCompletedLoading) ? (
@@ -1036,11 +1046,11 @@ const styles = StyleSheet.create({
     tabTextActive: { color: Colors.primary, fontWeight: 'bold' },
     
     // Sub Tabs
-    subTabBar: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
-    subTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e2e8f0' },
-    subTabActive: { backgroundColor: Colors.primary },
-    subTabText: { color: '#475569', fontWeight: '600', fontSize: 13 },
-    subTabTextActive: { color: '#fff' },
+    subTabBar: { flexDirection: 'row', paddingHorizontal: 16, gap: 24 },
+    subTab: { paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    subTabActive: { borderBottomColor: Colors.primary },
+    subTabText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
+    subTabTextActive: { color: Colors.primary, fontWeight: 'bold' },
     
     content: { flex: 1 },
     filters: { paddingHorizontal: 16, paddingBottom: 12 },
