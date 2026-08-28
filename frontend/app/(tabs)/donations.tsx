@@ -429,19 +429,25 @@ export default function DonationsScreen() {
             {/* Stats */}
             <View style={styles.statsContainer}>
                 <View style={styles.statBox}>
-                    <Package color={Colors.primary} size={24} />
-                    <Text style={styles.statNum}>{stats?.totalAvailable || 0}</Text>
-                    <Text style={styles.statLabel}>Đang tặng</Text>
+                    <Package color={Colors.primary} size={20} />
+                    <View>
+                        <Text style={styles.statNum}>{stats?.totalAvailable || 0}</Text>
+                        <Text style={styles.statLabel}>Đang tặng</Text>
+                    </View>
                 </View>
                 <View style={styles.statBox}>
-                    <CheckCircle2 color="#10B981" size={24} />
-                    <Text style={styles.statNum}>{stats?.totalCompleted || 0}</Text>
-                    <Text style={styles.statLabel}>Đã trao</Text>
+                    <CheckCircle2 color="#10B981" size={20} />
+                    <View>
+                        <Text style={styles.statNum}>{stats?.totalCompleted || 0}</Text>
+                        <Text style={styles.statLabel}>Đã trao</Text>
+                    </View>
                 </View>
                 <View style={styles.statBox}>
-                    <Heart color="#F43F5E" size={24} />
-                    <Text style={styles.statNum}>{stats?.totalDonations || 0}</Text>
-                    <Text style={styles.statLabel}>Tổng đóng góp</Text>
+                    <Heart color="#F43F5E" size={20} />
+                    <View>
+                        <Text style={styles.statNum}>{stats?.totalDonations || 0}</Text>
+                        <Text style={styles.statLabel}>Đóng góp</Text>
+                    </View>
                 </View>
             </View>
 
@@ -463,7 +469,7 @@ export default function DonationsScreen() {
             <View style={styles.content}>
                 {activeTab === 'LIST' && (
                     <View style={{ flex: 1 }}>
-                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingBottom: 0, marginBottom: 12 }]}>
+                        <View style={styles.subTabBar}>
                             <TouchableOpacity style={[styles.subTab, listTab === 'AVAILABLE' && styles.subTabActive]} onPress={() => setListTab('AVAILABLE')}>
                                 <Text style={[styles.subTabText, listTab === 'AVAILABLE' && styles.subTabTextActive]}>Đang tặng</Text>
                             </TouchableOpacity>
@@ -567,7 +573,7 @@ export default function DonationsScreen() {
 
                 {activeTab === 'MY_ITEMS' && (
                     <View style={{ flex: 1 }}>
-                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 }]}>
+                        <View style={styles.subTabBar}>
                             <TouchableOpacity style={[styles.subTab, myItemsTab === 'DONATED' && styles.subTabActive]} onPress={() => setMyItemsTab('DONATED')}>
                                 <Text style={[styles.subTabText, myItemsTab === 'DONATED' && styles.subTabTextActive]}>Đã tặng</Text>
                             </TouchableOpacity>
@@ -600,18 +606,18 @@ export default function DonationsScreen() {
 
                 {activeTab === 'ADMIN' && isAdmin && (
                     <View style={{ flex: 1 }}>
-                        <View style={[styles.subTabBar, { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 }]}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 24 }}>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive]} onPress={() => setAdminTab('PENDING')}>
+                        <View style={styles.subTabBar}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('PENDING')}>
                                     <Text style={[styles.subTabText, adminTab === 'PENDING' && styles.subTabTextActive]}>Chờ duyệt</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive]} onPress={() => setAdminTab('APPROVED')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('APPROVED')}>
                                     <Text style={[styles.subTabText, adminTab === 'APPROVED' && styles.subTabTextActive]}>Đã duyệt</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive]} onPress={() => setAdminTab('MATCHED')}>
-                                    <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Đang giao dịch</Text>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('MATCHED')}>
+                                    <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Giao dịch</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setAdminTab('COMPLETED')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('COMPLETED')}>
                                     <Text style={[styles.subTabText, adminTab === 'COMPLETED' && styles.subTabTextActive]}>Hoàn thành</Text>
                                 </TouchableOpacity>
                             </ScrollView>
@@ -1032,11 +1038,12 @@ const styles = StyleSheet.create({
     // Stats
     statsContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
     statBox: { 
-        flex: 1, alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 14,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#fff', padding: 12, borderRadius: 12, gap: 8,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 
     },
-    statNum: { fontSize: 22, fontWeight: 'bold', color: '#0f172a', marginVertical: 6 },
-    statLabel: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+    statNum: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
+    statLabel: { fontSize: 12, color: '#64748b', fontWeight: '500' },
     
     // Tabs
     tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 16, padding: 4, borderRadius: 12, marginBottom: 12 },
@@ -1046,10 +1053,10 @@ const styles = StyleSheet.create({
     tabTextActive: { color: Colors.primary, fontWeight: 'bold' },
     
     // Sub Tabs
-    subTabBar: { flexDirection: 'row', paddingHorizontal: 16, gap: 24 },
-    subTab: { paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    subTabActive: { borderBottomColor: Colors.primary },
-    subTabText: { color: '#64748b', fontWeight: '600', fontSize: 14 },
+    subTabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 4, borderRadius: 8, marginHorizontal: 16, marginBottom: 12 },
+    subTab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+    subTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+    subTabText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
     subTabTextActive: { color: Colors.primary, fontWeight: 'bold' },
     
     content: { flex: 1 },
