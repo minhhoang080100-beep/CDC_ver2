@@ -385,11 +385,14 @@ export default function DonationsScreen() {
         const status = STATUS_LABELS[item.status] || STATUS_LABELS.PENDING;
 
         return (
-            <TouchableOpacity style={styles.card} onPress={() => openDetail(item)} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.card} onPress={() => openDetail(item)} activeOpacity={0.9}>
                 <Image source={{ uri: item.images?.[0] || 'https://via.placeholder.com/150' }} style={styles.cardImage} />
                 <View style={styles.cardContent}>
                     <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-                    <Text style={styles.cardDept}>{DEPT_LABELS[item.donorDepartment] || item.donorDepartment}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                        <User color="#94a3b8" size={14} style={{ marginRight: 4 }} />
+                        <Text style={styles.cardDept} numberOfLines={1}>{item.donorName || 'Thành viên'}</Text>
+                    </View>
                     
                     <View style={styles.cardBadges}>
                         <View style={styles.badge}>
@@ -401,14 +404,17 @@ export default function DonationsScreen() {
                     </View>
 
                     {item.status !== 'APPROVED' && (
-                        <View style={[styles.statusBadge, { backgroundColor: status.bgColor, marginTop: 8 }]}>
+                        <View style={[styles.statusBadge, { backgroundColor: status.bgColor }]}>
                             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
                         </View>
                     )}
                     {(item.status === 'COMPLETED' || item.status === 'MATCHED') && item.receiverName && (
-                        <Text style={{ fontSize: 12, color: '#64748b', marginTop: 4 }} numberOfLines={1}>
-                            → {item.receiverName}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, padding: 10, backgroundColor: '#f8fafc', borderRadius: 10 }}>
+                            <Gift color="#64748b" size={14} style={{ marginRight: 6 }} />
+                            <Text style={{ fontSize: 13, color: '#475569', fontWeight: '600' }} numberOfLines={1}>
+                                {item.receiverName}
+                            </Text>
+                        </View>
                     )}
                 </View>
             </TouchableOpacity>
@@ -418,17 +424,20 @@ export default function DonationsScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={[styles.mainWrapper, isDesktop && { maxWidth: 1000 }]}>
-                {/* Modern Main Tabs */}
+                {/* Modern Main Tabs - Apple Style */}
                 <View style={styles.tabBar}>
-                    <TouchableOpacity style={[styles.tab, activeTab === 'LIST' && styles.tabActive]} onPress={() => setActiveTab('LIST')}>
-                        <Text style={[styles.tabText, activeTab === 'LIST' && styles.tabTextActive]}>Danh sách</Text>
+                    <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('LIST')}>
+                        <Text style={[styles.tabText, activeTab === 'LIST' && styles.tabTextActive]}>Khám phá</Text>
+                        {activeTab === 'LIST' && <View style={styles.tabIndicator} />}
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.tab, activeTab === 'MY_ITEMS' && styles.tabActive]} onPress={() => setActiveTab('MY_ITEMS')}>
-                        <Text style={[styles.tabText, activeTab === 'MY_ITEMS' && styles.tabTextActive]}>Đồ của tôi</Text>
+                    <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('MY_ITEMS')}>
+                        <Text style={[styles.tabText, activeTab === 'MY_ITEMS' && styles.tabTextActive]}>Cá nhân</Text>
+                        {activeTab === 'MY_ITEMS' && <View style={styles.tabIndicator} />}
                     </TouchableOpacity>
                     {isAdmin && (
-                        <TouchableOpacity style={[styles.tab, activeTab === 'ADMIN' && styles.tabActive]} onPress={() => setActiveTab('ADMIN')}>
+                        <TouchableOpacity style={styles.tab} onPress={() => setActiveTab('ADMIN')}>
                             <Text style={[styles.tabText, activeTab === 'ADMIN' && styles.tabTextActive]}>Quản trị</Text>
+                            {activeTab === 'ADMIN' && <View style={styles.tabIndicator} />}
                         </TouchableOpacity>
                     )}
                 </View>
@@ -438,11 +447,12 @@ export default function DonationsScreen() {
                     <View style={{ flex: 1 }}>
                         {/* Search Bar at the very top */}
                         <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 22, paddingHorizontal: 16, height: 44, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
-                                <Search color="#94a3b8" size={18} style={{ marginRight: 8 }} />
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 16, paddingHorizontal: 16, height: 48, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                                <Search color="#64748b" size={20} style={{ marginRight: 8 }} />
                                 <TextInput
-                                    style={{ flex: 1, height: '100%', fontSize: 14 }}
+                                    style={{ flex: 1, height: '100%', fontSize: 15, color: '#0f172a', fontWeight: '500' }}
                                     placeholder="Tìm kiếm đồ dùng..."
+                                    placeholderTextColor="#94a3b8"
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                 />
@@ -1001,7 +1011,7 @@ export default function DonationsScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f1f5f9' },
+    container: { flex: 1, backgroundColor: '#fff' },
     mainWrapper: { flex: 1, width: '100%', alignSelf: 'center' },
     
     // Header
@@ -1021,94 +1031,102 @@ const styles = StyleSheet.create({
     statsContainer: { flexDirection: 'row', paddingHorizontal: 16, paddingBottom: 16, gap: 12 },
     statBox: { 
         flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        backgroundColor: '#fff', padding: 12, borderRadius: 12, gap: 8,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 
+        backgroundColor: '#fff', padding: 12, borderRadius: 16, gap: 8,
+        borderWidth: 1, borderColor: '#f1f5f9'
     },
-    statNum: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
-    statLabel: { fontSize: 12, color: '#64748b', fontWeight: '500' },
+    statNum: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+    statLabel: { fontSize: 11, color: '#64748b', fontWeight: '600' },
     
     // Tabs
-    tabBar: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 },
-    tab: { flex: 1, paddingVertical: 16, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    tabActive: { borderBottomColor: Colors.primary },
-    tabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
-    tabTextActive: { color: Colors.primary, fontWeight: 'bold' },
+    tabBar: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 24, backgroundColor: '#fff' },
+    tab: { position: 'relative', paddingVertical: 4 },
+    tabText: { fontSize: 20, color: '#94a3b8', fontWeight: '600' },
+    tabTextActive: { fontSize: 24, color: '#0f172a', fontWeight: '800' },
+    tabIndicator: { position: 'absolute', bottom: -4, left: 0, width: 24, height: 4, borderRadius: 2, backgroundColor: Colors.primary },
     
     // FAB
-    fab: { position: 'absolute', bottom: 80, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8, zIndex: 9999 },
+    fab: { position: 'absolute', bottom: 80, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: '#0f172a', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 10, zIndex: 9999 },
     
     // Sub Tabs
-    subTabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 4, borderRadius: 8, marginHorizontal: 16, marginBottom: 12 },
-    subTab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-    subTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+    subTabBar: { flexDirection: 'row', backgroundColor: '#f8fafc', padding: 4, borderRadius: 12, marginHorizontal: 16, marginBottom: 16 },
+    subTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+    subTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
     subTabText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
-    subTabTextActive: { color: Colors.primary, fontWeight: 'bold' },
+    subTabTextActive: { color: '#0f172a', fontWeight: '800' },
     
     content: { flex: 1 },
-    filters: { paddingHorizontal: 16, paddingBottom: 12 },
-    filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-    filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    filterChipText: { color: '#64748b', fontSize: 13, fontWeight: '500' },
-    filterChipTextActive: { color: '#fff', fontWeight: 'bold' },
+    filters: { paddingHorizontal: 16, paddingBottom: 16 },
+    filterChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24, backgroundColor: '#f8fafc', marginRight: 10 },
+    filterChipActive: { backgroundColor: '#0f172a' },
+    filterChipText: { color: '#475569', fontSize: 14, fontWeight: '600' },
+    filterChipTextActive: { color: '#fff', fontWeight: '700' },
     
     listContent: { padding: 8, paddingBottom: 150 },
     columnWrapper: { justifyContent: 'space-between' },
     
-    // Item Card
+    // Item Card Ultra Modern
     card: { 
-        flex: 1, backgroundColor: '#fff', borderRadius: 14, margin: 8, overflow: 'hidden', 
-        elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8 
+        flex: 1, backgroundColor: '#fff', borderRadius: 20, margin: 8, overflow: 'hidden', 
+        borderWidth: 1, borderColor: '#f1f5f9'
     },
-    cardImage: { width: '100%', height: 140, resizeMode: 'cover' },
-    cardContent: { padding: 14 },
-    cardTitle: { fontSize: 15, fontWeight: 'bold', color: '#0f172a', marginBottom: 6 },
-    cardDept: { fontSize: 13, color: '#64748b', marginBottom: 10 },
-    cardBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: '#f1f5f9' },
-    badgeText: { fontSize: 11, color: '#475569', fontWeight: '500' },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' },
-    statusText: { fontSize: 11, fontWeight: 'bold' },
+    cardImage: { width: '100%', height: 160, backgroundColor: '#f8fafc', resizeMode: 'cover' },
+    cardContent: { padding: 16 },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a', marginBottom: 8, lineHeight: 20 },
+    cardDept: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+    cardBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#f8fafc' },
+    badgeText: { fontSize: 11, color: '#475569', fontWeight: '600' },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'flex-start' },
+    statusText: { fontSize: 11, fontWeight: '700' },
     
-    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-    emptyStateText: { marginTop: 16, color: '#94a3b8', fontSize: 15, textAlign: 'center' },
-    // Modals
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { width: '90%', maxWidth: 600, backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden' },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#0f172a' },
-    closeBtn: { padding: 4 },
-    modalBody: { padding: 16 },
-    modalFooter: { padding: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', backgroundColor: '#f8fafc' },
-    label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8, marginTop: 16 },
-    input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: '#fff' },
-    chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-    chipActive: { backgroundColor: '#eff6ff', borderColor: Colors.primary },
-    chipText: { fontSize: 13, color: '#64748b' },
-    chipTextActive: { color: Colors.primary, fontWeight: '600' },
-    imageScroll: { flexDirection: 'row', marginVertical: 8 },
-    imagePreviewContainer: { marginRight: 8, position: 'relative' },
-    imagePreview: { width: 80, height: 80, borderRadius: 8 },
-    removeImgBtn: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, padding: 2 },
-    addImgBtn: { width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
-    submitBtn: { backgroundColor: Colors.primary, padding: 14, borderRadius: 8, alignItems: 'center' },
-    submitBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    detailTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a', marginBottom: 12 },
-    detailBadges: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-    infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 8 },
-    infoText: { fontSize: 14, color: '#475569' },
-    detailDescTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginTop: 16, marginBottom: 8 },
-    detailDesc: { fontSize: 14, color: '#334155', lineHeight: 22 },
-    rejectBox: { marginTop: 16, padding: 12, backgroundColor: '#FEE2E2', borderRadius: 8 },
-    rejectTitle: { fontWeight: 'bold', color: '#DC2626', marginBottom: 4 },
-    rejectText: { color: '#991B1B' },
-    thankYouBox: { marginTop: 16, padding: 12, backgroundColor: '#EDE9FE', borderRadius: 8 },
-    thankYouTitle: { fontWeight: 'bold', color: '#6D28D9', marginBottom: 4 },
-    thankYouText: { color: '#4C1D95', fontStyle: 'italic' },
-    actionRow: { flexDirection: 'row', gap: 12 },
-    btn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+    emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+    emptyStateText: { marginTop: 16, color: '#94a3b8', fontSize: 15, textAlign: 'center', fontWeight: '500' },
+    
+    // Modals - Bottom Sheet Style
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'flex-end' },
+    modalContent: { width: '100%', maxHeight: '90%', backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: Platform.OS === 'ios' ? 40 : 20, overflow: 'hidden' },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    modalTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a' },
+    closeBtn: { padding: 6, backgroundColor: '#f1f5f9', borderRadius: 20 },
+    modalBody: { padding: 20 },
+    modalFooter: { padding: 20, borderTopWidth: 1, borderTopColor: '#f1f5f9', backgroundColor: '#fff' },
+    
+    label: { fontSize: 14, fontWeight: '700', color: '#334155', marginBottom: 8, marginTop: 16 },
+    input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 14, fontSize: 15, backgroundColor: '#f8fafc', color: '#0f172a' },
+    chipGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0' },
+    chipActive: { backgroundColor: '#0f172a', borderColor: '#0f172a' },
+    chipText: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+    chipTextActive: { color: '#fff', fontWeight: '700' },
+    
+    imageScroll: { flexDirection: 'row', marginVertical: 12 },
+    imagePreviewContainer: { marginRight: 12, position: 'relative' },
+    imagePreview: { width: 90, height: 90, borderRadius: 12 },
+    removeImgBtn: { position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 4 },
+    addImgBtn: { width: 90, height: 90, borderRadius: 12, borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
+    
+    submitBtn: { backgroundColor: '#0f172a', padding: 16, borderRadius: 14, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+    submitBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    
+    detailTitle: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 16, lineHeight: 32 },
+    detailBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
+    infoText: { fontSize: 15, color: '#475569', fontWeight: '500' },
+    detailDescTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a', marginTop: 20, marginBottom: 12 },
+    detailDesc: { fontSize: 15, color: '#334155', lineHeight: 24 },
+    
+    rejectBox: { marginTop: 20, padding: 16, backgroundColor: '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecaca' },
+    rejectTitle: { fontWeight: '700', color: '#b91c1c', marginBottom: 6 },
+    rejectText: { color: '#991b1b', fontSize: 14 },
+    
+    thankYouBox: { marginTop: 20, padding: 16, backgroundColor: '#f5f3ff', borderRadius: 12, borderWidth: 1, borderColor: '#ede9fe' },
+    thankYouTitle: { fontWeight: '700', color: '#6d28d9', marginBottom: 6 },
+    thankYouText: { color: '#5b21b6', fontStyle: 'italic', fontSize: 14 },
+    
+    actionRow: { flexDirection: 'row', gap: 16 },
+    btn: { flex: 1, padding: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     btnApprove: { backgroundColor: '#10B981' },
-    btnReject: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#EF4444' },
-    btnApproveText: { color: '#fff', fontWeight: 'bold' },
-    btnRejectText: { color: '#EF4444', fontWeight: 'bold' },
+    btnReject: { backgroundColor: '#fff', borderWidth: 2, borderColor: '#f1f5f9' },
+    btnApproveText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    btnRejectText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
 });
