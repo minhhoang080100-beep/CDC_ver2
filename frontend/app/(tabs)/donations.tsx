@@ -14,7 +14,7 @@ import { api } from '../../utils/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
     Heart, Package, Check, X, Filter, Plus, Clock, CheckCircle2,
-    XCircle, Info, ImagePlus, User, MapPin, Send, MessageCircle, Gift
+    XCircle, Info, ImagePlus, User, MapPin, Send, MessageCircle, Gift, Search
 } from 'lucide-react-native';
 
 const CATEGORIES = [
@@ -418,71 +418,31 @@ export default function DonationsScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={[styles.mainWrapper, isDesktop && { maxWidth: 1000 }]}>
-                <View style={styles.header}>
-                <Text style={styles.headerTitle}>KHO 0 ĐỒNG</Text>
-                <TouchableOpacity style={styles.createBtn} onPress={openCreateModal}>
-                    <Plus color="#fff" size={20} />
-                    <Text style={styles.createBtnText}>Tặng đồ</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statBox}>
-                    <Package color={Colors.primary} size={20} />
-                    <View>
-                        <Text style={styles.statNum}>{stats?.totalAvailable || 0}</Text>
-                        <Text style={styles.statLabel}>Đang tặng</Text>
-                    </View>
-                </View>
-                <View style={styles.statBox}>
-                    <CheckCircle2 color="#10B981" size={20} />
-                    <View>
-                        <Text style={styles.statNum}>{stats?.totalCompleted || 0}</Text>
-                        <Text style={styles.statLabel}>Đã trao</Text>
-                    </View>
-                </View>
-                <View style={styles.statBox}>
-                    <Heart color="#F43F5E" size={20} />
-                    <View>
-                        <Text style={styles.statNum}>{stats?.totalDonations || 0}</Text>
-                        <Text style={styles.statLabel}>Đóng góp</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* Tabs */}
-            <View style={styles.tabBar}>
-                <TouchableOpacity style={[styles.tab, activeTab === 'LIST' && styles.tabActive]} onPress={() => setActiveTab('LIST')}>
-                    <Text style={[styles.tabText, activeTab === 'LIST' && styles.tabTextActive]}>Danh sách</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.tab, activeTab === 'MY_ITEMS' && styles.tabActive]} onPress={() => setActiveTab('MY_ITEMS')}>
-                    <Text style={[styles.tabText, activeTab === 'MY_ITEMS' && styles.tabTextActive]}>Đồ của tôi</Text>
-                </TouchableOpacity>
-                {isAdmin && (
-                    <TouchableOpacity style={[styles.tab, activeTab === 'ADMIN' && styles.tabActive]} onPress={() => setActiveTab('ADMIN')}>
-                        <Text style={[styles.tabText, activeTab === 'ADMIN' && styles.tabTextActive]}>Quản trị</Text>
+                {/* Modern Main Tabs */}
+                <View style={styles.tabBar}>
+                    <TouchableOpacity style={[styles.tab, activeTab === 'LIST' && styles.tabActive]} onPress={() => setActiveTab('LIST')}>
+                        <Text style={[styles.tabText, activeTab === 'LIST' && styles.tabTextActive]}>Danh sách</Text>
                     </TouchableOpacity>
-                )}
-            </View>
+                    <TouchableOpacity style={[styles.tab, activeTab === 'MY_ITEMS' && styles.tabActive]} onPress={() => setActiveTab('MY_ITEMS')}>
+                        <Text style={[styles.tabText, activeTab === 'MY_ITEMS' && styles.tabTextActive]}>Đồ của tôi</Text>
+                    </TouchableOpacity>
+                    {isAdmin && (
+                        <TouchableOpacity style={[styles.tab, activeTab === 'ADMIN' && styles.tabActive]} onPress={() => setActiveTab('ADMIN')}>
+                            <Text style={[styles.tabText, activeTab === 'ADMIN' && styles.tabTextActive]}>Quản trị</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-            <View style={styles.content}>
-                {activeTab === 'LIST' && (
+                <View style={styles.content}>
+                    {activeTab === 'LIST' && (
                     <View style={{ flex: 1 }}>
-                        <View style={styles.subTabBar}>
-                            <TouchableOpacity style={[styles.subTab, listTab === 'AVAILABLE' && styles.subTabActive]} onPress={() => setListTab('AVAILABLE')}>
-                                <Text style={[styles.subTabText, listTab === 'AVAILABLE' && styles.subTabTextActive]}>Đang tặng</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.subTab, listTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setListTab('COMPLETED')}>
-                                <Text style={[styles.subTabText, listTab === 'COMPLETED' && styles.subTabTextActive]}>Đã nhận</Text>
-                            </TouchableOpacity>
-                        </View>
+                        {/* Search Bar at the very top */}
                         <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12, height: 44 }}>
-                                <Filter color="#94a3b8" size={18} style={{ marginRight: 8 }} />
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 22, paddingHorizontal: 16, height: 44, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }}>
+                                <Search color="#94a3b8" size={18} style={{ marginRight: 8 }} />
                                 <TextInput
                                     style={{ flex: 1, height: '100%', fontSize: 14 }}
-                                    placeholder="Tìm kiếm tên, mô tả đồ dùng..."
+                                    placeholder="Tìm kiếm đồ dùng..."
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
                                 />
@@ -493,8 +453,20 @@ export default function DonationsScreen() {
                                 )}
                             </View>
                         </View>
+
+                        {/* Sub Tabs */}
+                        <View style={styles.subTabBar}>
+                            <TouchableOpacity style={[styles.subTab, listTab === 'AVAILABLE' && styles.subTabActive]} onPress={() => setListTab('AVAILABLE')}>
+                                <Text style={[styles.subTabText, listTab === 'AVAILABLE' && styles.subTabTextActive]}>Đang tặng</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTab, listTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setListTab('COMPLETED')}>
+                                <Text style={[styles.subTabText, listTab === 'COMPLETED' && styles.subTabTextActive]}>Đã nhận</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Category Filters ONLY */}
                         <View style={styles.filters}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {CATEGORIES.map(c => (
                                     <TouchableOpacity 
                                         key={c.value} 
@@ -502,25 +474,6 @@ export default function DonationsScreen() {
                                         onPress={() => setCategoryFilter(c.value)}
                                     >
                                         <Text style={[styles.filterChipText, categoryFilter === c.value && styles.filterChipTextActive]}>
-                                            {c.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <TouchableOpacity 
-                                    style={[styles.filterChip, conditionFilter === '' && styles.filterChipActive]}
-                                    onPress={() => setConditionFilter('')}
-                                >
-                                    <Text style={[styles.filterChipText, conditionFilter === '' && styles.filterChipTextActive]}>Mọi tình trạng</Text>
-                                </TouchableOpacity>
-                                {CONDITIONS.map(c => (
-                                    <TouchableOpacity 
-                                        key={c.value} 
-                                        style={[styles.filterChip, conditionFilter === c.value && styles.filterChipActive]}
-                                        onPress={() => setConditionFilter(c.value)}
-                                    >
-                                        <Text style={[styles.filterChipText, conditionFilter === c.value && styles.filterChipTextActive]}>
                                             {c.label}
                                         </Text>
                                     </TouchableOpacity>
@@ -606,6 +559,30 @@ export default function DonationsScreen() {
 
                 {activeTab === 'ADMIN' && isAdmin && (
                     <View style={{ flex: 1 }}>
+                        <View style={styles.statsContainer}>
+                            <View style={styles.statBox}>
+                                <Package color={Colors.primary} size={20} />
+                                <View>
+                                    <Text style={styles.statNum}>{stats?.totalAvailable || 0}</Text>
+                                    <Text style={styles.statLabel}>Đang tặng</Text>
+                                </View>
+                            </View>
+                            <View style={styles.statBox}>
+                                <CheckCircle2 color="#10B981" size={20} />
+                                <View>
+                                    <Text style={styles.statNum}>{stats?.totalCompleted || 0}</Text>
+                                    <Text style={styles.statLabel}>Đã trao</Text>
+                                </View>
+                            </View>
+                            <View style={styles.statBox}>
+                                <Heart color="#F43F5E" size={20} />
+                                <View>
+                                    <Text style={styles.statNum}>{stats?.totalDonations || 0}</Text>
+                                    <Text style={styles.statLabel}>Đóng góp</Text>
+                                </View>
+                            </View>
+                        </View>
+
                         <View style={styles.subTabBar}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                                 <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('PENDING')}>
@@ -645,6 +622,11 @@ export default function DonationsScreen() {
                     </View>
                 )}
             </View>
+                
+                {/* FAB */}
+                <TouchableOpacity style={styles.fab} onPress={openCreateModal}>
+                    <Plus color="#fff" size={24} />
+                </TouchableOpacity>
             </View>
 
             {/* Create Modal */}
@@ -1046,11 +1028,14 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 12, color: '#64748b', fontWeight: '500' },
     
     // Tabs
-    tabBar: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 16, padding: 4, borderRadius: 12, marginBottom: 12 },
-    tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-    tabActive: { backgroundColor: '#eff6ff' },
-    tabText: { fontSize: 14, color: '#64748b', fontWeight: '600' },
+    tabBar: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 12 },
+    tab: { flex: 1, paddingVertical: 16, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    tabActive: { borderBottomColor: Colors.primary },
+    tabText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
     tabTextActive: { color: Colors.primary, fontWeight: 'bold' },
+    
+    // FAB
+    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5, zIndex: 100 },
     
     // Sub Tabs
     subTabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 4, borderRadius: 8, marginHorizontal: 16, marginBottom: 12 },
