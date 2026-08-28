@@ -622,12 +622,12 @@ export default function DonationsScreen() {
                     </View>
                 )}
             </View>
-                
-                {/* FAB */}
-                <TouchableOpacity style={styles.fab} onPress={openCreateModal}>
-                    <Plus color="#fff" size={24} />
-                </TouchableOpacity>
             </View>
+            
+            {/* FAB - Moved to root level of SafeAreaView for better absolute positioning */}
+            <TouchableOpacity style={styles.fab} onPress={openCreateModal}>
+                <Plus color="#fff" size={24} />
+            </TouchableOpacity>
 
             {/* Create Modal */}
             <Modal visible={createModalVisible} animationType="slide" transparent>
@@ -1035,7 +1035,7 @@ const styles = StyleSheet.create({
     tabTextActive: { color: Colors.primary, fontWeight: 'bold' },
     
     // FAB
-    fab: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5, zIndex: 100 },
+    fab: { position: 'absolute', bottom: 80, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8, zIndex: 9999 },
     
     // Sub Tabs
     subTabBar: { flexDirection: 'row', backgroundColor: '#f1f5f9', padding: 4, borderRadius: 8, marginHorizontal: 16, marginBottom: 12 },
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
     filterChipText: { color: '#64748b', fontSize: 13, fontWeight: '500' },
     filterChipTextActive: { color: '#fff', fontWeight: 'bold' },
     
-    listContent: { padding: 8, paddingBottom: 100 },
+    listContent: { padding: 8, paddingBottom: 150 },
     columnWrapper: { justifyContent: 'space-between' },
     
     // Item Card
