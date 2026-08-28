@@ -92,8 +92,11 @@ async def list_donations(
         if status:
             query["status"] = status
     else:
-        # Members only see APPROVED items unless specified otherwise and they own it
-        query["status"] = "APPROVED"
+        # Members can see APPROVED, MATCHED and COMPLETED items in the public list
+        if status and status in ["APPROVED", "MATCHED", "COMPLETED"]:
+            query["status"] = status
+        else:
+            query["status"] = "APPROVED"
 
     cursor = db.donations.find(query).sort("createdAt", -1).skip(skip).limit(limit)
     

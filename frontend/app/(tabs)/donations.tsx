@@ -67,7 +67,8 @@ export default function DonationsScreen() {
 
     const [activeTab, setActiveTab] = useState<'LIST' | 'MY_ITEMS' | 'ADMIN'>('LIST');
     const [myItemsTab, setMyItemsTab] = useState<'DONATED' | 'RECEIVED'>('DONATED');
-    const [adminTab, setAdminTab] = useState<'PENDING' | 'APPROVED' | 'MATCHED'>('PENDING');
+    const [adminTab, setAdminTab] = useState<'PENDING' | 'APPROVED' | 'MATCHED' | 'COMPLETED'>('PENDING');
+    const [listTab, setListTab] = useState<'AVAILABLE' | 'COMPLETED'>('AVAILABLE');
 
     const [categoryFilter, setCategoryFilter] = useState('');
     const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -135,6 +136,18 @@ export default function DonationsScreen() {
         enabled: activeTab === 'ADMIN' && adminTab === 'MATCHED',
     });
 
+    const { data: completedListData, isLoading: completedListLoading, refetch: refetchCompletedList } = useQuery({
+        queryKey: ['donations-completed-list', categoryFilter],
+        queryFn: () => api.get(`/api/donations?status=COMPLETED&category=${categoryFilter}`).then(res => res.data),
+        enabled: activeTab === 'LIST' && listTab === 'COMPLETED',
+    });
+
+    const { data: adminCompletedData, isLoading: adminCompletedLoading, refetch: refetchAdminCompleted } = useQuery({
+        queryKey: ['donations-completed-admin'],
+        queryFn: () => api.get('/api/donations?status=COMPLETED').then(res => res.data),
+        enabled: activeTab === 'ADMIN' && adminTab === 'COMPLETED',
+    });
+
     const invalidateAll = () => {
         queryClient.invalidateQueries({ queryKey: ['donations'] });
         queryClient.invalidateQueries({ queryKey: ['my-donations'] });
@@ -142,6 +155,8 @@ export default function DonationsScreen() {
         queryClient.invalidateQueries({ queryKey: ['donations-pending'] });
         queryClient.invalidateQueries({ queryKey: ['donations-approved-admin'] });
         queryClient.invalidateQueries({ queryKey: ['donations-matched'] });
+        queryClient.invalidateQueries({ queryKey: ['donations-completed-list'] });
+        queryClient.invalidateQueries({ queryKey: ['donations-completed-admin'] });
         queryClient.invalidateQueries({ queryKey: ['donations-stats'] });
     };
 
@@ -389,7 +404,15 @@ export default function DonationsScreen() {
 
             <View style={styles.content}>
                 {activeTab === 'LIST' && (
-                    <>
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.subTabBar}>
+                            <TouchableOpacity style={[styles.subTab, listTab === 'AVAILABLE' && styles.subTabActive]} onPress={() => setListTab('AVAILABLE')}>
+                                <Text style={[styles.subTabText, listTab === 'AVAILABLE' && styles.subTabTextActive]}>Đang tặng</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTab, listTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setListTab('COMPLETED')}>
+                                <Text style={[styles.subTabText, listTab === 'COMPLETED' && styles.subTabTextActive]}>Đã nhận</Text>
+                            </TouchableOpacity>
+                        </View>
                         <View style={styles.filters}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {CATEGORIES.map(c => (
@@ -405,26 +428,48 @@ export default function DonationsScreen() {
                                 ))}
                             </ScrollView>
                         </View>
-                        {listLoading ? (
-                            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-                        ) : listData?.items?.length > 0 ? (
-                            <FlatList
-                                data={listData.items}
-                                keyExtractor={item => item.id}
-                                renderItem={renderItem}
-                                numColumns={isDesktop ? 3 : 2}
-                                key={isDesktop ? 'desktop' : 'mobile'}
-                                contentContainerStyle={styles.listContent}
-                                columnWrapperStyle={styles.columnWrapper}
-                                refreshControl={<RefreshControl refreshing={listLoading} onRefresh={refetchList} />}
-                            />
+                        {listTab === 'AVAILABLE' ? (
+                            listLoading ? (
+                                <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+                            ) : listData?.items?.length > 0 ? (
+                                <FlatList
+                                    data={listData.items}
+                                    keyExtractor={item => item.id}
+                                    renderItem={renderItem}
+                                    numColumns={isDesktop ? 3 : 2}
+                                    key={isDesktop ? 'desktop' : 'mobile'}
+                                    contentContainerStyle={styles.listContent}
+                                    columnWrapperStyle={styles.columnWrapper}
+                                    refreshControl={<RefreshControl refreshing={listLoading} onRefresh={refetchList} />}
+                                />
+                            ) : (
+                                <View style={styles.emptyState}>
+                                    <Package color="#cbd5e1" size={48} />
+                                    <Text style={styles.emptyStateText}>Chưa có đồ dùng nào trong danh mục này</Text>
+                                </View>
+                            )
                         ) : (
-                            <View style={styles.emptyState}>
-                                <Package color="#cbd5e1" size={48} />
-                                <Text style={styles.emptyStateText}>Chưa có đồ dùng nào trong danh mục này</Text>
-                            </View>
+                            completedListLoading ? (
+                                <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+                            ) : completedListData?.items?.length > 0 ? (
+                                <FlatList
+                                    data={completedListData.items}
+                                    keyExtractor={item => item.id}
+                                    renderItem={renderItem}
+                                    numColumns={isDesktop ? 3 : 2}
+                                    key={isDesktop ? 'desktop' : 'mobile'}
+                                    contentContainerStyle={styles.listContent}
+                                    columnWrapperStyle={styles.columnWrapper}
+                                    refreshControl={<RefreshControl refreshing={false} onRefresh={refetchCompletedList} />}
+                                />
+                            ) : (
+                                <View style={styles.emptyState}>
+                                    <CheckCircle2 color="#cbd5e1" size={48} />
+                                    <Text style={styles.emptyStateText}>Chưa có đồ dùng nào đã được nhận</Text>
+                                </View>
+                            )
                         )}
-                    </>
+                    </View>
                 )}
 
                 {activeTab === 'MY_ITEMS' && (
@@ -472,25 +517,28 @@ export default function DonationsScreen() {
                             <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive]} onPress={() => setAdminTab('MATCHED')}>
                                 <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Đang giao dịch</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive]} onPress={() => setAdminTab('COMPLETED')}>
+                                <Text style={[styles.subTabText, adminTab === 'COMPLETED' && styles.subTabTextActive]}>Hoàn thành</Text>
+                            </TouchableOpacity>
                         </View>
                         
-                        {(adminTab === 'PENDING' ? pendingLoading : adminTab === 'APPROVED' ? approvedLoading : matchedLoading) ? (
+                        {(adminTab === 'PENDING' ? pendingLoading : adminTab === 'APPROVED' ? approvedLoading : adminTab === 'MATCHED' ? matchedLoading : adminCompletedLoading) ? (
                             <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-                        ) : (adminTab === 'PENDING' ? pendingData?.items : adminTab === 'APPROVED' ? approvedData?.items : matchedData?.items)?.length > 0 ? (
+                        ) : (adminTab === 'PENDING' ? pendingData?.items : adminTab === 'APPROVED' ? approvedData?.items : adminTab === 'MATCHED' ? matchedData?.items : adminCompletedData?.items)?.length > 0 ? (
                             <FlatList
-                                data={adminTab === 'PENDING' ? pendingData.items : adminTab === 'APPROVED' ? approvedData.items : matchedData.items}
+                                data={adminTab === 'PENDING' ? pendingData.items : adminTab === 'APPROVED' ? approvedData.items : adminTab === 'MATCHED' ? matchedData.items : adminCompletedData.items}
                                 keyExtractor={item => item.id}
                                 renderItem={renderItem}
                                 numColumns={isDesktop ? 3 : 2}
                                 key={isDesktop ? 'desktop' : 'mobile'}
                                 contentContainerStyle={styles.listContent}
                                 columnWrapperStyle={styles.columnWrapper}
-                                refreshControl={<RefreshControl refreshing={false} onRefresh={adminTab === 'PENDING' ? refetchPending : adminTab === 'APPROVED' ? refetchApproved : refetchMatched} />}
+                                refreshControl={<RefreshControl refreshing={false} onRefresh={adminTab === 'PENDING' ? refetchPending : adminTab === 'APPROVED' ? refetchApproved : adminTab === 'MATCHED' ? refetchMatched : refetchAdminCompleted} />}
                             />
                         ) : (
                             <View style={styles.emptyState}>
                                 <CheckCircle2 color="#cbd5e1" size={48} />
-                                <Text style={styles.emptyStateText}>Không có bài nào cần xử lý</Text>
+                                <Text style={styles.emptyStateText}>Không có bài nào trong mục này</Text>
                             </View>
                         )}
                     </View>
