@@ -466,7 +466,7 @@ export default function DonationsScreen() {
 
                         {/* Category Filters ONLY */}
                         <View style={styles.filters}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
                                 {CATEGORIES.map(c => (
                                     <TouchableOpacity 
                                         key={c.value} 
@@ -585,16 +585,16 @@ export default function DonationsScreen() {
 
                         <View style={styles.subTabBar}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('PENDING')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'PENDING' && styles.subTabActive, { flex: 0, paddingHorizontal: 16 }]} onPress={() => setAdminTab('PENDING')}>
                                     <Text style={[styles.subTabText, adminTab === 'PENDING' && styles.subTabTextActive]}>Chờ duyệt</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('APPROVED')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'APPROVED' && styles.subTabActive, { flex: 0, paddingHorizontal: 16 }]} onPress={() => setAdminTab('APPROVED')}>
                                     <Text style={[styles.subTabText, adminTab === 'APPROVED' && styles.subTabTextActive]}>Đã duyệt</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('MATCHED')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'MATCHED' && styles.subTabActive, { flex: 0, paddingHorizontal: 16 }]} onPress={() => setAdminTab('MATCHED')}>
                                     <Text style={[styles.subTabText, adminTab === 'MATCHED' && styles.subTabTextActive]}>Giao dịch</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive, { paddingHorizontal: 16 }]} onPress={() => setAdminTab('COMPLETED')}>
+                                <TouchableOpacity style={[styles.subTab, adminTab === 'COMPLETED' && styles.subTabActive, { flex: 0, paddingHorizontal: 16 }]} onPress={() => setAdminTab('COMPLETED')}>
                                     <Text style={[styles.subTabText, adminTab === 'COMPLETED' && styles.subTabTextActive]}>Hoàn thành</Text>
                                 </TouchableOpacity>
                             </ScrollView>
@@ -1051,7 +1051,7 @@ const styles = StyleSheet.create({
     filterChipText: { color: '#64748b', fontSize: 13, fontWeight: '500' },
     filterChipTextActive: { color: '#fff', fontWeight: 'bold' },
     
-    listContent: { padding: 8, paddingBottom: 32 },
+    listContent: { padding: 8, paddingBottom: 100 },
     columnWrapper: { justifyContent: 'space-between' },
     
     // Item Card
